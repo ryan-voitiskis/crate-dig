@@ -1,0 +1,10 @@
+.DS_Store
+.env
+*.log
+*.db
+
+# Rust
+/target
+
+# Rekordbox data
+rekordbox-exports/

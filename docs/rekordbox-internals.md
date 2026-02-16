@@ -714,44 +714,38 @@ for the future but not actionable for us yet.
 
 ---
 
-## 11. Architecture Decision: XML vs DB
+## 11. Architecture Decision: DB Reads + XML Writes
 
-### Option A: XML Only (Recommended for Phase 2)
+### Chosen: Hybrid Approach
 
-**Workflow**: Export XML → Parse in TS → Modify → Reimport
+**Workflow**: Read directly from encrypted master.db → stage changes in memory → write Rekordbox XML → reimport
 
-Pros:
-- Pioneer's official interchange format — designed for this use case
-- No encryption to deal with
-- No risk of database corruption
-- Human-readable, git-friendly
-- Works with Rekordbox closed or open (for export)
+This combines the strengths of both approaches:
 
-Cons:
-- No My Tags, Hot Cue Banks, phrase analysis, smart playlists
-- Requires manual export/import steps in Rekordbox
-- Can't read the library without first exporting
+- **DB reads** eliminate the manual export step — the MCP server connects directly to the
+  encrypted master.db via SQLCipher (rusqlite with bundled-sqlcipher in Rust), giving instant
+  read access to all 34 tables without user interaction
+- **XML writes** maintain safety — changes are written as standard Rekordbox XML files,
+  which are reimported through Rekordbox's official import workflow. No direct DB writes
+  means zero risk of database corruption or USN tracking issues
 
-### Option B: Direct DB Access (Future Enhancement)
+### Why Not Pure XML?
 
-**Workflow**: Decrypt DB → Read/write directly via SQLCipher
+Requiring a manual XML export before every session added friction. Since reads are
+non-destructive (read-only SQLCipher connection), direct DB access is safe for the read side.
 
-Pros:
-- Access to everything — all 34 tables, all fields
-- No export/import ceremony
-- Can read without user interaction
+### Why Not Pure DB Writes?
 
-Cons:
-- Must close Rekordbox first
-- Risk of corruption if USN tracking is wrong
-- Encryption key could change in updates
-- SQLCipher dependency is heavy in Node.js
+Writing to master.db requires careful USN management, Rekordbox must be closed, and a bug
+could corrupt the library. XML writes are the official interchange format and avoid all of
+these risks.
 
-### Recommendation
+### Implementation
 
-**Start with XML (Option A)** for Phase 2. It covers our primary use cases (genre, comments,
-rating, color) with zero corruption risk. Add DB access as an enhancement later if
-we need My Tags or want to eliminate the export/import step.
+- **Language**: Rust (single static binary, ~8.5 MB arm64, zero runtime dependencies)
+- **DB access**: rusqlite with bundled-sqlcipher feature, read-only connection
+- **Writes**: Template-string XML generation (no XML library dependency)
+- **State**: In-memory change staging via Arc<Mutex<HashMap>>
 
 ---
 

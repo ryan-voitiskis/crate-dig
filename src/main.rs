@@ -1,0 +1,17 @@
+mod changes;
+mod db;
+mod genre;
+mod tools;
+mod types;
+mod xml;
+
+use rmcp::ServiceExt;
+use rmcp::transport::stdio;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let server = tools::CrateDigServer::new(db::resolve_db_path());
+    let service = server.serve(stdio()).await?;
+    service.waiting().await?;
+    Ok(())
+}
