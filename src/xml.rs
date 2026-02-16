@@ -263,7 +263,7 @@ mod tests {
         let params = crate::db::SearchParams {
             query: None, artist: None, genre: None, rating_min: None,
             bpm_min: None, bpm_max: None, key: None, playlist: None,
-            has_genre: None, limit: Some(limit as u32),
+            has_genre: None, exclude_samples: false, limit: Some(limit as u32),
         };
         Some(crate::db::search_tracks(&conn, &params).unwrap())
     }

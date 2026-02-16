@@ -371,7 +371,7 @@ mod tests {
         let params = crate::db::SearchParams {
             query: None, artist: None, genre: None, rating_min: None,
             bpm_min: Some(120.0), bpm_max: Some(130.0), key: None,
-            playlist: None, has_genre: None, limit: Some(5),
+            playlist: None, has_genre: None, exclude_samples: false, limit: Some(5),
         };
         let tracks = crate::db::search_tracks(&conn, &params).unwrap();
         assert!(!tracks.is_empty(), "need tracks for pipeline test");

@@ -1,5 +1,7 @@
+mod beatport;
 mod changes;
 mod db;
+mod discogs;
 mod genre;
 mod tools;
 mod types;

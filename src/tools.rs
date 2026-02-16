@@ -8,8 +8,10 @@ use rusqlite::Connection;
 use schemars::JsonSchema;
 use serde::Deserialize;
 
+use crate::beatport;
 use crate::changes::ChangeManager;
 use crate::db;
+use crate::discogs;
 use crate::genre;
 use crate::types::TrackChange;
 use crate::xml;
@@ -19,6 +21,7 @@ struct ServerState {
     db: OnceLock<Result<Mutex<Connection>, String>>,
     db_path: Option<String>,
     changes: ChangeManager,
+    http: reqwest::Client,
 }
 
 /// MCP server for Rekordbox library management.
@@ -79,6 +82,8 @@ pub struct SearchTracksParams {
     pub playlist: Option<String>,
     #[schemars(description = "Filter by whether track has a genre set")]
     pub has_genre: Option<bool>,
+    #[schemars(description = "Include Rekordbox factory samples (default false)")]
+    pub include_samples: Option<bool>,
     #[schemars(description = "Max results (default 50, max 200)")]
     pub limit: Option<u32>,
 }
@@ -129,6 +134,28 @@ pub struct ClearChangesParams {
     pub track_ids: Option<Vec<String>>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SuggestNormalizationsParams {
+    #[schemars(description = "Only show genres with at least this many tracks (default 1)")]
+    pub min_count: Option<i32>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LookupDiscogsParams {
+    #[schemars(description = "Artist name")]
+    pub artist: String,
+    #[schemars(description = "Track title")]
+    pub title: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct LookupBeatportParams {
+    #[schemars(description = "Artist name")]
+    pub artist: String,
+    #[schemars(description = "Track title")]
+    pub title: String,
+}
+
 // --- Tool implementations ---
 
 use rmcp::handler::server::wrapper::Parameters;
@@ -136,11 +163,16 @@ use rmcp::handler::server::wrapper::Parameters;
 #[tool_router]
 impl CrateDigServer {
     pub fn new(db_path: Option<String>) -> Self {
+        let http = reqwest::Client::builder()
+            .user_agent("CrateGuide/2.0")
+            .build()
+            .expect("failed to build HTTP client");
         Self {
             state: Arc::new(ServerState {
                 db: OnceLock::new(),
                 db_path,
                 changes: ChangeManager::new(),
+                http,
             }),
             tool_router: Self::tool_router(),
         }
@@ -159,6 +191,7 @@ impl CrateDigServer {
             key: params.0.key,
             playlist: params.0.playlist,
             has_genre: params.0.has_genre,
+            exclude_samples: !params.0.include_samples.unwrap_or(false),
             limit: params.0.limit,
         };
         let tracks = db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?;
@@ -214,9 +247,11 @@ impl CrateDigServer {
     #[tool(description = "Get the configured genre taxonomy")]
     async fn get_genre_taxonomy(&self) -> Result<CallToolResult, McpError> {
         let genres = genre::get_taxonomy();
+        let aliases: std::collections::HashMap<String, String> = genre::get_alias_map().into_iter().collect();
         let result = serde_json::json!({
             "genres": genres,
-            "description": "Flat genre taxonomy. Not a closed list — arbitrary genres are accepted. This list provides consistency suggestions."
+            "aliases": aliases,
+            "description": "Flat genre taxonomy. Not a closed list — arbitrary genres are accepted. This list provides consistency suggestions. Aliases map non-canonical genre names to their canonical forms."
         });
         let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
@@ -239,6 +274,16 @@ impl CrateDigServer {
             }
         }
 
+        // Collect genre warnings for non-taxonomy genres
+        let mut warnings: Vec<String> = Vec::new();
+        for c in &params.0.changes {
+            if let Some(ref g) = c.genre {
+                if !genre::is_known_genre(g) {
+                    warnings.push(format!("'{}' is not in the genre taxonomy", g));
+                }
+            }
+        }
+
         let changes: Vec<TrackChange> = params
             .0
             .changes
@@ -253,9 +298,84 @@ impl CrateDigServer {
             .collect();
 
         let (staged, total) = self.state.changes.stage(changes);
-        let result = serde_json::json!({
+        let mut result = serde_json::json!({
             "staged": staged,
             "total_pending": total,
+        });
+        if !warnings.is_empty() {
+            result["warnings"] = serde_json::json!(warnings);
+        }
+        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Analyze all genres in the library and suggest normalizations. Returns alias (known mapping), unknown (needs manual decision), and canonical (already correct) sections.")]
+    async fn suggest_normalizations(
+        &self,
+        params: Parameters<SuggestNormalizationsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let conn = self.conn()?;
+        let min_count = params.0.min_count.unwrap_or(1);
+
+        let stats = db::get_library_stats(&conn).map_err(|e| err(format!("DB error: {e}")))?;
+
+        let mut alias_suggestions = Vec::new();
+        let mut unknown_items = Vec::new();
+        let mut canonical_items = Vec::new();
+
+        for gc in &stats.genres {
+            if gc.name == "(none)" || gc.name.is_empty() {
+                continue;
+            }
+            if gc.count < min_count {
+                continue;
+            }
+
+            if let Some(canonical) = genre::normalize_genre(&gc.name) {
+                // Known alias — fetch tracks for this genre
+                let tracks = db::get_tracks_by_exact_genre(&conn, &gc.name, true)
+                    .map_err(|e| err(format!("DB error: {e}")))?;
+                for t in tracks {
+                    alias_suggestions.push(crate::types::NormalizationSuggestion {
+                        track_id: t.id,
+                        title: t.title,
+                        artist: t.artist,
+                        current_genre: gc.name.clone(),
+                        suggested_genre: Some(canonical.to_string()),
+                        confidence: "alias".to_string(),
+                    });
+                }
+            } else if genre::is_known_genre(&gc.name) {
+                canonical_items.push(serde_json::json!({
+                    "genre": gc.name,
+                    "count": gc.count,
+                }));
+            } else {
+                // Unknown genre — not in taxonomy or alias map
+                let tracks = db::get_tracks_by_exact_genre(&conn, &gc.name, true)
+                    .map_err(|e| err(format!("DB error: {e}")))?;
+                for t in tracks {
+                    unknown_items.push(crate::types::NormalizationSuggestion {
+                        track_id: t.id,
+                        title: t.title,
+                        artist: t.artist,
+                        current_genre: gc.name.clone(),
+                        suggested_genre: None,
+                        confidence: "unknown".to_string(),
+                    });
+                }
+            }
+        }
+
+        let result = serde_json::json!({
+            "alias": alias_suggestions,
+            "unknown": unknown_items,
+            "canonical": canonical_items,
+            "summary": {
+                "alias_tracks": alias_suggestions.len(),
+                "unknown_tracks": unknown_items.len(),
+                "canonical_genres": canonical_items.len(),
+            }
         });
         let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
@@ -354,6 +474,30 @@ impl CrateDigServer {
             "cleared": cleared,
             "remaining": remaining,
         });
+        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Look up a track on Discogs for genre/style enrichment. Returns release info with genres and styles, or null if not found.")]
+    async fn lookup_discogs(
+        &self,
+        params: Parameters<LookupDiscogsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = discogs::lookup(&self.state.http, &params.0.artist, &params.0.title)
+            .await
+            .map_err(|e| err(format!("Discogs error: {e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(description = "Look up a track on Beatport for genre/BPM/key enrichment. Returns track info or null if not found.")]
+    async fn lookup_beatport(
+        &self,
+        params: Parameters<LookupBeatportParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let result = beatport::lookup(&self.state.http, &params.0.artist, &params.0.title)
+            .await
+            .map_err(|e| err(format!("Beatport error: {e}")))?;
         let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }

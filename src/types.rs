@@ -83,6 +83,17 @@ pub struct KeyCount {
     pub count: i32,
 }
 
+/// A genre normalization suggestion for a single track.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct NormalizationSuggestion {
+    pub track_id: String,
+    pub title: String,
+    pub artist: String,
+    pub current_genre: String,
+    pub suggested_genre: Option<String>,
+    pub confidence: String, // "alias" | "unknown" | "canonical"
+}
+
 /// Convert 1-5 star rating to Rekordbox DB/XML encoding (0/51/102/153/204/255).
 pub fn stars_to_rating(stars: u8) -> u16 {
     match stars {
