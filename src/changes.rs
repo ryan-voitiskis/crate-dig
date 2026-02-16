@@ -359,4 +359,64 @@ mod tests {
         assert_eq!(cleared, 2);
         assert_eq!(remaining, 0);
     }
+
+    // ==================== Integration tests (real DB) ====================
+
+    #[test]
+    #[ignore]
+    fn test_real_change_pipeline() {
+        let conn = crate::db::open_real_db().expect("backup tarball not found");
+
+        // 1. Search for some tracks
+        let params = crate::db::SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: Some(120.0), bpm_max: Some(130.0), key: None,
+            playlist: None, has_genre: None, limit: Some(5),
+        };
+        let tracks = crate::db::search_tracks(&conn, &params).unwrap();
+        assert!(!tracks.is_empty(), "need tracks for pipeline test");
+
+        let track = &tracks[0];
+
+        // 2. Stage changes
+        let cm = ChangeManager::new();
+        let (staged, total) = cm.stage(vec![TrackChange {
+            track_id: track.id.clone(),
+            genre: Some("Deep House".to_string()),
+            comments: Some("integration test".to_string()),
+            rating: Some(4),
+            color: None,
+        }]);
+        assert_eq!(staged, 1);
+        assert_eq!(total, 1);
+
+        // 3. Preview changes
+        let diffs = cm.preview(&tracks);
+        assert!(!diffs.is_empty(), "expected diffs for staged changes");
+        assert!(diffs.iter().any(|d| d.field == "genre" && d.new_value == "Deep House"));
+        assert!(diffs.iter().any(|d| d.field == "comments" && d.new_value == "integration test"));
+
+        // 4. Apply changes
+        let modified = cm.apply_changes(&tracks);
+        let modified_track = modified.iter().find(|t| t.id == track.id).unwrap();
+        assert_eq!(modified_track.genre, "Deep House");
+        assert_eq!(modified_track.comments, "integration test");
+        assert_eq!(modified_track.rating, 4);
+
+        // 5. Generate XML from modified tracks
+        let xml = crate::xml::generate_xml(&modified);
+        assert!(xml.contains("Genre=\"Deep House\""));
+        assert!(xml.contains("Comments=\"integration test\""));
+        assert!(xml.contains("Rating=\"204\"")); // 4 stars = 204
+
+        // 6. Verify unmodified tracks are unchanged
+        for t in &modified {
+            if t.id != track.id {
+                let original = tracks.iter().find(|o| o.id == t.id).unwrap();
+                assert_eq!(t.genre, original.genre);
+                assert_eq!(t.comments, original.comments);
+                assert_eq!(t.rating, original.rating);
+            }
+        }
+    }
 }

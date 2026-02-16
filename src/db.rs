@@ -8,7 +8,8 @@ const DB_KEY: &str = "402fd482c38817c35ffa8ffb8c7d93143b749e7d315df7a81732a1ff43
 /// Open a read-only connection to the Rekordbox master.db.
 pub fn open(path: &str) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
-    conn.pragma_update(None, "key", &format!("x'{DB_KEY}'"))?;
+    // Key is passed as a passphrase — SQLCipher derives the encryption key via PBKDF2.
+    conn.execute_batch(&format!("PRAGMA key = '{DB_KEY}'"))?;
     // Verify the key works by running a simple query
     conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))?;
     Ok(conn)
@@ -21,7 +22,7 @@ pub fn open_test() -> Connection {
 }
 
 /// Base SELECT for track queries — joins all lookup tables.
-const TRACK_SELECT: &str = "
+pub(crate) const TRACK_SELECT: &str = "
 SELECT
     c.ID,
     COALESCE(c.Title, '') AS Title,
@@ -54,10 +55,17 @@ LEFT JOIN djmdColor col ON c.ColorID = col.ID
 LEFT JOIN djmdArtist ra ON c.RemixerID = ra.ID
 ";
 
-fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error> {
+pub(crate) fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error> {
     let bpm_raw: i32 = row.get("BPM")?;
     let rating_raw: i32 = row.get("Rating")?;
-    let play_count_str: String = row.get("DJPlayCount")?;
+    // DJPlayCount is stored as integer in real DB but as text in some versions.
+    let play_count: i32 = match row.get::<_, i32>("DJPlayCount") {
+        Ok(n) => n,
+        Err(_) => row.get::<_, String>("DJPlayCount")
+            .unwrap_or_default()
+            .parse()
+            .unwrap_or(0),
+    };
 
     Ok(Track {
         id: row.get("ID")?,
@@ -76,7 +84,7 @@ fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error> {
         year: row.get("ReleaseYear")?,
         length: row.get("Length")?,
         file_path: row.get("FolderPath")?,
-        play_count: play_count_str.parse().unwrap_or(0),
+        play_count,
         bit_rate: row.get("BitRate")?,
         sample_rate: row.get("SampleRate")?,
         file_type: row.get("FileType")?,
@@ -98,6 +106,13 @@ pub struct SearchParams {
     pub limit: Option<u32>,
 }
 
+/// Escape LIKE wildcards in user input.
+fn escape_like(s: &str) -> String {
+    s.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
 /// Search tracks with dynamic filtering.
 pub fn search_tracks(conn: &Connection, params: &SearchParams) -> Result<Vec<Track>, rusqlite::Error> {
     let mut sql = format!("{TRACK_SELECT} WHERE c.rb_local_deleted = 0");
@@ -105,20 +120,20 @@ pub fn search_tracks(conn: &Connection, params: &SearchParams) -> Result<Vec<Tra
 
     if let Some(ref q) = params.query {
         let idx = bind_values.len() + 1;
-        sql.push_str(&format!(" AND (c.Title LIKE ?{idx} OR a.Name LIKE ?{idx})"));
-        bind_values.push(Box::new(format!("%{q}%")));
+        sql.push_str(&format!(" AND (c.Title LIKE ?{idx} ESCAPE '\\' OR a.Name LIKE ?{idx} ESCAPE '\\')"));
+        bind_values.push(Box::new(format!("%{}%", escape_like(q))));
     }
 
     if let Some(ref artist) = params.artist {
         let idx = bind_values.len() + 1;
-        sql.push_str(&format!(" AND a.Name LIKE ?{idx}"));
-        bind_values.push(Box::new(format!("%{artist}%")));
+        sql.push_str(&format!(" AND a.Name LIKE ?{idx} ESCAPE '\\'"));
+        bind_values.push(Box::new(format!("%{}%", escape_like(artist))));
     }
 
     if let Some(ref genre) = params.genre {
         let idx = bind_values.len() + 1;
-        sql.push_str(&format!(" AND g.Name LIKE ?{idx}"));
-        bind_values.push(Box::new(format!("%{genre}%")));
+        sql.push_str(&format!(" AND g.Name LIKE ?{idx} ESCAPE '\\'"));
+        bind_values.push(Box::new(format!("%{}%", escape_like(genre))));
     }
 
     if let Some(rating_min) = params.rating_min {
@@ -342,6 +357,56 @@ pub fn resolve_db_path() -> Option<String> {
         }
     }
     default_db_path()
+}
+
+/// Open a real Rekordbox DB from the backup tarball for integration tests.
+/// Returns None if the tarball is missing (allows graceful skip on CI).
+#[cfg(test)]
+pub(crate) fn open_real_db() -> Option<Connection> {
+    use std::path::Path;
+    use std::process::Command;
+    use std::sync::OnceLock;
+
+    static EXTRACTED: OnceLock<bool> = OnceLock::new();
+
+    let tarball = std::env::var("REKORDBOX_TEST_BACKUP").unwrap_or_else(|_| {
+        let home = std::env::var("HOME").unwrap();
+        format!("{home}/Library/Pioneer/rekordbox-backups/db_20260215_233936.tar.gz")
+    });
+
+    if !Path::new(&tarball).exists() {
+        return None;
+    }
+
+    let dest = "/tmp/crate-dig-test";
+    let db_path = format!("{dest}/master.db");
+
+    // Ensure extraction happens exactly once across all test threads
+    let ok = EXTRACTED.get_or_init(|| {
+        if Path::new(&db_path).exists() {
+            return true;
+        }
+        std::fs::create_dir_all(dest).ok();
+        let status = Command::new("tar")
+            .args(["xzf", &tarball, "-C", dest, "master.db", "master.db-shm", "master.db-wal"])
+            .status();
+        match status {
+            Ok(s) => s.success(),
+            Err(_) => false,
+        }
+    });
+
+    if !ok {
+        return None;
+    }
+
+    let conn = Connection::open(&db_path)
+        .unwrap_or_else(|e| panic!("failed to open {db_path}: {e}"));
+    conn.execute_batch(&format!("PRAGMA key = '{DB_KEY}'"))
+        .unwrap_or_else(|e| panic!("failed to set key: {e}"));
+    conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
+        .unwrap_or_else(|e| panic!("key verification failed: {e}"));
+    Some(conn)
 }
 
 #[cfg(test)]
@@ -659,5 +724,301 @@ mod tests {
         let conn = create_test_db();
         let tracks = get_tracks_by_ids(&conn, &["t1".to_string(), "t3".to_string()]).unwrap();
         assert_eq!(tracks.len(), 2);
+    }
+
+    /// Load all tracks from the DB by paging with OFFSET.
+    fn load_all_tracks(conn: &Connection) -> Vec<Track> {
+        let mut all = Vec::new();
+        let page_size = 200;
+        let mut offset = 0;
+        loop {
+            let sql = format!(
+                "{TRACK_SELECT} WHERE c.rb_local_deleted = 0 ORDER BY c.ID LIMIT {page_size} OFFSET {offset}"
+            );
+            let mut stmt = conn.prepare(&sql).unwrap();
+            let batch: Vec<Track> = stmt.query_map([], row_to_track).unwrap()
+                .collect::<Result<Vec<_>, _>>().unwrap();
+            let count = batch.len();
+            all.extend(batch);
+            if count < page_size {
+                break;
+            }
+            offset += page_size;
+        }
+        all
+    }
+
+    // ==================== Integration tests (real DB) ====================
+    // Run with: cargo test -- --ignored
+
+    #[test]
+    #[ignore]
+    fn test_real_db_opens() {
+        let conn = open_real_db().expect("backup tarball not found — set REKORDBOX_TEST_BACKUP");
+        let count: i32 = conn
+            .query_row("SELECT count(*) FROM djmdContent", [], |r| r.get(0))
+            .unwrap();
+        assert!(count > 0, "DB opened but djmdContent is empty");
+    }
+
+
+
+    #[test]
+    #[ignore]
+    fn test_real_db_schema_tables() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let required = [
+            "djmdContent", "djmdArtist", "djmdAlbum", "djmdGenre",
+            "djmdKey", "djmdLabel", "djmdColor", "djmdPlaylist", "djmdSongPlaylist",
+        ];
+        for table in required {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT count(*) > 0 FROM sqlite_master WHERE type='table' AND name=?1",
+                    params![table],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert!(exists, "missing table: {table}");
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_schema_columns() {
+        let conn = open_real_db().expect("backup tarball not found");
+        // Verify critical columns exist by running a minimal query on each
+        let checks = [
+            ("djmdContent", "ID, Title, BPM, Commnt, Rating, FolderPath, ArtistID, AlbumID, GenreID, KeyID, ColorID, LabelID, RemixerID, ReleaseYear, Length, DJPlayCount, BitRate, SampleRate, FileType, created_at, rb_local_deleted"),
+            ("djmdArtist", "ID, Name"),
+            ("djmdAlbum", "ID, Name"),
+            ("djmdGenre", "ID, Name"),
+            ("djmdKey", "ID, ScaleName"),
+            ("djmdLabel", "ID, Name"),
+            ("djmdColor", "ID, ColorCode, Commnt"),
+            ("djmdPlaylist", "ID, Name, Attribute, ParentID, Seq, rb_local_deleted"),
+            ("djmdSongPlaylist", "ID, PlaylistID, ContentID, TrackNo"),
+        ];
+        for (table, cols) in checks {
+            let sql = format!("SELECT {cols} FROM {table} LIMIT 1");
+            conn.prepare(&sql)
+                .unwrap_or_else(|e| panic!("column check failed for {table}: {e}"));
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_track_count() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let stats = get_library_stats(&conn).unwrap();
+        assert!(stats.total_tracks > 2000, "expected >2000 tracks, got {}", stats.total_tracks);
+        assert!(stats.avg_bpm > 0.0, "avg_bpm should be positive");
+        assert!(stats.playlist_count > 0, "should have at least one playlist");
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_search_returns_results() {
+        let conn = open_real_db().expect("backup tarball not found");
+
+        // Unfiltered search
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: None, limit: Some(10),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+        assert!(!tracks.is_empty(), "unfiltered search returned no results");
+
+        // BPM range search
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: Some(120.0), bpm_max: Some(130.0), key: None,
+            playlist: None, has_genre: None, limit: Some(50),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+        assert!(!tracks.is_empty(), "BPM 120-130 range returned no results");
+        for t in &tracks {
+            assert!(t.bpm >= 120.0 && t.bpm <= 130.0, "track {} BPM {} outside range", t.title, t.bpm);
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_field_encoding() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: None, limit: Some(200),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+
+        for t in &tracks {
+            // BPM: 0 (unanalyzed) or 30-300 reasonable range
+            assert!(t.bpm == 0.0 || (t.bpm >= 30.0 && t.bpm <= 300.0),
+                "track '{}' has unreasonable BPM: {}", t.title, t.bpm);
+            // Rating: 0-5
+            assert!(t.rating <= 5, "track '{}' has invalid rating: {}", t.title, t.rating);
+            // Length: should be positive for real tracks
+            assert!(t.length > 0, "track '{}' has non-positive length: {}", t.title, t.length);
+            // file_path should be non-empty
+            assert!(!t.file_path.is_empty(), "track '{}' has empty file_path", t.title);
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_null_handling() {
+        let conn = open_real_db().expect("backup tarball not found");
+
+        // has_genre=false should work without panic
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: Some(false), limit: Some(50),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+        for t in &tracks {
+            assert!(t.genre.is_empty(), "track '{}' has genre '{}' but expected none", t.title, t.genre);
+        }
+
+        // has_genre=true
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: Some(true), limit: Some(50),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+        for t in &tracks {
+            assert!(!t.genre.is_empty(), "track '{}' has empty genre but expected one", t.title);
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_unicode() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let all = load_all_tracks(&conn);
+
+        // Find any tracks with non-ASCII characters
+        let unicode_tracks: Vec<_> = all.iter().filter(|t| {
+            t.title.chars().any(|c| !c.is_ascii()) ||
+            t.artist.chars().any(|c| !c.is_ascii())
+        }).collect();
+
+        // Verify they survive serde round-trip
+        for t in &unicode_tracks {
+            let json = serde_json::to_string(t).unwrap();
+            let back: crate::types::Track = serde_json::from_str(&json).unwrap();
+            assert_eq!(t.title, back.title, "unicode title round-trip failed");
+            assert_eq!(t.artist, back.artist, "unicode artist round-trip failed");
+        }
+
+        // Even if no unicode tracks exist, no panic means success
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_playlists() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let playlists = get_playlists(&conn).unwrap();
+        assert!(!playlists.is_empty(), "no playlists found");
+
+        let has_folder = playlists.iter().any(|p| p.is_folder);
+        let has_regular = playlists.iter().any(|p| !p.is_folder && !p.is_smart);
+        // At least one type should exist
+        assert!(has_folder || has_regular, "no folders or regular playlists found");
+
+        // For regular playlists with tracks, verify track loading
+        for p in playlists.iter().filter(|p| !p.is_folder && p.track_count > 0).take(3) {
+            let tracks = get_playlist_tracks(&conn, &p.id, Some(10)).unwrap();
+            assert!(!tracks.is_empty(), "playlist '{}' claims {} tracks but returned none", p.name, p.track_count);
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_get_track_by_id() {
+        let conn = open_real_db().expect("backup tarball not found");
+
+        // Get a track via search, then fetch by ID
+        let params = SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: None, limit: Some(1),
+        };
+        let tracks = search_tracks(&conn, &params).unwrap();
+        assert!(!tracks.is_empty());
+
+        let by_id = get_track(&conn, &tracks[0].id).unwrap().expect("track not found by ID");
+        assert_eq!(tracks[0].id, by_id.id);
+        assert_eq!(tracks[0].title, by_id.title);
+        assert_eq!(tracks[0].artist, by_id.artist);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_library_stats_consistency() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let stats = get_library_stats(&conn).unwrap();
+
+        // rated + unrated = total
+        assert_eq!(
+            stats.rated_count + stats.unrated_count, stats.total_tracks,
+            "rated ({}) + unrated ({}) != total ({})",
+            stats.rated_count, stats.unrated_count, stats.total_tracks
+        );
+
+        // genre counts sum to total
+        let genre_sum: i32 = stats.genres.iter().map(|g| g.count).sum();
+        assert_eq!(genre_sum, stats.total_tracks,
+            "genre count sum ({genre_sum}) != total ({})", stats.total_tracks);
+
+        // key counts sum to total
+        let key_sum: i32 = stats.key_distribution.iter().map(|k| k.count).sum();
+        assert_eq!(key_sum, stats.total_tracks,
+            "key count sum ({key_sum}) != total ({})", stats.total_tracks);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_all_tracks_load() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let all = load_all_tracks(&conn);
+        assert!(all.len() > 2000, "expected >2000 tracks, got {}", all.len());
+
+        // Every track should have a non-empty ID
+        for t in &all {
+            assert!(!t.id.is_empty(), "track has empty ID");
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_special_characters_in_search() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let nasty_inputs = [
+            "'; DROP TABLE djmdContent; --",
+            "\" OR 1=1 --",
+            "track & bass",
+            "100%",
+            "it's a test",
+            "null\0byte",
+            "emoji 🎵",
+            "",
+        ];
+
+        for input in nasty_inputs {
+            let params = SearchParams {
+                query: Some(input.to_string()),
+                artist: None, genre: None, rating_min: None,
+                bpm_min: None, bpm_max: None, key: None, playlist: None,
+                has_genre: None, limit: Some(5),
+            };
+            // Should not panic or error
+            let result = search_tracks(&conn, &params);
+            assert!(result.is_ok(), "search panicked on input: {input:?}");
+        }
     }
 }

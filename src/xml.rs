@@ -255,4 +255,166 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("<DJ_PLAYLISTS"));
     }
+
+    // ==================== Integration tests (real DB) ====================
+
+    fn load_real_tracks(limit: usize) -> Option<Vec<crate::types::Track>> {
+        let conn = crate::db::open_real_db()?;
+        let params = crate::db::SearchParams {
+            query: None, artist: None, genre: None, rating_min: None,
+            bpm_min: None, bpm_max: None, key: None, playlist: None,
+            has_genre: None, limit: Some(limit as u32),
+        };
+        Some(crate::db::search_tracks(&conn, &params).unwrap())
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_tracks_to_xml() {
+        let tracks = load_real_tracks(100).expect("backup tarball not found");
+        let xml = generate_xml(&tracks);
+
+        // Structural checks
+        assert!(xml.starts_with("<?xml"));
+        assert!(xml.contains("<COLLECTION Entries=\"100\">"));
+        let track_count = xml.matches("<TRACK ").count();
+        assert_eq!(track_count, 100, "expected 100 TRACK elements, got {track_count}");
+
+        // No NUL or control characters (except newline/tab)
+        for (i, c) in xml.chars().enumerate() {
+            if c.is_control() && c != '\n' && c != '\r' && c != '\t' {
+                panic!("control char U+{:04X} at position {i}", c as u32);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_tracks_xml_well_formed() {
+        let tracks = load_real_tracks(200).expect("backup tarball not found");
+        let xml = generate_xml(&tracks);
+
+        // Check no unescaped characters in attribute values.
+        // Every attribute value is between quotes. Scan for patterns that indicate
+        // broken escaping: =" followed by content with raw & < " before the closing "
+        for line in xml.lines() {
+            if !line.contains("<TRACK ") {
+                continue;
+            }
+            // Simple check: no raw & that isn't an entity reference
+            let mut in_attr = false;
+            let chars: Vec<char> = line.chars().collect();
+            let mut i = 0;
+            while i < chars.len() {
+                if chars[i] == '"' {
+                    in_attr = !in_attr;
+                } else if in_attr && chars[i] == '&' {
+                    // Must be followed by amp; lt; gt; quot; apos; or #
+                    let rest: String = chars[i+1..].iter().take(6).collect();
+                    assert!(
+                        rest.starts_with("amp;") || rest.starts_with("lt;") ||
+                        rest.starts_with("gt;") || rest.starts_with("quot;") ||
+                        rest.starts_with("apos;") || rest.starts_with('#'),
+                        "unescaped & in TRACK line at pos {i}: ...{}...",
+                        chars[i.saturating_sub(10)..chars.len().min(i + 20)].iter().collect::<String>()
+                    );
+                } else if in_attr && chars[i] == '<' {
+                    panic!("unescaped < in attribute value at pos {i}");
+                }
+                i += 1;
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_tracks_xml_field_fidelity() {
+        let tracks = load_real_tracks(50).expect("backup tarball not found");
+        let xml = generate_xml(&tracks);
+
+        for track in &tracks {
+            let rating_xml = crate::types::stars_to_rating(track.rating);
+            let expected_rating = format!("Rating=\"{rating_xml}\"");
+            assert!(xml.contains(&expected_rating),
+                "missing {} for track '{}'", expected_rating, track.title);
+
+            // BPM format: X.XX
+            let expected_bpm = format!("AverageBpm=\"{:.2}\"", track.bpm);
+            assert!(xml.contains(&expected_bpm),
+                "missing {} for track '{}'", expected_bpm, track.title);
+        }
+
+        // All Location values should start with file://localhost/
+        for line in xml.lines() {
+            if let Some(loc_start) = line.find("Location=\"") {
+                let after = &line[loc_start + 10..];
+                assert!(after.starts_with("file://localhost/"),
+                    "Location doesn't start with file://localhost/: {}", &after[..after.len().min(60)]);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_tracks_xml_write_and_read_back() {
+        let tracks = load_real_tracks(50).expect("backup tarball not found");
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("real_test.xml");
+
+        write_xml(&tracks, &path).unwrap();
+        assert!(path.exists());
+
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert!(content.starts_with("<?xml"));
+        assert!(content.contains("<COLLECTION Entries=\"50\">"));
+
+        // File should be reasonable size (roughly 500-2000 bytes per track)
+        let size = std::fs::metadata(&path).unwrap().len();
+        assert!(size > 50 * 200, "file too small: {size} bytes");
+        assert!(size < 50 * 5000, "file too large: {size} bytes");
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_full_library_xml_generation() {
+        let conn = crate::db::open_real_db().expect("backup tarball not found");
+
+        // Load all tracks via paging
+        let mut all = Vec::new();
+        let page_size: u32 = 200;
+        let mut offset: u32 = 0;
+        loop {
+            let sql = format!(
+                "{}WHERE c.rb_local_deleted = 0 ORDER BY c.ID LIMIT {} OFFSET {}",
+                crate::db::TRACK_SELECT, page_size, offset
+            );
+            let mut stmt = conn.prepare(&sql).unwrap();
+            let batch: Vec<crate::types::Track> = stmt.query_map([], |row| {
+                crate::db::row_to_track(row)
+            }).unwrap().collect::<Result<Vec<_>, _>>().unwrap();
+            let count = batch.len();
+            all.extend(batch);
+            if (count as u32) < page_size {
+                break;
+            }
+            offset += page_size;
+        }
+
+        assert!(all.len() > 2000, "expected >2000 tracks, got {}", all.len());
+
+        let xml = generate_xml(&all);
+
+        // Entries count matches
+        let expected = format!("<COLLECTION Entries=\"{}\">", all.len());
+        assert!(xml.contains(&expected), "Entries count mismatch");
+
+        // TRACK element count matches
+        let track_count = xml.matches("<TRACK ").count();
+        assert_eq!(track_count, all.len(), "TRACK element count mismatch: {track_count} vs {}", all.len());
+
+        // Reasonable file size: ~500-3000 bytes per track
+        let size = xml.len();
+        assert!(size > all.len() * 200, "XML too small: {size} bytes for {} tracks", all.len());
+        assert!(size < all.len() * 5000, "XML too large: {size} bytes for {} tracks", all.len());
+    }
 }
