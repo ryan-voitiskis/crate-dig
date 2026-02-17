@@ -3,6 +3,7 @@ name = "crate-dig"
 version = "0.1.0"
 edition = "2024"
 description = "MCP server for Rekordbox library management"
+license = "MIT"
 
 [dependencies]
 rmcp = { version = "0.15", features = ["server", "transport-io"] }

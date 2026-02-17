@@ -1,6 +1,6 @@
 # crate-dig
 
-MCP server for Rekordbox library management. Reads directly from the encrypted master.db,
+MCP server for Rekordbox 7.x library management. Reads directly from the encrypted master.db,
 stages metadata changes in memory, and writes Rekordbox-compatible XML for safe reimport.
 
 Built as a single static Rust binary with zero runtime dependencies. Operated through
@@ -12,7 +12,7 @@ Claude Code — no web UI, no CLI flags, just MCP.
 cargo build --release
 ```
 
-The binary is at `./target/release/crate-dig` (~8.5 MB, arm64).
+The binary is at `./target/release/crate-dig` (~12 MB, arm64).
 
 ## Register with Claude Code
 
@@ -21,7 +21,7 @@ claude mcp add crate-dig ./target/release/crate-dig
 ```
 
 The server auto-detects the Rekordbox database at `~/Library/Pioneer/rekordbox/master.db`.
-To override, set `REKORDBOX_DB_PATH` in `.env`.
+To override, set the `REKORDBOX_DB_PATH` environment variable.
 
 ## Tools
 
@@ -37,14 +37,19 @@ To override, set `REKORDBOX_DB_PATH` in `.env`.
 | `preview_changes` | Preview all staged changes, showing what will differ from current state |
 | `write_xml` | Write staged changes to a Rekordbox-compatible XML file |
 | `clear_changes` | Clear staged changes for specific tracks or all |
+| `suggest_normalizations` | Analyze genres and suggest normalizations to canonical taxonomy |
+| `lookup_discogs` | Look up a track on Discogs for genre/style enrichment |
+| `lookup_beatport` | Look up a track on Beatport for genre/BPM/key enrichment |
 
 ## Genre Taxonomy
 
 Starter set for consistency (not a closed list — arbitrary genres are accepted):
 
-Ambient, Ambient Techno, Bassline, Breakbeat, Deep House, Deep Techno, Disco,
-Drum & Bass, Dub Techno, Dubstep, Garage, Grime, Hard Techno, House, IDM,
-Jungle, Minimal, Speed Garage, Techno
+Acid, Afro House, Ambient, Ambient Techno, Bassline, Breakbeat, Broken Beat,
+Dancehall, Deep House, Deep Techno, Disco, Downtempo, Drum & Bass, Dub,
+Dub Techno, Dubstep, Electro, Experimental, Garage, Grime, Hard Techno,
+Hip Hop, House, IDM, Jungle, Minimal, Psytrance, R&B, Reggae, Speed Garage,
+Synth-pop, Tech House, Techno, Trance, UK Bass
 
 ## Workflow
 
@@ -53,12 +58,6 @@ Jungle, Minimal, Speed Garage, Techno
 3. **Preview** — use `preview_changes` to review what will change vs. current state
 4. **Write** — use `write_xml` to generate the XML file (runs backup automatically)
 5. **Import in Rekordbox** — File > Import > Import Playlist/Collection, select the XML
-
-### Reimport Gotcha
-
-Rekordbox 5.6.1+ does not update existing tracks on standard XML import. Use the two-step
-workaround: right-click the imported playlist > "Import To Collection", then select all
-tracks (Cmd+A), right-click > "Import To Collection" again to force overwrite.
 
 ## Documentation
 

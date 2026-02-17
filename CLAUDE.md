@@ -17,7 +17,7 @@ Register with Claude Code: `claude mcp add crate-dig ./target/release/crate-dig`
 
 ## Architecture
 
-Single-crate Rust MCP server using rmcp 0.15. No CLI flags — stdio transport only, operated through Claude Code.
+Single-crate Rust MCP server targeting Rekordbox 7.x, using rmcp 0.15. No CLI flags — stdio transport only, operated through Claude Code.
 
 ```
 main.rs           Entry point (19 lines), stdio transport setup
