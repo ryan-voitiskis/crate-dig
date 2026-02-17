@@ -3,7 +3,7 @@ id: appendix
 title: "Appendix"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "251-259"
   version: "7.2.8"
 topics: [file-formats, system-requirements]
@@ -137,3 +137,11 @@ The material you record is for your own listening enjoyment, and cannot be used 
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C)2024 AlphaTheta Corporation.
+
+## Related Documents
+
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (file-formats)
+- [guides/introduction.md](../guides/introduction.md) (system-requirements)
+- [manual/03-adding-tracks.md](03-adding-tracks.md) (file-formats)
+- [manual/17-export-recording.md](17-export-recording.md) (file-formats)
+- [manual/21-performance-recording.md](21-performance-recording.md) (file-formats)

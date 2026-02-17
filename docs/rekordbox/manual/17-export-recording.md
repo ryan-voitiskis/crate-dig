@@ -3,7 +3,7 @@ id: export-recording
 title: "Recording"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "118-120"
   version: "7.2.8"
 topics: [analysis, devices, export, file-formats, recording]
@@ -101,3 +101,14 @@ See "Other settings for recordings" (page 120) in "EXPORT mode".
 ### Other settings for recordings
 
 See "[Recordings] (EXPORT mode)" (page 240).
+
+## Related Documents
+
+- [manual/19-performance-preparing.md](19-performance-preparing.md) (devices, export, recording)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (analysis, export)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export, file-formats)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (analysis, export)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, export)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (devices, export)
+- [guides/usb-export.md](../guides/usb-export.md) (devices, export)
+- [manual/03-adding-tracks.md](03-adding-tracks.md) (analysis, file-formats)

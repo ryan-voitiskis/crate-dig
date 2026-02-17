@@ -3,7 +3,7 @@ id: playlists
 title: "Using a Playlist"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "39-40"
   version: "7.2.8"
 topics: [collection, export, import, playlists]
@@ -61,3 +61,14 @@ Playlist file formats M3U (.m3u), M3u8 (.m3u8), and PLS (.pls) can be imported.
    The selected playlist is added to [Playlists].
    Tag information of the music files, which are contained in the playlist, is displayed.
    If [Auto Analysis] is set to [Enabled], analysis of the music files begins. For details, see "Analysis of music files" (page 14).
+
+## Related Documents
+
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, export, import, playlists)
+- [manual/09-collaborative-playlists.md](09-collaborative-playlists.md) (export, import, playlists)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (collection, export, playlists)
+- [features/overview.md](../features/overview.md) (collection, export)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection, playlists)
+- [guides/introduction.md](../guides/introduction.md) (collection, export)
+- [guides/usb-export.md](../guides/usb-export.md) (export, playlists)
+- [guides/xml-format-spec.md](../guides/xml-format-spec.md) (export, import)

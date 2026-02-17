@@ -3,7 +3,7 @@ id: lighting-mode
 title: "Lighting Mode Operation Guide"
 type: guide
 source:
-  file: rekordbox7.0.7_lighting_operation_guide_EN.pdf
+  file: "rekordbox7.0.7_lighting_operation_guide_EN.pdf"
   pages: "1-71"
   version: "7.0.7"
 topics: [effects, interface, lighting, midi, phrase, preferences]
@@ -1572,3 +1572,14 @@ Before making inquiries on rekordbox operating procedures or technical issues, r
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) AlphaTheta Corporation
+
+## Related Documents
+
+- [manual/32-menu-list.md](../manual/32-menu-list.md) (effects, interface, lighting, preferences)
+- [features/overview.md](../features/overview.md) (effects, interface, lighting)
+- [guides/video-function.md](video-function.md) (effects, interface, preferences)
+- [guides/edit-mode.md](edit-mode.md) (interface, phrase)
+- [guides/introduction.md](introduction.md) (interface, lighting)
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (effects, interface)
+- [manual/31-preferences.md](../manual/31-preferences.md) (interface, preferences)
+- [faq/lighting-and-video.md](../faq/lighting-and-video.md) (lighting)

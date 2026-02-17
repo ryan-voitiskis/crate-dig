@@ -3,7 +3,7 @@ id: stems
 title: "Using the STEMS function"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "207-215"
   version: "7.2.8"
 topics: [effects, stems]
@@ -218,3 +218,14 @@ You can extract the DRUMS Stem of a track loaded on the deck and use it for DRUM
   - LINK Export function
   - CloudDirectPlay function
   - rekordbox for iOS/Android
+
+## Related Documents
+
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (effects, stems)
+- [features/overview.md](../features/overview.md) (effects, stems)
+- [manual/18-performance-screen.md](18-performance-screen.md) (effects, stems)
+- [manual/32-menu-list.md](32-menu-list.md) (effects, stems)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (stems)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects)
+- [guides/video-function.md](../guides/video-function.md) (effects)
+- [manual/22-performance-effects.md](22-performance-effects.md) (effects)

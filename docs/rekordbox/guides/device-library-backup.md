@@ -3,7 +3,7 @@ id: device-library-backup
 title: "Device Library Backup Guide"
 type: guide
 source:
-  file: rekordbox6.7.4_device_library_backup_guide_EN.pdf
+  file: "rekordbox6.7.4_device_library_backup_guide_EN.pdf"
   pages: "1-13"
   version: "6.7.4"
 topics: [backup, devices, export, library, usb]
@@ -229,3 +229,14 @@ The material you record is for your own listening enjoyment, and cannot be used 
 Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) 2021 AlphaTheta Corporation.
+
+## Related Documents
+
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (backup, devices, export, usb)
+- [guides/usb-export.md](usb-export.md) (devices, export, library, usb)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export, usb)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (export, library)
+- [features/cloud-setup-guide.md](../features/cloud-setup-guide.md) (backup, library)
+- [features/overview.md](../features/overview.md) (export, library)
+- [guides/cloud-direct-play.md](cloud-direct-play.md) (devices, usb)
+- [guides/cloud-library-sync.md](cloud-library-sync.md) (backup, library)

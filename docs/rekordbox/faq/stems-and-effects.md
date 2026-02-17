@@ -3,7 +3,7 @@ id: faq-stems-and-effects
 title: "FAQ: STEMS & Effects"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [effects, recording, sampler, sequencer, stems]
@@ -290,3 +290,14 @@ Record again.
 ![](https://cdn.rekordbox.com/files/20200217192207/master_volumepng2-300x30.png)
 
 ---
+
+## Related Documents
+
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (effects, sampler, sequencer, stems)
+- [features/overview.md](../features/overview.md) (effects, stems)
+- [manual/19-performance-preparing.md](../manual/19-performance-preparing.md) (recording, sequencer)
+- [manual/24-sequencer.md](../manual/24-sequencer.md) (sampler, sequencer)
+- [manual/28-stems.md](../manual/28-stems.md) (effects, stems)
+- [manual/32-menu-list.md](../manual/32-menu-list.md) (effects, stems)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (stems)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects)

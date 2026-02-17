@@ -3,7 +3,7 @@ id: collection-window
 title: "About the [Collection] window"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "7-12"
   version: "7.2.8"
 topics: [browsing, collection, interface, library]
@@ -97,3 +97,14 @@ In sub browser, you can drag and drop a track, playlist, etc. easily. To open su
 [Screenshot: Three views showing different sub browser layouts. The first shows a side-by-side horizontal split with Collection on both sides showing track lists with artwork previews. The second shows a top-bottom split labeled "MASTER" with the Collection track list and rating/genre columns visible. The third shows a similar top-bottom split with slightly different column arrangements.]
 
 To close sub browser, click [Sub Browser] or [Sub Browser] again.
+
+## Related Documents
+
+- [guides/introduction.md](../guides/introduction.md) (browsing, collection, interface, library)
+- [features/overview.md](../features/overview.md) (collection, interface, library)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (browsing, collection, interface)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, library)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection, library)
+- [guides/keyboard-shortcuts.md](../guides/keyboard-shortcuts.md) (browsing, interface)
+- [guides/streaming-services.md](../guides/streaming-services.md) (collection, library)
+- [manual/03-adding-tracks.md](03-adding-tracks.md) (collection, library)

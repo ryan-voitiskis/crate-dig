@@ -3,7 +3,7 @@ id: capture
 title: "Extracting a section from a track (CAPTURE)"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "200-202, 206"
   version: "7.2.8"
 topics: [pads, sampler, slicer]
@@ -117,3 +117,13 @@ Load the track in the sampler slot to the deck.
    - If [Play mode (Oneshot)] is set on the sampler slot, playback starts when the sound is loaded to the deck.
    - If [Play mode (Loop)] is set on the sampler slot, manual loop is set on the deck and playback starts when the sound is loaded to the deck.
    - If [Gate mode] is set on the sampler slot, the sound plays as Cue Point Sampler while holding the pad when the sound is loaded to the deck.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (pads, sampler, slicer)
+- [manual/25-slicer.md](25-slicer.md) (pads, sampler, slicer)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (sampler)
+- [guides/pad-editor.md](../guides/pad-editor.md) (pads)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (sampler)
+- [manual/24-sequencer.md](24-sequencer.md) (sampler)
+- [manual/27-active-censor.md](27-active-censor.md) (pads)

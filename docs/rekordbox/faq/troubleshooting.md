@@ -3,7 +3,7 @@ id: faq-troubleshooting
 title: "FAQ: Troubleshooting"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [analysis, compatibility, link]
@@ -368,3 +368,14 @@ You can download it from the following links.
 - [Mac](https://cdn.rekordbox.com/files/20240521172903/Install_rekordbox_7_0_1.pkg_.zip)
 
 ---
+
+## Related Documents
+
+- [faq/cloud-and-sync.md](cloud-and-sync.md) (analysis)
+- [faq/hardware-compatibility.md](hardware-compatibility.md) (compatibility)
+- [faq/library-and-collection.md](library-and-collection.md) (analysis)
+- [guides/dvs-setup.md](../guides/dvs-setup.md) (compatibility)
+- [guides/performance-mode-connection.md](../guides/performance-mode-connection.md) (compatibility)
+- [guides/phrase-edit.md](../guides/phrase-edit.md) (analysis)
+- [guides/pro-dj-link-setup.md](../guides/pro-dj-link-setup.md) (link)
+- [guides/streaming-services.md](../guides/streaming-services.md) (compatibility)

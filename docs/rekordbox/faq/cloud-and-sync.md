@@ -3,7 +3,7 @@ id: faq-cloud-and-sync
 title: "FAQ: Cloud & Sync"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [analysis, cloud, export, onelibrary]
@@ -465,3 +465,14 @@ When using Firefox, you may experience issues logging in to Dropbox or Google dr
 In such cases, try changing your computer's default browser to Google Chrome, Microsoft Edge, or another browser to log in.
 
 ---
+
+## Related Documents
+
+- [faq/hardware-compatibility.md](hardware-compatibility.md) (export, onelibrary)
+- [faq/library-and-collection.md](library-and-collection.md) (analysis, export)
+- [features/cloud-setup-guide.md](../features/cloud-setup-guide.md) (cloud, onelibrary)
+- [features/overview.md](../features/overview.md) (cloud, export)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (cloud, onelibrary)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (cloud, onelibrary)
+- [manual/10-mobile-devices.md](../manual/10-mobile-devices.md) (cloud, export)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (analysis, export)

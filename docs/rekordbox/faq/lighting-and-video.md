@@ -3,7 +3,7 @@ id: faq-lighting-and-video
 title: "FAQ: Lighting & Video"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [lighting, video]
@@ -295,3 +295,11 @@ Up to 16 kinds of lighting effects information can be saved in one Scene.
 The Fixture Library is the list of fixture profiles including manufacturers, models, DMX channels, categories, etc. provided by AtlaBase Ltd.
 
 ---
+
+## Related Documents
+
+- [manual/32-menu-list.md](../manual/32-menu-list.md) (lighting, video)
+- [features/overview.md](../features/overview.md) (lighting)
+- [guides/introduction.md](../guides/introduction.md) (lighting)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (lighting)
+- [guides/video-function.md](../guides/video-function.md) (video)

@@ -3,7 +3,7 @@ id: usb-export
 title: "USB Export Guide"
 type: guide
 source:
-  file: USB_export_guide_en_251007.pdf
+  file: "USB_export_guide_en_251007.pdf"
   pages: "1-5"
   version: "7.x"
 topics: [devices, export, library, playlists, usb]
@@ -112,3 +112,14 @@ Exporting a playlist to a USB storage device will create the playlist on both On
 In the Tree View, select the desired [playlist] from the Playlists, right-click and select [Export Playlist].
 
 [Screenshot: Context menu in rekordbox Tree View showing "All Tracks" and "Playlists" with "Playlist 02" selected. The right-click menu shows options including "Auto Upload" (with submenu arrow), "Export Playlist" (highlighted, with submenu arrow showing "USB Device"), and "Batch Auto Upload setting" (with submenu arrow).]
+
+## Related Documents
+
+- [guides/device-library-backup.md](device-library-backup.md) (devices, export, library, usb)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (export, library, playlists)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, export, usb)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (export, playlists, usb)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export, usb)
+- [features/overview.md](../features/overview.md) (export, library)
+- [guides/cloud-direct-play.md](cloud-direct-play.md) (devices, usb)
+- [guides/cloud-library-sync.md](cloud-library-sync.md) (library, playlists)

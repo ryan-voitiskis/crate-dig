@@ -3,7 +3,7 @@ id: sampler-deck
 title: "Using the sampler deck"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "188-192"
   version: "7.2.8"
 topics: [beatgrid, edit, key, mixing, playback, sampler]
@@ -157,3 +157,14 @@ The following displays an example of this:
 **Hint**
 
 - To adjust the BPM of the sampler deck, use [+]/[-] in the sampler deck to change the value. Click the BPM display and enter the value to change the BPM. When you click [MASTER] on a sampler deck, the deck is set as the sync master.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (beatgrid, mixing, playback, sampler)
+- [manual/20-performance-playing.md](20-performance-playing.md) (beatgrid, key, mixing, playback)
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid, edit)
+- [guides/video-function.md](../guides/video-function.md) (mixing, playback)
+- [manual/05-editing-track-info.md](05-editing-track-info.md) (edit, key)
+- [manual/14-export-playing.md](14-export-playing.md) (beatgrid, playback)
+- [manual/16-export-mixing.md](16-export-mixing.md) (key, mixing)
+- [manual/25-slicer.md](25-slicer.md) (beatgrid, sampler)

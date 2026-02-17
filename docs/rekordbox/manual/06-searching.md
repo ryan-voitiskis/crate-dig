@@ -3,7 +3,7 @@ id: searching
 title: "Searching for a track"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "27-38"
   version: "7.2.8"
 topics: [browsing, collection, genre, key, playlists, rating, search, track-suggestion]
@@ -301,3 +301,14 @@ Click the Track Suggestion subpanel button to display the Track Suggestion Subpa
 **Hint**
 
 - You can also display the Subpanel by selecting Track Suggestion in the tree view, right-clicking it, and clicking [Show in subpanel].
+
+## Related Documents
+
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, playlists, track-suggestion)
+- [manual/05-editing-track-info.md](05-editing-track-info.md) (collection, key, rating)
+- [manual/09-collaborative-playlists.md](09-collaborative-playlists.md) (browsing, playlists, search)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (browsing, collection, playlists)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection, playlists)
+- [guides/introduction.md](../guides/introduction.md) (browsing, collection)
+- [manual/02-collection-window.md](02-collection-window.md) (browsing, collection)
+- [manual/07-playlists.md](07-playlists.md) (collection, playlists)

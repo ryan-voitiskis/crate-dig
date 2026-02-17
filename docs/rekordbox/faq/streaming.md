@@ -3,7 +3,7 @@ id: faq-streaming
 title: "FAQ: Streaming"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [streaming]
@@ -531,3 +531,9 @@ The shared members need to log in to the streaming service for the streaming ser
 The shared members must be subscribed as well as logged in to the same streaming service.
 
 ---
+
+## Related Documents
+
+- [features/overview.md](../features/overview.md) (streaming)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (streaming)
+- [guides/streaming-services.md](../guides/streaming-services.md) (streaming)

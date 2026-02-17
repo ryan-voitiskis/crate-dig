@@ -3,7 +3,7 @@ id: cloud-library-sync
 title: "Cloud Library Sync Operation Guide"
 type: guide
 source:
-  file: rekordbox7.2.8_cloud_library_sync_operation_guide_EN.pdf
+  file: "rekordbox7.2.8_cloud_library_sync_operation_guide_EN.pdf"
   pages: "1-36"
   version: "7.2.8"
 topics: [backup, cloud, collection, library, mobile, onelibrary, playlists]
@@ -600,3 +600,14 @@ rekordbox.com/en/support/faq/
 Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) 2024 AlphaTheta Corporation.
+
+## Related Documents
+
+- [features/cloud-setup-guide.md](../features/cloud-setup-guide.md) (backup, cloud, library, onelibrary)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, library, playlists)
+- [features/overview.md](../features/overview.md) (cloud, collection, library)
+- [manual/04-management.md](../manual/04-management.md) (backup, collection, library)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (cloud, onelibrary)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (backup, mobile)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (cloud, onelibrary)
+- [guides/device-library-backup.md](device-library-backup.md) (backup, library)

@@ -3,7 +3,7 @@ id: slicer
 title: "Using a slicer"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "197-200"
   version: "7.2.8"
 topics: [beatgrid, pads, sampler, slicer]
@@ -103,3 +103,14 @@ For the loop play, see "Starting loop play" (page 157).
 **Note**
 
 - When the [Preferences] window > [Controller] category > [Sampler] tab > [SLOT] > [Do not overwrite the loaded Slot] is selected, you cannot drag and drop to a slot already loaded.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (beatgrid, pads, sampler, slicer)
+- [manual/26-capture.md](26-capture.md) (pads, sampler, slicer)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (beatgrid, sampler)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (sampler)
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid)
+- [guides/pad-editor.md](../guides/pad-editor.md) (pads)
+- [manual/14-export-playing.md](14-export-playing.md) (beatgrid)
+- [manual/20-performance-playing.md](20-performance-playing.md) (beatgrid)

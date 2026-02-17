@@ -3,7 +3,7 @@ id: management
 title: "Management"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "21-24"
   version: "7.2.8"
 topics: [backup, collection, library]
@@ -105,3 +105,14 @@ rekordbox manages information on where music files are stored (file paths). If f
 **Note**
 
 - Be careful not to select the wrong file when selecting the new file path for [Relocate].
+
+## Related Documents
+
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (backup, collection, library)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, library)
+- [features/cloud-setup-guide.md](../features/cloud-setup-guide.md) (backup, library)
+- [features/overview.md](../features/overview.md) (collection, library)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (backup, library)
+- [guides/introduction.md](../guides/introduction.md) (collection, library)
+- [guides/streaming-services.md](../guides/streaming-services.md) (collection, library)
+- [manual/02-collection-window.md](02-collection-window.md) (collection, library)

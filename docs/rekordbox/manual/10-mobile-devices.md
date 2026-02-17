@@ -3,7 +3,7 @@ id: mobile-devices
 title: "Using mobile devices to prepare for DJ performance"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "58-60"
   version: "7.2.8"
 topics: [cloud, connection, devices, export, interface, mobile]
@@ -53,3 +53,14 @@ When [EXPORT] is selected on the upper-left of the screen, you can use rekordbox
 ### [2 PLAYER] layout
 
 [Screenshot: rekordbox EXPORT mode in 2 PLAYER layout showing: 1. Two player sections stacked vertically at top, each with waveform display and track info, with cue points lists on the right; 2. Browser section at bottom with tree view and track list]
+
+## Related Documents
+
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, export, mobile)
+- [features/overview.md](../features/overview.md) (cloud, export, interface)
+- [manual/15-export-lan.md](15-export-lan.md) (connection, devices, export)
+- [manual/31-preferences.md](31-preferences.md) (cloud, devices, interface)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (cloud, export)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (cloud, interface)
+- [guides/cloud-direct-play.md](../guides/cloud-direct-play.md) (cloud, devices)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (cloud, mobile)

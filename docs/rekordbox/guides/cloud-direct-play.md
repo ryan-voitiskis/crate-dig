@@ -3,7 +3,7 @@ id: cloud-direct-play
 title: "CloudDirectPlay Operation Guide"
 type: guide
 source:
-  file: rekordbox7.2.2_CloudDirectPlay_EN.pdf
+  file: "rekordbox7.2.2_CloudDirectPlay_EN.pdf"
   pages: "1-24"
   version: "7.2.2"
 topics: [cloud, devices, playback, pro-dj-link, usb]
@@ -357,3 +357,14 @@ The approximate size of an audio file for one track is shown below. It varies de
 Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) 2024 AlphaTheta Corporation.
+
+## Related Documents
+
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, pro-dj-link, usb)
+- [guides/device-library-backup.md](device-library-backup.md) (devices, usb)
+- [guides/pro-dj-link-setup.md](pro-dj-link-setup.md) (devices, pro-dj-link)
+- [guides/usb-export.md](usb-export.md) (devices, usb)
+- [manual/10-mobile-devices.md](../manual/10-mobile-devices.md) (cloud, devices)
+- [manual/13-export-pro-dj-link.md](../manual/13-export-pro-dj-link.md) (pro-dj-link, usb)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (playback, usb)
+- [manual/15-export-lan.md](../manual/15-export-lan.md) (devices, pro-dj-link)

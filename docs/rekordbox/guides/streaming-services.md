@@ -3,7 +3,7 @@ id: streaming-services
 title: "Streaming Service Usage Guide"
 type: guide
 source:
-  file: rekordbox7.2.10_streaming_service_usage_guide_EN.pdf
+  file: "rekordbox7.2.10_streaming_service_usage_guide_EN.pdf"
   pages: "1-37"
   version: "7.2.10"
 topics: [collection, compatibility, library, playback, streaming]
@@ -707,3 +707,14 @@ The material you record is for your own listening enjoyment, and cannot be used 
 Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C)2024 AlphaTheta Corporation.
+
+## Related Documents
+
+- [features/overview.md](../features/overview.md) (collection, library, streaming)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, library)
+- [guides/cloud-library-sync.md](cloud-library-sync.md) (collection, library)
+- [guides/introduction.md](introduction.md) (collection, library)
+- [manual/02-collection-window.md](../manual/02-collection-window.md) (collection, library)
+- [manual/03-adding-tracks.md](../manual/03-adding-tracks.md) (collection, library)
+- [manual/04-management.md](../manual/04-management.md) (collection, library)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (compatibility)

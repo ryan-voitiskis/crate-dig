@@ -3,7 +3,7 @@ id: video-function
 title: "Video Function Operation Guide"
 type: guide
 source:
-  file: rekordbox7.0.5_video_operation_guide_EN.pdf
+  file: "rekordbox7.0.5_video_operation_guide_EN.pdf"
   pages: "1-26"
   version: "7.0.5"
 topics: [effects, interface, mixing, playback, preferences, video]
@@ -868,3 +868,14 @@ Before making inquiries on rekordbox operating procedures or technical issues, r
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) AlphaTheta Corporation.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (effects, interface, mixing, playback)
+- [manual/32-menu-list.md](../manual/32-menu-list.md) (effects, interface, preferences, video)
+- [guides/lighting-mode.md](lighting-mode.md) (effects, interface, preferences)
+- [features/overview.md](../features/overview.md) (effects, interface)
+- [guides/keyboard-shortcuts.md](keyboard-shortcuts.md) (interface, playback)
+- [manual/16-export-mixing.md](../manual/16-export-mixing.md) (interface, mixing)
+- [manual/20-performance-playing.md](../manual/20-performance-playing.md) (mixing, playback)
+- [manual/23-sampler-deck.md](../manual/23-sampler-deck.md) (mixing, playback)

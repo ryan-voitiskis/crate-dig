@@ -1,10 +1,9 @@
 ---
 id: guide-introduction
-
 title: "Introduction to rekordbox"
 type: guide
 source:
-  file: rekordbox7.0.7_introduction_EN.pdf
+  file: "rekordbox7.0.7_introduction_EN.pdf"
   pages: "1-27"
   version: "7.0.7"
 topics: [browsing, collection, export, interface, library, lighting, performance, subscription, system-requirements]
@@ -446,3 +445,14 @@ The material you record is for your own listening enjoyment, and cannot be used 
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C)2024 AlphaTheta Corporation.
+
+## Related Documents
+
+- [features/overview.md](../features/overview.md) (collection, export, interface, library)
+- [manual/02-collection-window.md](../manual/02-collection-window.md) (browsing, collection, interface, library)
+- [manual/11-export-mode-screen.md](../manual/11-export-mode-screen.md) (browsing, collection, export, interface)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, export, library)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (browsing, export, interface)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (interface, subscription)
+- [guides/cloud-library-sync.md](cloud-library-sync.md) (collection, library)
+- [guides/device-library-backup.md](device-library-backup.md) (export, library)

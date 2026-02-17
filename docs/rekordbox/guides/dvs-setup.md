@@ -3,7 +3,7 @@ id: dvs-setup
 title: "DVS Setup Guide"
 type: guide
 source:
-  file: rekordbox7.0.5_dvs_setup_guide_EN.pdf
+  file: "rekordbox7.0.5_dvs_setup_guide_EN.pdf"
   pages: "1-19"
   version: "7.0.5"
 topics: [compatibility, connection, dvs, equipment, mixing, performance]
@@ -359,3 +359,14 @@ The DVS setup is now complete.
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (c) AlphaTheta Corporation.
+
+## Related Documents
+
+- [guides/performance-mode-connection.md](performance-mode-connection.md) (compatibility, connection, dvs, equipment)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (compatibility, dvs, equipment)
+- [guides/midi-learn.md](midi-learn.md) (connection, equipment, performance)
+- [guides/pro-dj-link-setup.md](pro-dj-link-setup.md) (connection, equipment)
+- [manual/15-export-lan.md](../manual/15-export-lan.md) (connection, mixing)
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (mixing, performance)
+- [manual/19-performance-preparing.md](../manual/19-performance-preparing.md) (equipment, mixing)
+- [manual/31-preferences.md](../manual/31-preferences.md) (dvs, equipment)

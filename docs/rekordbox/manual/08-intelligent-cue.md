@@ -3,7 +3,7 @@ id: intelligent-cue
 title: "Using the INTELLIGENT CUE CREATION function"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "41-44"
   version: "7.2.8"
 topics: [analysis, cue-points, hot-cue, memory-cue, playlists, preferences]
@@ -93,3 +93,14 @@ Comments of the [Manual] mode
 [Screenshot: Hot Cue pad view showing A 1.1Bars, B 1.1Bars+8, C 1.1Bars+16, D 1.1Bars+24 with HOT CUE dropdown]
 
 [Screenshot: Hot Cue list view showing A 00:15 1.1Bars, B 00:29 1.1Bars+8, C 00:44 1.1Bars+16, D 00:59 1.1Bars+24 with MEMORY, HOT CUE, INFO tabs]
+
+## Related Documents
+
+- [guides/edit-mode.md](../guides/edit-mode.md) (cue-points, hot-cue, memory-cue)
+- [manual/14-export-playing.md](14-export-playing.md) (analysis, cue-points, hot-cue)
+- [manual/18-performance-screen.md](18-performance-screen.md) (cue-points, hot-cue, memory-cue)
+- [manual/20-performance-playing.md](20-performance-playing.md) (analysis, cue-points, hot-cue)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (analysis, playlists)
+- [guides/pad-editor.md](../guides/pad-editor.md) (cue-points, hot-cue)
+- [manual/29-mix-point-link.md](29-mix-point-link.md) (hot-cue, memory-cue)
+- [manual/31-preferences.md](31-preferences.md) (analysis, preferences)

@@ -3,7 +3,7 @@ id: mix-point-link
 title: "Using the MIX POINT LINK function"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "216-221"
   version: "7.2.8"
 topics: [hot-cue, link, memory-cue, mixing, playback]
@@ -147,3 +147,14 @@ Set Hot Cues or memory cues at the MIX POINT positions of the track in advance.
 
 - The order of the MIX IN selection/MIX OUT selection can be reverse.
 - To change the default settings for MIX IN selection/MIX OUT selection, open the [Preferences] window > [Controller] category > [MIX POINT LINK] tab > [MIX IN/MIX OUT] > [Default MIX POINT Setting].
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (hot-cue, memory-cue, mixing, playback)
+- [manual/20-performance-playing.md](20-performance-playing.md) (hot-cue, mixing, playback)
+- [guides/edit-mode.md](../guides/edit-mode.md) (hot-cue, memory-cue)
+- [guides/video-function.md](../guides/video-function.md) (mixing, playback)
+- [manual/08-intelligent-cue.md](08-intelligent-cue.md) (hot-cue, memory-cue)
+- [manual/14-export-playing.md](14-export-playing.md) (hot-cue, playback)
+- [manual/19-performance-preparing.md](19-performance-preparing.md) (link, mixing)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (mixing, playback)

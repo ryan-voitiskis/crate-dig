@@ -3,7 +3,7 @@ id: performance-effects
 title: "Using effect features"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "176-187"
   version: "7.2.8"
 topics: [beatgrid, effects, performance]
@@ -360,3 +360,14 @@ Change the settings of each [MERGE FX1] through [MERGE FX4].
   -- [MFX2 Cancel]: Cancel MERGE FX.
   [MFX Sample Volume]: Adjust the volume of sample sound/oscillator sound of MERGE FX.
   For [MFX1 Parameter], [MFX2 Parameter], and [MFX Sample Volume], assign the function to the rotary encoder of the DJ equipment.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (beatgrid, effects, performance)
+- [features/overview.md](../features/overview.md) (effects, performance)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (effects)
+- [guides/dvs-setup.md](../guides/dvs-setup.md) (performance)
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid)
+- [guides/introduction.md](../guides/introduction.md) (performance)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects)
+- [guides/midi-learn.md](../guides/midi-learn.md) (performance)

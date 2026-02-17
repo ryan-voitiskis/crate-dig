@@ -3,15 +3,15 @@ id: faq-library-and-collection
 title: "FAQ: Library & Collection"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [analysis, collaborative-playlists, collection, export, import, library, metadata, playlists, track-suggestion]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 ### Can I automatically export XML format collections?
@@ -452,3 +452,14 @@ You can't edit the following types of files:
 Note: Audio files rendered in M4A format may not be supported by some CDJ and XDJ players. If that is the case, please select a different format.
 
 ---
+
+## Related Documents
+
+- [manual/03-adding-tracks.md](../manual/03-adding-tracks.md) (analysis, collection, import, library)
+- [manual/07-playlists.md](../manual/07-playlists.md) (collection, export, import, playlists)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (collaborative-playlists, export, import, playlists)
+- [reference/developer-integration.md](../reference/developer-integration.md) (export, import, library, metadata)
+- [reference/xml-import-export.md](../reference/xml-import-export.md) (export, import, library, metadata)
+- [features/overview.md](../features/overview.md) (collection, export, library)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection, library, playlists)
+- [guides/introduction.md](../guides/introduction.md) (collection, export, library)

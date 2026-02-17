@@ -3,7 +3,7 @@ id: edit-mode
 title: "Edit Mode Operation Guide"
 type: guide
 source:
-  file: rekordbox6.1.1_edit_operation_guide_EN.pdf
+  file: "rekordbox6.1.1_edit_operation_guide_EN.pdf"
   pages: "1-17"
   version: "6.1.1"
 topics: [beatgrid, cue-points, edit, hot-cue, interface, memory-cue, phrase, waveform]
@@ -342,3 +342,14 @@ The use of rekordbox is restricted with regard to the playing and copying of cop
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C)2020 AlphaTheta Corporation. All rights reserved.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (beatgrid, cue-points, hot-cue, interface)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (beatgrid, cue-points, hot-cue, waveform)
+- [guides/pad-editor.md](pad-editor.md) (cue-points, hot-cue, interface)
+- [guides/phrase-edit.md](phrase-edit.md) (edit, phrase, waveform)
+- [manual/08-intelligent-cue.md](../manual/08-intelligent-cue.md) (cue-points, hot-cue, memory-cue)
+- [manual/20-performance-playing.md](../manual/20-performance-playing.md) (beatgrid, cue-points, hot-cue)
+- [guides/lighting-mode.md](lighting-mode.md) (interface, phrase)
+- [manual/11-export-mode-screen.md](../manual/11-export-mode-screen.md) (interface, waveform)

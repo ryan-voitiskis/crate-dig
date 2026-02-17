@@ -3,7 +3,7 @@ id: performance-recording
 title: "Recording"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "173-175"
   version: "7.2.8"
 topics: [file-formats, performance, recording]
@@ -115,3 +115,14 @@ See the following pages of "EXPORT mode".
 - "To separate the recorded file automatically" (page 119)
 - "To display recorded files" (page 120)
 - "Other settings for recordings" (page 120)
+
+## Related Documents
+
+- [manual/17-export-recording.md](17-export-recording.md) (file-formats, recording)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (file-formats)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (recording)
+- [features/overview.md](../features/overview.md) (performance)
+- [guides/dvs-setup.md](../guides/dvs-setup.md) (performance)
+- [guides/introduction.md](../guides/introduction.md) (performance)
+- [guides/midi-learn.md](../guides/midi-learn.md) (performance)
+- [guides/pad-editor.md](../guides/pad-editor.md) (performance)

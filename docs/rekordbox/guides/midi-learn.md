@@ -3,7 +3,7 @@ id: midi-learn
 title: "MIDI Learn Operation Guide"
 type: guide
 source:
-  file: rekordbox7.0.5_midi_learn_operation_guide_EN.pdf
+  file: "rekordbox7.0.5_midi_learn_operation_guide_EN.pdf"
   pages: "1-8"
   version: "7.0.5"
 topics: [connection, equipment, midi, performance]
@@ -241,3 +241,14 @@ Using the [IMPORT] button, you can import the exported (saved) MIDI setting file
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) AlphaTheta Corporation.
+
+## Related Documents
+
+- [guides/dvs-setup.md](dvs-setup.md) (connection, equipment, performance)
+- [guides/performance-mode-connection.md](performance-mode-connection.md) (connection, equipment, performance)
+- [guides/pro-dj-link-setup.md](pro-dj-link-setup.md) (connection, equipment)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (equipment)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (equipment)
+- [features/overview.md](../features/overview.md) (performance)
+- [guides/introduction.md](introduction.md) (performance)
+- [guides/lighting-mode.md](lighting-mode.md) (midi)

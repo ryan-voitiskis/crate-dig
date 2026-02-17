@@ -3,7 +3,7 @@ id: pad-editor
 title: "Pad Editor Operation Guide"
 type: guide
 source:
-  file: rekordbox7.2.8_pad_editor_operation_guide_EN.pdf
+  file: "rekordbox7.2.8_pad_editor_operation_guide_EN.pdf"
   pages: "1-14"
   version: "7.2.8"
 topics: [cue-points, hot-cue, interface, pads, performance]
@@ -183,3 +183,14 @@ Select a detailed item depending on the function.
   Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) 2025 AlphaTheta Corporation.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (cue-points, hot-cue, interface, pads)
+- [guides/edit-mode.md](edit-mode.md) (cue-points, hot-cue, interface)
+- [features/overview.md](../features/overview.md) (interface, performance)
+- [guides/introduction.md](introduction.md) (interface, performance)
+- [manual/08-intelligent-cue.md](../manual/08-intelligent-cue.md) (cue-points, hot-cue)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (cue-points, hot-cue)
+- [manual/20-performance-playing.md](../manual/20-performance-playing.md) (cue-points, hot-cue)
+- [manual/27-active-censor.md](../manual/27-active-censor.md) (cue-points, pads)
