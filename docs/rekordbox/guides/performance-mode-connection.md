@@ -8,10 +8,10 @@ source:
   version: "5.3.0"
 topics: [compatibility, connection, devices, dvs, equipment, performance]
 modes: [performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 [Screenshot: Pioneer DJ logo and rekordbox logo on title page]

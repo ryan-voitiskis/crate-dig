@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [pads, sampler, slicer]
 modes: [performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Extracting a section from a track (CAPTURE)

@@ -8,10 +8,10 @@ source:
   version: "7.0.7"
 topics: [browsing, collection, export, interface, library, lighting, performance, subscription, system-requirements]
 modes: [common, export, performance, lighting]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # rekordbox Introduction

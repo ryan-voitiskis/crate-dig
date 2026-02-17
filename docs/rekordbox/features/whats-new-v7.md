@@ -7,10 +7,10 @@ source:
   version: "7.0"
 topics: [cloud, interface, onelibrary, stems, streaming, subscription]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Dive Deeper: Introducing rekordbox ver. 7.0.0

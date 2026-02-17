@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [browsing, collection, genre, key, playlists, rating, search, track-suggestion]
 modes: [common, export, performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Searching for a track

@@ -8,10 +8,10 @@ source:
   version: "6.7.4"
 topics: [backup, devices, export, library, usb]
 modes: [common, export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Device library backup Operation Guide

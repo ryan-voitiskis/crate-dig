@@ -8,10 +8,10 @@ source:
   version: "7.x"
 topics: [color, compatibility, dvs, equipment, export, file-formats, onelibrary, usb, waveform]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 ### What is the color of the waveform (BLUE/RGB/3Band) that can be displayed on the hardware display?

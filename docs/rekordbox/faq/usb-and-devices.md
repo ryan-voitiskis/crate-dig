@@ -8,10 +8,10 @@ source:
   version: "7.x"
 topics: [backup, devices, equipment, export, mobile, pro-dj-link, usb]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 ### My USB storage device or SD card was already authenticated with another AlphaTheta account in rekordbox CloudDirectPlay so I can't authenticate it. What should I do?

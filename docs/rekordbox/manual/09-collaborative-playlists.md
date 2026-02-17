@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [browsing, collaborative-playlists, export, import, interface, playlists, search, usb, xml]
 modes: [common, export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Importing a playlist from iTunes

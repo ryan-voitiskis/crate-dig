@@ -8,10 +8,10 @@ source:
   version: "7.0.5"
 topics: [compatibility, connection, dvs, equipment, mixing, performance]
 modes: [performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # DVS Setup Guide

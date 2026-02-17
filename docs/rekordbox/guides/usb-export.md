@@ -8,10 +8,10 @@ source:
   version: "7.x"
 topics: [devices, export, library, playlists, usb]
 modes: [export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # USB Export Guide

@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [connection, export, link, pro-dj-link, usb]
 modes: [export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Using with DJ equipment (PRO DJ LINK)

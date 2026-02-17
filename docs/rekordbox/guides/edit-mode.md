@@ -8,10 +8,10 @@ source:
   version: "6.1.1"
 topics: [beatgrid, cue-points, edit, hot-cue, interface, memory-cue, phrase, waveform]
 modes: [edit]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # EDIT mode Operation Guide

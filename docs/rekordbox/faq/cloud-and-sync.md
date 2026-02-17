@@ -8,10 +8,10 @@ source:
   version: "7.x"
 topics: [analysis, cloud, export, onelibrary]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 ### Which of the DJ equipment are compatible with rekordbox CloudDirectPlay (ver. 7)?

@@ -7,10 +7,10 @@ source:
   version: "7.x"
 topics: [cloud, collection, effects, export, interface, library, lighting, performance, stems, streaming]
 modes: [common, export, performance, lighting]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Unlock a smoother DJ experience with the new rekordbox

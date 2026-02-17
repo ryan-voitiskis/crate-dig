@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [cloud, connection, devices, export, interface, mobile]
 modes: [common, export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # Using mobile devices to prepare for DJ performance

@@ -8,10 +8,10 @@ source:
   version: "7.2.8"
 topics: [file-formats, system-requirements]
 modes: [export, performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # System requirements

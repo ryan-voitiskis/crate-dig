@@ -8,10 +8,10 @@ source:
   version: "2.0"
 topics: [connection, devices, equipment, link, pro-dj-link]
 modes: [common, export]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # PRO DJ LINK Setup Guide

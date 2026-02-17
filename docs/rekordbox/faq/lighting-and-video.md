@@ -8,10 +8,10 @@ source:
   version: "7.x"
 topics: [lighting, video]
 modes: [lighting]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 ### Can the lighting settings be transferred to a different computer?
