@@ -3,7 +3,7 @@ id: faq-hardware-compatibility
 title: "FAQ: Hardware Compatibility"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [color, compatibility, dvs, equipment, export, file-formats, onelibrary, usb, waveform]
@@ -502,3 +502,14 @@ The DMX interfaces that currently supported by the Lighting function are as foll
 - ENTTEC DMX USB Pro Mk2
 
 ---
+
+## Related Documents
+
+- [faq/usb-and-devices.md](usb-and-devices.md) (equipment, export, usb)
+- [guides/dvs-setup.md](../guides/dvs-setup.md) (compatibility, dvs, equipment)
+- [guides/performance-mode-connection.md](../guides/performance-mode-connection.md) (compatibility, dvs, equipment)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (export, usb, waveform)
+- [manual/19-performance-preparing.md](../manual/19-performance-preparing.md) (equipment, export, waveform)
+- [faq/cloud-and-sync.md](cloud-and-sync.md) (export, onelibrary)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (export, usb)
+- [guides/usb-export.md](../guides/usb-export.md) (export, usb)

@@ -3,7 +3,7 @@ id: performance-preparing
 title: "Preparing for DJ performance"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "140-149"
   version: "7.2.8"
 topics: [browsing, devices, equipment, export, link, mixing, recording, sequencer, waveform]
@@ -199,3 +199,14 @@ Open the [Preferences] window > [Controller] category > [Others] tab > [Ableton 
 
 - Ableton Link cannot be enabled during Automix.
 - For decks set to [RELATIVE] or [ABSOLUTE] for the DVS mode, Ableton Link cannot be enabled.
+
+## Related Documents
+
+- [manual/15-export-lan.md](15-export-lan.md) (browsing, devices, export, mixing)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (equipment, export, waveform)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, equipment, export)
+- [guides/pro-dj-link-setup.md](../guides/pro-dj-link-setup.md) (devices, equipment, link)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (browsing, export, waveform)
+- [manual/17-export-recording.md](17-export-recording.md) (devices, export, recording)
+- [manual/18-performance-screen.md](18-performance-screen.md) (mixing, sequencer, waveform)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (recording, sequencer)

@@ -3,7 +3,7 @@ id: performance-playing
 title: "Playing tracks"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "150-172"
   version: "7.2.8"
 topics: [analysis, beatgrid, cue-points, hot-cue, key, mixing, playback]
@@ -668,3 +668,14 @@ At the global section or from [View] menu on the upper screen, you can customize
 - When selecting [2Deck Vertical] or [4Deck Vertical], the enlarged waveform is displayed in the full height of the layout screen. This makes it easy for scratching.
 - Select [Browse] to enlarge the browser panel to make the selection easier.
 - For the global section, see "Global section" (page 123).
+
+## Related Documents
+
+- [manual/14-export-playing.md](14-export-playing.md) (analysis, beatgrid, cue-points, hot-cue)
+- [manual/18-performance-screen.md](18-performance-screen.md) (beatgrid, cue-points, hot-cue, mixing)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (beatgrid, key, mixing, playback)
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid, cue-points, hot-cue)
+- [manual/08-intelligent-cue.md](08-intelligent-cue.md) (analysis, cue-points, hot-cue)
+- [manual/29-mix-point-link.md](29-mix-point-link.md) (hot-cue, mixing, playback)
+- [guides/pad-editor.md](../guides/pad-editor.md) (cue-points, hot-cue)
+- [guides/video-function.md](../guides/video-function.md) (mixing, playback)

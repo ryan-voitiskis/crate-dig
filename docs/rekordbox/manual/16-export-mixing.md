@@ -3,7 +3,7 @@ id: export-mixing
 title: "Mixing ([2 PLAYER] layout)"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "114-117"
   version: "7.2.8"
 topics: [export, interface, key, mixing]
@@ -113,3 +113,14 @@ For details, see "Using the key shift function" in the PERFORMANCE mode (page 16
 **Note**
 
 - Depending on your subscription plan and DJ equipment connected to your computer, the [DUAL PLAYER] layout may not be available. For details on subscription plan, refer to the rekordbox website.
+
+## Related Documents
+
+- [features/overview.md](../features/overview.md) (export, interface)
+- [guides/introduction.md](../guides/introduction.md) (export, interface)
+- [guides/video-function.md](../guides/video-function.md) (interface, mixing)
+- [manual/09-collaborative-playlists.md](09-collaborative-playlists.md) (export, interface)
+- [manual/10-mobile-devices.md](10-mobile-devices.md) (export, interface)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (export, interface)
+- [manual/15-export-lan.md](15-export-lan.md) (export, mixing)
+- [manual/18-performance-screen.md](18-performance-screen.md) (interface, mixing)

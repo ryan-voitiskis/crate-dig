@@ -1,0 +1,967 @@
+schema_version: 1
+corpus: rekordbox
+description: Comprehensive rekordbox 7.x knowledge corpus
+software_version: 7.2.8
+last_updated: '2026-02-17'
+source_documents:
+  pdfs: 18
+  faq_items: 288
+  web_pages: 4
+taxonomy:
+  topics:
+  - analysis
+  - backup
+  - beatgrid
+  - browsing
+  - cloud
+  - collaborative-playlists
+  - collection
+  - color
+  - comments
+  - compatibility
+  - connection
+  - cue-points
+  - devices
+  - dvs
+  - edit
+  - effects
+  - equipment
+  - export
+  - file-formats
+  - genre
+  - history
+  - hot-cue
+  - import
+  - interface
+  - key
+  - library
+  - lighting
+  - link
+  - memory-cue
+  - metadata
+  - midi
+  - mixing
+  - mobile
+  - onelibrary
+  - pads
+  - performance
+  - phrase
+  - playback
+  - playlists
+  - preferences
+  - pro-dj-link
+  - rating
+  - recording
+  - sampler
+  - search
+  - sequencer
+  - slicer
+  - stems
+  - streaming
+  - subscription
+  - system-requirements
+  - track-suggestion
+  - usb
+  - video
+  - waveform
+  - xml
+  modes:
+  - common
+  - export
+  - performance
+  - lighting
+  - edit
+  types:
+  - manual
+  - guide
+  - faq
+  - feature
+  - reference
+documents:
+- id: faq-cloud-and-sync
+  title: 'FAQ: Cloud & Sync'
+  type: faq
+  path: faq/cloud-and-sync.md
+  topics:
+  - analysis
+  - cloud
+  - export
+  - onelibrary
+  modes:
+  - common
+  confidence: pending
+- id: faq-hardware-compatibility
+  title: 'FAQ: Hardware Compatibility'
+  type: faq
+  path: faq/hardware-compatibility.md
+  topics:
+  - color
+  - compatibility
+  - dvs
+  - equipment
+  - export
+  - file-formats
+  - onelibrary
+  - usb
+  - waveform
+  modes:
+  - common
+  confidence: pending
+- id: faq-library-and-collection
+  title: 'FAQ: Library & Collection'
+  type: faq
+  path: faq/library-and-collection.md
+  topics:
+  - analysis
+  - collaborative-playlists
+  - collection
+  - export
+  - import
+  - library
+  - metadata
+  - playlists
+  - track-suggestion
+  modes:
+  - common
+  confidence: verified
+- id: faq-lighting-and-video
+  title: 'FAQ: Lighting & Video'
+  type: faq
+  path: faq/lighting-and-video.md
+  topics:
+  - lighting
+  - video
+  modes:
+  - lighting
+  confidence: pending
+- id: faq-plans-and-billing
+  title: 'FAQ: Plans and Billing'
+  type: faq
+  path: faq/plans-and-billing.md
+  topics:
+  - subscription
+  modes:
+  - common
+  confidence: pending
+- id: faq-stems-and-effects
+  title: 'FAQ: STEMS & Effects'
+  type: faq
+  path: faq/stems-and-effects.md
+  topics:
+  - effects
+  - recording
+  - sampler
+  - sequencer
+  - stems
+  modes:
+  - common
+  confidence: pending
+- id: faq-streaming
+  title: 'FAQ: Streaming'
+  type: faq
+  path: faq/streaming.md
+  topics:
+  - streaming
+  modes:
+  - common
+  confidence: pending
+- id: faq-troubleshooting
+  title: 'FAQ: Troubleshooting'
+  type: faq
+  path: faq/troubleshooting.md
+  topics:
+  - analysis
+  - compatibility
+  - link
+  modes:
+  - common
+  confidence: pending
+- id: faq-usb-and-devices
+  title: 'FAQ: USB & Devices'
+  type: faq
+  path: faq/usb-and-devices.md
+  topics:
+  - backup
+  - devices
+  - equipment
+  - export
+  - mobile
+  - pro-dj-link
+  - usb
+  modes:
+  - common
+  confidence: pending
+- id: cloud-setup-guide
+  title: Cloud Setup Guide
+  type: guide
+  path: features/cloud-setup-guide.md
+  topics:
+  - backup
+  - cloud
+  - library
+  - onelibrary
+  modes:
+  - common
+  confidence: pending
+- id: feature-overview
+  title: rekordbox Feature Overview
+  type: feature
+  path: features/overview.md
+  topics:
+  - cloud
+  - collection
+  - effects
+  - export
+  - interface
+  - library
+  - lighting
+  - performance
+  - stems
+  - streaming
+  modes:
+  - common
+  - export
+  - performance
+  - lighting
+  confidence: pending
+- id: whats-new-v7
+  title: Introducing rekordbox ver. 7
+  type: feature
+  path: features/whats-new-v7.md
+  topics:
+  - cloud
+  - interface
+  - onelibrary
+  - stems
+  - streaming
+  - subscription
+  modes:
+  - common
+  confidence: pending
+- id: cloud-direct-play
+  title: CloudDirectPlay Operation Guide
+  type: guide
+  path: guides/cloud-direct-play.md
+  topics:
+  - cloud
+  - devices
+  - playback
+  - pro-dj-link
+  - usb
+  modes:
+  - common
+  - export
+  confidence: pending
+- id: cloud-library-sync
+  title: Cloud Library Sync Operation Guide
+  type: guide
+  path: guides/cloud-library-sync.md
+  topics:
+  - backup
+  - cloud
+  - collection
+  - library
+  - mobile
+  - onelibrary
+  - playlists
+  modes:
+  - common
+  confidence: pending
+- id: device-library-backup
+  title: Device Library Backup Guide
+  type: guide
+  path: guides/device-library-backup.md
+  topics:
+  - backup
+  - devices
+  - export
+  - library
+  - usb
+  modes:
+  - common
+  - export
+  confidence: pending
+- id: dvs-setup
+  title: DVS Setup Guide
+  type: guide
+  path: guides/dvs-setup.md
+  topics:
+  - compatibility
+  - connection
+  - dvs
+  - equipment
+  - mixing
+  - performance
+  modes:
+  - performance
+  confidence: pending
+- id: edit-mode
+  title: Edit Mode Operation Guide
+  type: guide
+  path: guides/edit-mode.md
+  topics:
+  - beatgrid
+  - cue-points
+  - edit
+  - hot-cue
+  - interface
+  - memory-cue
+  - phrase
+  - waveform
+  modes:
+  - edit
+  confidence: pending
+- id: guide-introduction
+  title: Introduction to rekordbox
+  type: guide
+  path: guides/introduction.md
+  topics:
+  - browsing
+  - collection
+  - export
+  - interface
+  - library
+  - lighting
+  - performance
+  - subscription
+  - system-requirements
+  modes:
+  - common
+  - export
+  - performance
+  - lighting
+  confidence: pending
+- id: keyboard-shortcuts
+  title: Default Keyboard Shortcut Reference
+  type: guide
+  path: guides/keyboard-shortcuts.md
+  topics:
+  - browsing
+  - interface
+  - playback
+  modes:
+  - common
+  - export
+  - performance
+  confidence: pending
+- id: lighting-mode
+  title: Lighting Mode Operation Guide
+  type: guide
+  path: guides/lighting-mode.md
+  topics:
+  - effects
+  - interface
+  - lighting
+  - midi
+  - phrase
+  - preferences
+  modes:
+  - lighting
+  confidence: pending
+- id: midi-learn
+  title: MIDI Learn Operation Guide
+  type: guide
+  path: guides/midi-learn.md
+  topics:
+  - connection
+  - equipment
+  - midi
+  - performance
+  modes:
+  - performance
+  confidence: pending
+- id: pad-editor
+  title: Pad Editor Operation Guide
+  type: guide
+  path: guides/pad-editor.md
+  topics:
+  - cue-points
+  - hot-cue
+  - interface
+  - pads
+  - performance
+  modes:
+  - performance
+  confidence: pending
+- id: performance-mode-connection
+  title: Connection Guide for Performance Mode
+  type: guide
+  path: guides/performance-mode-connection.md
+  topics:
+  - compatibility
+  - connection
+  - devices
+  - dvs
+  - equipment
+  - performance
+  modes:
+  - performance
+  confidence: pending
+- id: phrase-edit
+  title: Phrase Edit Operation Guide
+  type: guide
+  path: guides/phrase-edit.md
+  topics:
+  - analysis
+  - edit
+  - phrase
+  - waveform
+  modes:
+  - common
+  confidence: pending
+- id: pro-dj-link-setup
+  title: PRO DJ LINK Setup Guide
+  type: guide
+  path: guides/pro-dj-link-setup.md
+  topics:
+  - connection
+  - devices
+  - equipment
+  - link
+  - pro-dj-link
+  modes:
+  - common
+  - export
+  confidence: pending
+- id: streaming-services
+  title: Streaming Service Usage Guide
+  type: guide
+  path: guides/streaming-services.md
+  topics:
+  - collection
+  - compatibility
+  - library
+  - playback
+  - streaming
+  modes:
+  - common
+  - export
+  - performance
+  confidence: pending
+- id: usb-export
+  title: USB Export Guide
+  type: guide
+  path: guides/usb-export.md
+  topics:
+  - devices
+  - export
+  - library
+  - playlists
+  - usb
+  modes:
+  - export
+  confidence: pending
+- id: video-function
+  title: Video Function Operation Guide
+  type: guide
+  path: guides/video-function.md
+  topics:
+  - effects
+  - interface
+  - mixing
+  - playback
+  - preferences
+  - video
+  modes:
+  - performance
+  confidence: pending
+- id: xml-format-spec
+  title: XML Format List
+  type: guide
+  path: guides/xml-format-spec.md
+  topics:
+  - export
+  - import
+  - metadata
+  - xml
+  modes:
+  - common
+  confidence: verified
+- id: introduction
+  title: Introduction
+  type: manual
+  path: manual/01-introduction.md
+  topics:
+  - interface
+  - subscription
+  modes:
+  - common
+  confidence: pending
+- id: collection-window
+  title: About the [Collection] window
+  type: manual
+  path: manual/02-collection-window.md
+  topics:
+  - browsing
+  - collection
+  - interface
+  - library
+  modes:
+  - common
+  confidence: pending
+- id: adding-tracks
+  title: Adding a track
+  type: manual
+  path: manual/03-adding-tracks.md
+  topics:
+  - analysis
+  - collection
+  - file-formats
+  - history
+  - import
+  - library
+  - xml
+  modes:
+  - common
+  confidence: pending
+- id: management
+  title: Management
+  type: manual
+  path: manual/04-management.md
+  topics:
+  - backup
+  - collection
+  - library
+  modes:
+  - common
+  confidence: pending
+- id: editing-track-info
+  title: Editing track information
+  type: manual
+  path: manual/05-editing-track-info.md
+  topics:
+  - collection
+  - edit
+  - key
+  - metadata
+  - rating
+  modes:
+  - common
+  confidence: pending
+- id: searching
+  title: Searching for a track
+  type: manual
+  path: manual/06-searching.md
+  topics:
+  - browsing
+  - collection
+  - genre
+  - key
+  - playlists
+  - rating
+  - search
+  - track-suggestion
+  modes:
+  - common
+  - export
+  - performance
+  confidence: pending
+- id: playlists
+  title: Using a Playlist
+  type: manual
+  path: manual/07-playlists.md
+  topics:
+  - collection
+  - export
+  - import
+  - playlists
+  modes:
+  - common
+  - performance
+  confidence: pending
+- id: intelligent-cue
+  title: Using the INTELLIGENT CUE CREATION function
+  type: manual
+  path: manual/08-intelligent-cue.md
+  topics:
+  - analysis
+  - cue-points
+  - hot-cue
+  - memory-cue
+  - playlists
+  - preferences
+  modes:
+  - common
+  confidence: pending
+- id: collaborative-playlists
+  title: Using a Collaborative Playlist
+  type: manual
+  path: manual/09-collaborative-playlists.md
+  topics:
+  - browsing
+  - collaborative-playlists
+  - export
+  - import
+  - interface
+  - playlists
+  - search
+  - usb
+  - xml
+  modes:
+  - common
+  - export
+  confidence: pending
+- id: mobile-devices
+  title: Using mobile devices to prepare for DJ performance
+  type: manual
+  path: manual/10-mobile-devices.md
+  topics:
+  - cloud
+  - connection
+  - devices
+  - export
+  - interface
+  - mobile
+  modes:
+  - common
+  - export
+  confidence: pending
+- id: export-mode-screen
+  title: EXPORT mode screen
+  type: manual
+  path: manual/11-export-mode-screen.md
+  topics:
+  - browsing
+  - collection
+  - export
+  - interface
+  - playlists
+  - waveform
+  modes:
+  - export
+  confidence: pending
+- id: export-preparing
+  title: Preparing for DJ performance
+  type: manual
+  path: manual/12-export-preparing.md
+  topics:
+  - export
+  modes:
+  - export
+  confidence: pending
+- id: export-pro-dj-link
+  title: Using with DJ equipment (PRO DJ LINK)
+  type: manual
+  path: manual/13-export-pro-dj-link.md
+  topics:
+  - connection
+  - export
+  - link
+  - pro-dj-link
+  - usb
+  modes:
+  - export
+  confidence: pending
+- id: export-playing
+  title: Playing tracks
+  type: manual
+  path: manual/14-export-playing.md
+  topics:
+  - analysis
+  - beatgrid
+  - cue-points
+  - export
+  - history
+  - hot-cue
+  - playback
+  - usb
+  - waveform
+  modes:
+  - export
+  confidence: pending
+- id: export-lan
+  title: Using the LAN connection
+  type: manual
+  path: manual/15-export-lan.md
+  topics:
+  - browsing
+  - connection
+  - devices
+  - export
+  - mixing
+  - pro-dj-link
+  modes:
+  - export
+  confidence: pending
+- id: export-mixing
+  title: Mixing ([2 PLAYER] layout)
+  type: manual
+  path: manual/16-export-mixing.md
+  topics:
+  - export
+  - interface
+  - key
+  - mixing
+  modes:
+  - export
+  confidence: pending
+- id: export-recording
+  title: Recording
+  type: manual
+  path: manual/17-export-recording.md
+  topics:
+  - analysis
+  - devices
+  - export
+  - file-formats
+  - recording
+  modes:
+  - export
+  confidence: pending
+- id: performance-screen
+  title: PERFORMANCE mode
+  type: manual
+  path: manual/18-performance-screen.md
+  topics:
+  - beatgrid
+  - cue-points
+  - effects
+  - hot-cue
+  - interface
+  - memory-cue
+  - mixing
+  - pads
+  - performance
+  - playback
+  - sampler
+  - sequencer
+  - slicer
+  - stems
+  - waveform
+  modes:
+  - performance
+  confidence: pending
+- id: performance-preparing
+  title: Preparing for DJ performance
+  type: manual
+  path: manual/19-performance-preparing.md
+  topics:
+  - browsing
+  - devices
+  - equipment
+  - export
+  - link
+  - mixing
+  - recording
+  - sequencer
+  - waveform
+  modes:
+  - performance
+  confidence: pending
+- id: performance-playing
+  title: Playing tracks
+  type: manual
+  path: manual/20-performance-playing.md
+  topics:
+  - analysis
+  - beatgrid
+  - cue-points
+  - hot-cue
+  - key
+  - mixing
+  - playback
+  modes:
+  - performance
+  confidence: pending
+- id: performance-recording
+  title: Recording
+  type: manual
+  path: manual/21-performance-recording.md
+  topics:
+  - file-formats
+  - performance
+  - recording
+  modes:
+  - performance
+  confidence: pending
+- id: performance-effects
+  title: Using effect features
+  type: manual
+  path: manual/22-performance-effects.md
+  topics:
+  - beatgrid
+  - effects
+  - performance
+  modes:
+  - performance
+  confidence: pending
+- id: sampler-deck
+  title: Using the sampler deck
+  type: manual
+  path: manual/23-sampler-deck.md
+  topics:
+  - beatgrid
+  - edit
+  - key
+  - mixing
+  - playback
+  - sampler
+  modes:
+  - performance
+  confidence: pending
+- id: sequencer
+  title: Using a sequencer
+  type: manual
+  path: manual/24-sequencer.md
+  topics:
+  - sampler
+  - sequencer
+  modes:
+  - performance
+  confidence: pending
+- id: slicer
+  title: Using a slicer
+  type: manual
+  path: manual/25-slicer.md
+  topics:
+  - beatgrid
+  - pads
+  - sampler
+  - slicer
+  modes:
+  - performance
+  confidence: pending
+- id: capture
+  title: Extracting a section from a track (CAPTURE)
+  type: manual
+  path: manual/26-capture.md
+  topics:
+  - pads
+  - sampler
+  - slicer
+  modes:
+  - performance
+  confidence: pending
+- id: active-censor
+  title: Using ACTIVE CENSOR
+  type: manual
+  path: manual/27-active-censor.md
+  topics:
+  - cue-points
+  - effects
+  - pads
+  modes:
+  - performance
+  confidence: pending
+- id: stems
+  title: Using the STEMS function
+  type: manual
+  path: manual/28-stems.md
+  topics:
+  - effects
+  - stems
+  modes:
+  - performance
+  confidence: pending
+- id: mix-point-link
+  title: Using the MIX POINT LINK function
+  type: manual
+  path: manual/29-mix-point-link.md
+  topics:
+  - hot-cue
+  - link
+  - memory-cue
+  - mixing
+  - playback
+  modes:
+  - performance
+  confidence: pending
+- id: info-window
+  title: '[INFO] window'
+  type: manual
+  path: manual/30-info-window.md
+  topics:
+  - interface
+  - subscription
+  modes:
+  - export
+  - performance
+  confidence: pending
+- id: preferences
+  title: '[Preferences] window'
+  type: manual
+  path: manual/31-preferences.md
+  topics:
+  - analysis
+  - cloud
+  - devices
+  - dvs
+  - equipment
+  - interface
+  - preferences
+  - stems
+  - subscription
+  modes:
+  - export
+  - performance
+  confidence: verified
+- id: menu-list
+  title: Menu list
+  type: manual
+  path: manual/32-menu-list.md
+  topics:
+  - dvs
+  - effects
+  - interface
+  - lighting
+  - preferences
+  - stems
+  - video
+  modes:
+  - export
+  - performance
+  confidence: pending
+- id: appendix
+  title: Appendix
+  type: manual
+  path: manual/33-appendix.md
+  topics:
+  - file-formats
+  - system-requirements
+  modes:
+  - export
+  - performance
+  confidence: pending
+- id: developer-integration
+  title: Developer Integration
+  type: reference
+  path: reference/developer-integration.md
+  topics:
+  - export
+  - import
+  - library
+  - metadata
+  - xml
+  modes:
+  - common
+  confidence: pending
+- id: glossary
+  title: Rekordbox Glossary (Bracketed Terms)
+  type: reference
+  path: reference/glossary.md
+  topics:
+  - interface
+  - metadata
+  - library
+  modes:
+  - common
+  - export
+  - performance
+  - lighting
+  - edit
+  confidence: high
+- id: xml-import-export
+  title: rekordbox XML Import/Export Reference
+  type: reference
+  path: reference/xml-import-export.md
+  topics:
+  - export
+  - import
+  - library
+  - metadata
+  - xml
+  modes:
+  - common
+  - export
+  - performance
+  confidence: high

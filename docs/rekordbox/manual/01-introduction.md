@@ -3,7 +3,7 @@ id: introduction
 title: "Introduction"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "1-6"
   version: "7.2.8"
 topics: [interface, subscription]
@@ -143,3 +143,14 @@ Depending on your subscription plan, some functions may not be available. For de
 
 Click [INFO] in the upper-right of the screen. The [INFO] window will be displayed to show information about rekordbox ([INFORMATION]) and notifications ([NOTIFICATION]) in rekordbox.
 For more details, refer to "rekordbox Introduction" on the rekordbox website.
+
+## Related Documents
+
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (interface, subscription)
+- [guides/introduction.md](../guides/introduction.md) (interface, subscription)
+- [manual/30-info-window.md](30-info-window.md) (interface, subscription)
+- [manual/31-preferences.md](31-preferences.md) (interface, subscription)
+- [faq/plans-and-billing.md](../faq/plans-and-billing.md) (subscription)
+- [features/overview.md](../features/overview.md) (interface)
+- [guides/edit-mode.md](../guides/edit-mode.md) (interface)
+- [guides/keyboard-shortcuts.md](../guides/keyboard-shortcuts.md) (interface)

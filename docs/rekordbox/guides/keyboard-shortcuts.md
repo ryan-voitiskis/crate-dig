@@ -3,7 +3,7 @@ id: keyboard-shortcuts
 title: "Default Keyboard Shortcut Reference"
 type: guide
 source:
-  file: rekordbox7.0.5_default_keyboard_shortcut_reference_EN.pdf
+  file: "rekordbox7.0.5_default_keyboard_shortcut_reference_EN.pdf"
   pages: "1-10"
   version: "7.0.5"
 topics: [browsing, interface, playback]
@@ -290,3 +290,14 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) AlphaTheta Corporation.
+
+## Related Documents
+
+- [guides/introduction.md](introduction.md) (browsing, interface)
+- [guides/video-function.md](video-function.md) (interface, playback)
+- [manual/02-collection-window.md](../manual/02-collection-window.md) (browsing, interface)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (browsing, interface)
+- [manual/11-export-mode-screen.md](../manual/11-export-mode-screen.md) (browsing, interface)
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (interface, playback)
+- [features/overview.md](../features/overview.md) (interface)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (interface)

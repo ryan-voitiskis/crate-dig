@@ -3,7 +3,7 @@ id: menu-list
 title: "Menu list"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "242-250"
   version: "7.2.8"
 topics: [dvs, effects, interface, lighting, preferences, stems, video]
@@ -204,3 +204,14 @@ Exit rekordbox.
 | [rekordbox Update Manager] | Connect to the update site. |
 | [About rekordbox] (for Windows) | Display your installed version of rekordbox. |
 | [Owner registration/Product registration] | You can register to your account as an owner by connecting your AlphaTheta DJ products. |
+
+## Related Documents
+
+- [features/overview.md](../features/overview.md) (effects, interface, lighting, stems)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects, interface, lighting, preferences)
+- [guides/video-function.md](../guides/video-function.md) (effects, interface, preferences, video)
+- [manual/31-preferences.md](31-preferences.md) (dvs, interface, preferences, stems)
+- [manual/18-performance-screen.md](18-performance-screen.md) (effects, interface, stems)
+- [faq/lighting-and-video.md](../faq/lighting-and-video.md) (lighting, video)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (effects, stems)
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (interface, stems)

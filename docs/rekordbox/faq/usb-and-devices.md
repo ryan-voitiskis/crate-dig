@@ -3,7 +3,7 @@ id: faq-usb-and-devices
 title: "FAQ: USB & Devices"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [backup, devices, equipment, export, mobile, pro-dj-link, usb]
@@ -138,3 +138,14 @@ File systems supported by rekordbox are the following.
 Refer to the Pioneer DJ support page for SD memory cards and USB storage devices that are available on DJ equipment.
 
 ---
+
+## Related Documents
+
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (backup, devices, export, usb)
+- [faq/hardware-compatibility.md](hardware-compatibility.md) (equipment, export, usb)
+- [guides/cloud-direct-play.md](../guides/cloud-direct-play.md) (devices, pro-dj-link, usb)
+- [guides/pro-dj-link-setup.md](../guides/pro-dj-link-setup.md) (devices, equipment, pro-dj-link)
+- [guides/usb-export.md](../guides/usb-export.md) (devices, export, usb)
+- [manual/10-mobile-devices.md](../manual/10-mobile-devices.md) (devices, export, mobile)
+- [manual/13-export-pro-dj-link.md](../manual/13-export-pro-dj-link.md) (export, pro-dj-link, usb)
+- [manual/15-export-lan.md](../manual/15-export-lan.md) (devices, export, pro-dj-link)

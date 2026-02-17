@@ -3,7 +3,7 @@ id: active-censor
 title: "Using ACTIVE CENSOR"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "203-205"
   version: "7.2.8"
 topics: [cue-points, effects, pads]
@@ -77,3 +77,14 @@ When the playback position is within the specified section, the [IN] and [OUT] p
 
 2. Move the OUT point and click [OUT ADJ].
    The OUT point changes.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (cue-points, effects, pads)
+- [guides/pad-editor.md](../guides/pad-editor.md) (cue-points, pads)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (effects)
+- [features/overview.md](../features/overview.md) (effects)
+- [guides/edit-mode.md](../guides/edit-mode.md) (cue-points)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects)
+- [guides/video-function.md](../guides/video-function.md) (effects)
+- [manual/08-intelligent-cue.md](08-intelligent-cue.md) (cue-points)

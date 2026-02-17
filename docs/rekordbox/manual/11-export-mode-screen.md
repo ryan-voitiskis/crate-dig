@@ -3,7 +3,7 @@ id: export-mode-screen
 title: "EXPORT mode screen"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "60-81"
   version: "7.2.8"
 topics: [browsing, collection, export, interface, playlists, waveform]
@@ -498,3 +498,14 @@ The [LINK] button is displayed when rekordbox is connected to the DJ equipment s
 4. Load the current master tempo (BPM).
 
 5. Display the status of each DJ equipment connected by a LAN cable or wireless LAN. (Link Status)
+
+## Related Documents
+
+- [guides/introduction.md](../guides/introduction.md) (browsing, collection, export, interface)
+- [manual/09-collaborative-playlists.md](09-collaborative-playlists.md) (browsing, export, interface, playlists)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, export, playlists)
+- [features/overview.md](../features/overview.md) (collection, export, interface)
+- [manual/02-collection-window.md](02-collection-window.md) (browsing, collection, interface)
+- [manual/06-searching.md](06-searching.md) (browsing, collection, playlists)
+- [manual/07-playlists.md](07-playlists.md) (collection, export, playlists)
+- [manual/19-performance-preparing.md](19-performance-preparing.md) (browsing, export, waveform)

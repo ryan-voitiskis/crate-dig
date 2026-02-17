@@ -3,7 +3,7 @@ id: editing-track-info
 title: "Editing track information"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "25-26"
   version: "7.2.8"
 topics: [collection, edit, key, metadata, rating]
@@ -52,3 +52,14 @@ To update tag information which has been changed using another application, you 
 **Note**
 
 - After reloading tag information, edited track information is replaced with the reloaded information.
+
+## Related Documents
+
+- [manual/06-searching.md](06-searching.md) (collection, key, rating)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, metadata)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (edit, key)
+- [features/overview.md](../features/overview.md) (collection)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection)
+- [guides/edit-mode.md](../guides/edit-mode.md) (edit)
+- [guides/introduction.md](../guides/introduction.md) (collection)
+- [guides/phrase-edit.md](../guides/phrase-edit.md) (edit)

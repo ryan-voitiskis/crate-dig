@@ -3,7 +3,7 @@ id: performance-mode-connection
 title: "Connection Guide for Performance Mode"
 type: guide
 source:
-  file: rekordbox5.3.0_connection_guide_for_performance_mode_EN.pdf
+  file: "rekordbox5.3.0_connection_guide_for_performance_mode_EN.pdf"
   pages: "1-17"
   version: "5.3.0"
 topics: [compatibility, connection, devices, dvs, equipment, performance]
@@ -343,3 +343,14 @@ The completes settings for the all-in-one DJ system.
 - Other product, technology and company names, etc. mentioned herein are the trade names or registered trademarks of their respective owners.
 
 (C) 2018 Pioneer DJ Corporation. All rights reserved.
+
+## Related Documents
+
+- [guides/dvs-setup.md](dvs-setup.md) (compatibility, connection, dvs, equipment)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (compatibility, dvs, equipment)
+- [guides/midi-learn.md](midi-learn.md) (connection, equipment, performance)
+- [guides/pro-dj-link-setup.md](pro-dj-link-setup.md) (connection, devices, equipment)
+- [manual/31-preferences.md](../manual/31-preferences.md) (devices, dvs, equipment)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, equipment)
+- [manual/10-mobile-devices.md](../manual/10-mobile-devices.md) (connection, devices)
+- [manual/15-export-lan.md](../manual/15-export-lan.md) (connection, devices)

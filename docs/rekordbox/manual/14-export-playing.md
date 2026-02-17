@@ -3,7 +3,7 @@ id: export-playing
 title: "Playing tracks"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "87-108"
   version: "7.2.8"
 topics: [analysis, beatgrid, cue-points, export, history, hot-cue, playback, usb, waveform]
@@ -640,3 +640,14 @@ The following information is updated.
 
 - If you click [Cancel] while updating, the [Update Collection with USB Device] window is closed.
 - Depending on the DJ player, updated information may differ.
+
+## Related Documents
+
+- [manual/18-performance-screen.md](18-performance-screen.md) (beatgrid, cue-points, hot-cue, playback)
+- [manual/20-performance-playing.md](20-performance-playing.md) (analysis, beatgrid, cue-points, hot-cue)
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid, cue-points, hot-cue, waveform)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export, usb, waveform)
+- [manual/08-intelligent-cue.md](08-intelligent-cue.md) (analysis, cue-points, hot-cue)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (analysis, export)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (analysis, export)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (export, usb)

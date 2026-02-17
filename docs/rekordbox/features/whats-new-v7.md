@@ -85,3 +85,14 @@ If you share a playlist that includes tracks from a streaming service, anyone wh
 ## Owner registration enables free control of selected new features
 
 [Dual Player] layout, [Collection Filter], [Column View], and other paid features are available free when eligible DJ equipment is registered to an AlphaTheta account. These functions remain available even when DJ equipment is disconnected from PC/Mac. Registration is done through rekordbox ver. 7 with an AlphaTheta account.
+
+## Related Documents
+
+- [features/overview.md](overview.md) (cloud, interface, stems, streaming)
+- [manual/31-preferences.md](../manual/31-preferences.md) (cloud, interface, stems, subscription)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (cloud, onelibrary)
+- [features/cloud-setup-guide.md](cloud-setup-guide.md) (cloud, onelibrary)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (cloud, onelibrary)
+- [guides/introduction.md](../guides/introduction.md) (interface, subscription)
+- [manual/01-introduction.md](../manual/01-introduction.md) (interface, subscription)
+- [manual/10-mobile-devices.md](../manual/10-mobile-devices.md) (cloud, interface)

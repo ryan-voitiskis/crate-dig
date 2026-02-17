@@ -3,7 +3,7 @@ id: performance-screen
 title: "PERFORMANCE mode"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "121-140"
   version: "7.2.8"
 topics: [beatgrid, cue-points, effects, hot-cue, interface, memory-cue, mixing, pads, performance, playback, sampler, sequencer, slicer, stems, waveform]
@@ -516,3 +516,14 @@ For details on operation, see "Using a sequencer" (page 193).
    Metronome sound starts with the playback track, synchronized with the beat grid.
 
 10. Change the metronome volume to one of three levels.
+
+## Related Documents
+
+- [guides/edit-mode.md](../guides/edit-mode.md) (beatgrid, cue-points, hot-cue, interface)
+- [guides/pad-editor.md](../guides/pad-editor.md) (cue-points, hot-cue, interface, pads)
+- [manual/14-export-playing.md](14-export-playing.md) (beatgrid, cue-points, hot-cue, playback)
+- [manual/20-performance-playing.md](20-performance-playing.md) (beatgrid, cue-points, hot-cue, mixing)
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (effects, sampler, sequencer, stems)
+- [features/overview.md](../features/overview.md) (effects, interface, performance, stems)
+- [guides/video-function.md](../guides/video-function.md) (effects, interface, mixing, playback)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (beatgrid, mixing, playback, sampler)

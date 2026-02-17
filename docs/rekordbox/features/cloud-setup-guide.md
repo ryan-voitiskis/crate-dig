@@ -90,3 +90,14 @@ Also, on the My account page (website), check the following.
 - If you use an account that has "already joined another Dropbox team" or "Sign in with Apple ID", you may encounter errors, please refer to the [FAQ](https://rekordbox.com/en/support/faq/cloud-unlimited-6/#faq-q600152).
 - For other frequently asked questions about rekordbox Cloud Storage 5TB powered by Dropbox, please also refer to the [FAQ](https://rekordbox.com/en/support/faq/cloud-unlimited-6/).
 - Please also refer to the [Software License Agreement](https://rekordbox.com/en/license-agreement/).
+
+## Related Documents
+
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (backup, cloud, library, onelibrary)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (cloud, onelibrary)
+- [features/overview.md](overview.md) (cloud, library)
+- [features/whats-new-v7.md](whats-new-v7.md) (cloud, onelibrary)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (backup, library)
+- [manual/04-management.md](../manual/04-management.md) (backup, library)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (onelibrary)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (library)

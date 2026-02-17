@@ -3,7 +3,7 @@ id: adding-tracks
 title: "Adding a track"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "13-20"
   version: "7.2.8"
 topics: [analysis, collection, file-formats, history, import, library, xml]
@@ -225,3 +225,14 @@ When a track is removed from [Collection], the music file is not deleted from th
 
 - A track can be also removed by right-clicking the track and selecting [Remove from Collection].
 - You can choose to just remove a track in Inflyte from [Collection], or completely delete the file from the computer.
+
+## Related Documents
+
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (analysis, collection, import, library)
+- [reference/developer-integration.md](../reference/developer-integration.md) (import, library, xml)
+- [reference/xml-import-export.md](../reference/xml-import-export.md) (import, library, xml)
+- [features/overview.md](../features/overview.md) (collection, library)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (collection, library)
+- [guides/introduction.md](../guides/introduction.md) (collection, library)
+- [guides/streaming-services.md](../guides/streaming-services.md) (collection, library)
+- [guides/xml-format-spec.md](../guides/xml-format-spec.md) (import, xml)

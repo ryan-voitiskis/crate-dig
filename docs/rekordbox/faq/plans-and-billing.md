@@ -3,7 +3,7 @@ id: faq-plans-and-billing
 title: "FAQ: Plans and Billing"
 type: faq
 source:
-  file: rekordbox7-faq.md
+  file: "rekordbox7-faq.md"
   url: "https://rekordbox.com/en/support/faq/rekordbox7/"
   version: "7.x"
 topics: [subscription]
@@ -931,3 +931,10 @@ To render edited tracks as audio files, you'll need to subscribe to the Creative
 
 ---
 
+## Related Documents
+
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (subscription)
+- [guides/introduction.md](../guides/introduction.md) (subscription)
+- [manual/01-introduction.md](../manual/01-introduction.md) (subscription)
+- [manual/30-info-window.md](../manual/30-info-window.md) (subscription)
+- [manual/31-preferences.md](../manual/31-preferences.md) (subscription)

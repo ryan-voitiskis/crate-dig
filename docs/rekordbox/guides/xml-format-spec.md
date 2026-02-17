@@ -3,15 +3,15 @@ id: xml-format-spec
 title: "XML Format List"
 type: guide
 source:
-  file: xml_format_list.pdf
+  file: "xml_format_list.pdf"
   pages: "1"
   version: "7.x"
 topics: [export, import, metadata, xml]
 modes: [common]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # XML file format for playlists sharing (includes all playlists information)
@@ -88,3 +88,14 @@ verified_by: null
 - all 'string' fields are encoded using UTF8 encoding, with XML entities encoded (&, <, >, ' and ")
 - numeric fields are encoded using integer or floating point values, which should be 'locale' independent (no space between digits, dot or comma decimal separator for floating point (e.g. "321453.16312") )
 - 'LOCATION' field is encoded as an URI; expected media to be located in 'file://localhost/'
+
+## Related Documents
+
+- [reference/developer-integration.md](../reference/developer-integration.md) (export, import, metadata, xml)
+- [reference/xml-import-export.md](../reference/xml-import-export.md) (export, import, metadata, xml)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (export, import, metadata)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (export, import, xml)
+- [manual/03-adding-tracks.md](../manual/03-adding-tracks.md) (import, xml)
+- [manual/07-playlists.md](../manual/07-playlists.md) (export, import)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (export)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export)

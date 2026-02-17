@@ -3,7 +3,7 @@ id: export-lan
 title: "Using the LAN connection"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "109-113"
   version: "7.2.8"
 topics: [browsing, connection, devices, export, mixing, pro-dj-link]
@@ -144,3 +144,14 @@ When tracks are added from rekordbox to Tag List, the tracks on Tag List can be 
 **Play tracks on a DJ player by using Tag List**
 
 By operating the DJ player, tracks on Tag List can be loaded and played on each DJ player, and tag lists actually used during performances can be saved as rekordbox playlists. For instructions on accessing tag lists from the DJ player, refer to the Instruction Manual of the DJ player.
+
+## Related Documents
+
+- [manual/19-performance-preparing.md](19-performance-preparing.md) (browsing, devices, export, mixing)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, export, pro-dj-link)
+- [guides/pro-dj-link-setup.md](../guides/pro-dj-link-setup.md) (connection, devices, pro-dj-link)
+- [manual/10-mobile-devices.md](10-mobile-devices.md) (connection, devices, export)
+- [manual/13-export-pro-dj-link.md](13-export-pro-dj-link.md) (connection, export, pro-dj-link)
+- [guides/cloud-direct-play.md](../guides/cloud-direct-play.md) (devices, pro-dj-link)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (devices, export)
+- [guides/dvs-setup.md](../guides/dvs-setup.md) (connection, mixing)

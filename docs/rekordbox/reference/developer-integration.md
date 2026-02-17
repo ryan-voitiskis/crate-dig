@@ -42,3 +42,14 @@ Multiple playlists or playlist folders with the same name can't exist in the sam
 ### Inquiries
 
 [Make an Inquiry](https://forums.pioneerdj.com/hc/en-us/requests/new?ticket_form_id=72145)
+
+## Related Documents
+
+- [reference/xml-import-export.md](xml-import-export.md) (export, import, library, metadata)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (export, import, library, metadata)
+- [guides/xml-format-spec.md](../guides/xml-format-spec.md) (export, import, metadata, xml)
+- [manual/03-adding-tracks.md](../manual/03-adding-tracks.md) (import, library, xml)
+- [manual/09-collaborative-playlists.md](../manual/09-collaborative-playlists.md) (export, import, xml)
+- [features/overview.md](../features/overview.md) (export, library)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (export, library)
+- [guides/introduction.md](../guides/introduction.md) (export, library)

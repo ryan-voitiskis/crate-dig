@@ -3,15 +3,15 @@ id: preferences
 title: "[Preferences] window"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "223-242"
   version: "7.2.8"
 topics: [analysis, cloud, devices, dvs, equipment, interface, preferences, stems, subscription]
 modes: [export, performance]
-confidence: pending
-last_verified: null
+confidence: verified
+last_verified: "2026-02-17"
 transcribed_by: agent
-verified_by: null
+verified_by: agent
 ---
 
 # [Preferences] window
@@ -374,3 +374,14 @@ Click the [Enable the STEMS Function] checkbox to enable the STEMS function.
 | | |
 |---|---|
 | [STEMS Mode] | You can choose to divide the track into either 3 Stems or 4 Stems. [3 Stems(VOCAL, INST, DRUMS)]: A track can be divided into the VOCAL, INST, and DRUMS Stems, to be played. [4 Stems(VOCAL, INST, BASS, DRUMS)]: A track can be divided into the VOCAL, INST, BASS, and DRUMS Stems, to be played. |
+
+## Related Documents
+
+- [features/whats-new-v7.md](../features/whats-new-v7.md) (cloud, interface, stems, subscription)
+- [manual/32-menu-list.md](32-menu-list.md) (dvs, interface, preferences, stems)
+- [features/overview.md](../features/overview.md) (cloud, interface, stems)
+- [guides/performance-mode-connection.md](../guides/performance-mode-connection.md) (devices, dvs, equipment)
+- [manual/10-mobile-devices.md](10-mobile-devices.md) (cloud, devices, interface)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (analysis, cloud)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (dvs, equipment)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, equipment)

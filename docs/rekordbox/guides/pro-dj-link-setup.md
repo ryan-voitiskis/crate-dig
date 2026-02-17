@@ -3,7 +3,7 @@ id: pro-dj-link-setup
 title: "PRO DJ LINK Setup Guide"
 type: guide
 source:
-  file: PRODJLINK_SetupGuide_ver2_en.pdf
+  file: "PRODJLINK_SetupGuide_ver2_en.pdf"
   pages: "1-17"
   version: "2.0"
 topics: [connection, devices, equipment, link, pro-dj-link]
@@ -301,3 +301,14 @@ Connect the audio cable so that the [PLAYER No.] on the DJ player matches the ch
 ---
 
 Copyright 2025 AlphaTheta Corporation. All right reserved.
+
+## Related Documents
+
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (devices, equipment, pro-dj-link)
+- [guides/performance-mode-connection.md](performance-mode-connection.md) (connection, devices, equipment)
+- [manual/13-export-pro-dj-link.md](../manual/13-export-pro-dj-link.md) (connection, link, pro-dj-link)
+- [manual/15-export-lan.md](../manual/15-export-lan.md) (connection, devices, pro-dj-link)
+- [manual/19-performance-preparing.md](../manual/19-performance-preparing.md) (devices, equipment, link)
+- [guides/cloud-direct-play.md](cloud-direct-play.md) (devices, pro-dj-link)
+- [guides/dvs-setup.md](dvs-setup.md) (connection, equipment)
+- [guides/midi-learn.md](midi-learn.md) (connection, equipment)

@@ -3,7 +3,7 @@ id: phrase-edit
 title: "Phrase Edit Operation Guide"
 type: guide
 source:
-  file: rekordbox7.0.5_Phrase_Edit_operation_guide_EN.pdf
+  file: "rekordbox7.0.5_Phrase_Edit_operation_guide_EN.pdf"
   pages: "1-8"
   version: "7.0.5"
 topics: [analysis, edit, phrase, waveform]
@@ -169,3 +169,14 @@ If you clear phrases, results of Phrase Analysis will be deleted except [Intro].
 - Other product, technology and company names, etc. mentioned herein are trademarks or registered trademarks of their respective owners.
 
 (C) AlphaTheta Corporation.
+
+## Related Documents
+
+- [guides/edit-mode.md](edit-mode.md) (edit, phrase, waveform)
+- [manual/14-export-playing.md](../manual/14-export-playing.md) (analysis, waveform)
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (analysis)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (waveform)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (analysis)
+- [faq/troubleshooting.md](../faq/troubleshooting.md) (analysis)
+- [guides/lighting-mode.md](lighting-mode.md) (phrase)
+- [manual/03-adding-tracks.md](../manual/03-adding-tracks.md) (analysis)

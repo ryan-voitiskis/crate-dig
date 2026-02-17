@@ -3,7 +3,7 @@ id: export-preparing
 title: "Preparing for DJ performance"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "82"
   version: "7.2.8"
 topics: [export]
@@ -33,3 +33,14 @@ Use rekordbox to prepare for your DJ performance.
 
 4. Play the DJ equipment (PRO DJ LINK) (page 83)
    Enjoy your DJ performance on DJ equipment using point information and playlists prepared on rekordbox with USB storage devices or LAN connection. Performance history on DJ equipment, such as the number of times played and cue/loop point information, is saved and can be copied to rekordbox.
+
+## Related Documents
+
+- [faq/cloud-and-sync.md](../faq/cloud-and-sync.md) (export)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (export)
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (export)
+- [features/overview.md](../features/overview.md) (export)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (export)
+- [guides/introduction.md](../guides/introduction.md) (export)
+- [guides/usb-export.md](../guides/usb-export.md) (export)

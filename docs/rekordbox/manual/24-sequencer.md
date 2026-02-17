@@ -3,7 +3,7 @@ id: sequencer
 title: "Using a sequencer"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "193-196"
   version: "7.2.8"
 topics: [sampler, sequencer]
@@ -139,3 +139,12 @@ You can call and play up to 8 sequences directly with pads.
 - For the screen, see "[SEQ. CALL] (SEQUENCE CALL) mode" (page 132).
 - Click the same pad again to start playback of the sequence from the beginning.
 - When the pad is clicked while pressing a SHIFT key, the sequence playback pauses.
+
+## Related Documents
+
+- [faq/stems-and-effects.md](../faq/stems-and-effects.md) (sampler, sequencer)
+- [manual/18-performance-screen.md](18-performance-screen.md) (sampler, sequencer)
+- [manual/19-performance-preparing.md](19-performance-preparing.md) (sequencer)
+- [manual/23-sampler-deck.md](23-sampler-deck.md) (sampler)
+- [manual/25-slicer.md](25-slicer.md) (sampler)
+- [manual/26-capture.md](26-capture.md) (sampler)

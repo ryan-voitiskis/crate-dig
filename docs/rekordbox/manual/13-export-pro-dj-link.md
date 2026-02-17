@@ -3,7 +3,7 @@ id: export-pro-dj-link
 title: "Using with DJ equipment (PRO DJ LINK)"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "83-86"
   version: "7.2.8"
 topics: [connection, export, link, pro-dj-link, usb]
@@ -67,3 +67,14 @@ When connecting a computer via PRO DJ LINK using a LAN cable, 4 DJ players (6 DJ
 - Instead of a DJ mixer, a switching hub can be used.
 - 2 computers can be connected via PRO DJ LINK.
 - For connection instructions, refer to the Instruction Manual for the DJ equipment.
+
+## Related Documents
+
+- [faq/usb-and-devices.md](../faq/usb-and-devices.md) (export, pro-dj-link, usb)
+- [guides/pro-dj-link-setup.md](../guides/pro-dj-link-setup.md) (connection, link, pro-dj-link)
+- [manual/15-export-lan.md](15-export-lan.md) (connection, export, pro-dj-link)
+- [faq/hardware-compatibility.md](../faq/hardware-compatibility.md) (export, usb)
+- [guides/cloud-direct-play.md](../guides/cloud-direct-play.md) (pro-dj-link, usb)
+- [guides/device-library-backup.md](../guides/device-library-backup.md) (export, usb)
+- [guides/usb-export.md](../guides/usb-export.md) (export, usb)
+- [manual/09-collaborative-playlists.md](09-collaborative-playlists.md) (export, usb)

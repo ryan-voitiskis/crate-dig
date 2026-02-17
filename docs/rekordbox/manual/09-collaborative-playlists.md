@@ -3,7 +3,7 @@ id: collaborative-playlists
 title: "Using a Collaborative Playlist"
 type: manual
 source:
-  file: rekordbox7.2.8_manual_EN.pdf
+  file: "rekordbox7.2.8_manual_EN.pdf"
   pages: "45-57"
   version: "7.2.8"
 topics: [browsing, collaborative-playlists, export, import, interface, playlists, search, usb, xml]
@@ -367,3 +367,14 @@ Alternatively, you can delete an Intelligent Playlist by pressing the [Delete] k
 **Hint**
 
 - You can edit the filter by right-clicking an Intelligent Playlist in the tree view and then selecting [Edit the Intelligent Playlist] to display the Intelligent Playlist setting window.
+
+## Related Documents
+
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collaborative-playlists, export, import, playlists)
+- [manual/11-export-mode-screen.md](11-export-mode-screen.md) (browsing, export, interface, playlists)
+- [guides/introduction.md](../guides/introduction.md) (browsing, export, interface)
+- [guides/usb-export.md](../guides/usb-export.md) (export, playlists, usb)
+- [guides/xml-format-spec.md](../guides/xml-format-spec.md) (export, import, xml)
+- [manual/06-searching.md](06-searching.md) (browsing, playlists, search)
+- [manual/07-playlists.md](07-playlists.md) (export, import, playlists)
+- [reference/developer-integration.md](../reference/developer-integration.md) (export, import, xml)

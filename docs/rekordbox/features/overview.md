@@ -834,3 +834,14 @@ We are currently processing the payment to reactivate your plan. Your plan will 
 - Pioneer
 
 (c) AlphaTheta Corporation
+
+## Related Documents
+
+- [guides/introduction.md](../guides/introduction.md) (collection, export, interface, library)
+- [features/whats-new-v7.md](whats-new-v7.md) (cloud, interface, stems, streaming)
+- [manual/18-performance-screen.md](../manual/18-performance-screen.md) (effects, interface, performance, stems)
+- [manual/32-menu-list.md](../manual/32-menu-list.md) (effects, interface, lighting, stems)
+- [faq/library-and-collection.md](../faq/library-and-collection.md) (collection, export, library)
+- [guides/cloud-library-sync.md](../guides/cloud-library-sync.md) (cloud, collection, library)
+- [guides/lighting-mode.md](../guides/lighting-mode.md) (effects, interface, lighting)
+- [guides/streaming-services.md](../guides/streaming-services.md) (collection, library, streaming)
