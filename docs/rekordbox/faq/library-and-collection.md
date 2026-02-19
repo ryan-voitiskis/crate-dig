@@ -263,7 +263,7 @@ Please note that the library conversion may take some time and you won't be able
 
 You can use rekordbox ver. 6 without importing your library from ver. 5 (or earlier). In this case you would use rekordbox with an empty library.
 
-You can also start rekordbox ver. 6 with an empty library, convert your old library from ver. 5 (or earlier), and then import the library to ver. 6 at a later. date Find out how to do this [here](https://rekordbox.com/en/support/faq/library-6/#faq-q60002).
+You can also start rekordbox ver. 6 with an empty library, convert your old library from ver. 5 (or earlier), and then import the library to ver. 6 at a later date. Find out how to do this [here](https://rekordbox.com/en/support/faq/library-6/#faq-q60002).
 
 ---
 

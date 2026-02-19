@@ -1,11 +1,35 @@
 use rand::Rng;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
 
-const CONSUMER_KEY: &str = "qcBoWbIaUkAteWishTTb";
-const SIGNATURE: &str =
-    "vSsDVPUiDhwwyhYXgnJxpyzMPxsnxHIv&gzFloPqEjCYmotqOMxqeAptrsQMRilhAHXZeoKFY";
-const TOKEN: &str = "tIuAcrOEPeUAuVZBLIxjscIYMZnMjNSxBOZTMUvz";
+struct Credentials {
+    consumer_key: String,
+    signature: String,
+    token: String,
+}
+
+static CREDENTIALS: OnceLock<Result<Credentials, String>> = OnceLock::new();
+
+fn get_credentials() -> Result<&'static Credentials, String> {
+    let result = CREDENTIALS.get_or_init(|| {
+        let key = std::env::var("CRATE_DIG_DISCOGS_KEY")
+            .map_err(|_| "CRATE_DIG_DISCOGS_KEY not set".to_string())?;
+        let secret = std::env::var("CRATE_DIG_DISCOGS_SECRET")
+            .map_err(|_| "CRATE_DIG_DISCOGS_SECRET not set".to_string())?;
+        let token = std::env::var("CRATE_DIG_DISCOGS_TOKEN")
+            .map_err(|_| "CRATE_DIG_DISCOGS_TOKEN not set".to_string())?;
+        let token_secret = std::env::var("CRATE_DIG_DISCOGS_TOKEN_SECRET")
+            .map_err(|_| "CRATE_DIG_DISCOGS_TOKEN_SECRET not set".to_string())?;
+        let signature = format!("{secret}&{token_secret}");
+        Ok(Credentials {
+            consumer_key: key,
+            signature,
+            token,
+        })
+    });
+    result.as_ref().map_err(|e| e.clone())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscogsResult {
@@ -31,8 +55,8 @@ struct SearchResult {
     style: Option<Vec<String>>,
 }
 
-/// Normalize an artist name for matching: lowercase, strip non-alphanumeric.
-fn normalize(s: &str) -> String {
+/// Normalize a string for matching: lowercase, strip non-alphanumeric.
+pub fn normalize(s: &str) -> String {
     s.to_lowercase()
         .chars()
         .filter(|c| c.is_alphanumeric() || *c == ' ')
@@ -66,6 +90,8 @@ async fn lookup_inner(
     // Rate limit
     tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
 
+    let creds = get_credentials()?;
+
     let query = format!("{artist} {title}");
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -74,16 +100,18 @@ async fn lookup_inner(
 
     let url = format!(
         "https://api.discogs.com/database/search?q={query}&type=release&per_page=5\
-         &oauth_consumer_key={CONSUMER_KEY}\
+         &oauth_consumer_key={key}\
          &oauth_nonce={nonce}\
          &oauth_signature={sig}\
          &oauth_signature_method=PLAINTEXT\
          &oauth_timestamp={timestamp}\
-         &oauth_token={TOKEN}\
+         &oauth_token={token}\
          &oauth_version=1.0",
         query = urlencoding(&query),
+        key = creds.consumer_key,
         nonce = nonce(),
-        sig = urlencoding(SIGNATURE),
+        sig = urlencoding(&creds.signature),
+        token = creds.token,
     );
 
     let resp = client

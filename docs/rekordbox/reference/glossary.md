@@ -2839,7 +2839,7 @@ Definition (from corpus context): > Select [RED], [GREEN], [BLUE], [MAGENTA], [Y
 Referenced in: `guides/lighting-mode.md`
 
 ## [Manual]
-Definition (from corpus context): Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manual](https://rekordbox.com/en/download/#manual)s page for how to use rekordbox CloudDirectPlay.
+Definition (from corpus context): Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](https://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
 Referenced in: `faq/cloud-and-sync.md`, `guides/lighting-mode.md`, `manual/08-intelligent-cue.md`, `manual/31-preferences.md`
 
 ## [MANUAL]
@@ -2851,7 +2851,7 @@ Definition (from corpus context): This Operation Guide explains rekordbox LIGHTI
 Referenced in: `guides/lighting-mode.md`
 
 ## [Manuals]
-Definition (from corpus context): Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](http://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
+Definition (from corpus context): Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](https://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
 Referenced in: `faq/cloud-and-sync.md`, `faq/hardware-compatibility.md`
 
 ## [MASTER]
@@ -3239,7 +3239,7 @@ Definition (from corpus context): | | [Next Fee Payment date] | You can check th
 Referenced in: `manual/31-preferences.md`
 
 ## [NFC login]
-Definition (from corpus context): *Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-...
+Definition (from corpus context): *Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-...
 Referenced in: `faq/cloud-and-sync.md`, `faq/hardware-compatibility.md`, `faq/streaming.md`
 
 ## [No]
@@ -3695,7 +3695,7 @@ Definition (from corpus context): 1. Set the Deck [Q] button (Quantize button) t
 Referenced in: `faq/stems-and-effects.md`, `manual/14-export-playing.md`, `manual/20-performance-playing.md`, `manual/23-sampler-deck.md`, `manual/24-sequencer.md`, `manual/31-preferences.md`
 
 ## [QR code login]
-Definition (from corpus context): *Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-...
+Definition (from corpus context): *Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-...
 Referenced in: `faq/cloud-and-sync.md`, `faq/hardware-compatibility.md`, `faq/streaming.md`
 
 ## [QUANTIZE]

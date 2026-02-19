@@ -51,6 +51,11 @@ impl ChangeManager {
         self.changes.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
+    /// Get staged changes for a single track.
+    pub fn get(&self, track_id: &str) -> Option<TrackChange> {
+        self.changes.lock().unwrap_or_else(|e| e.into_inner()).get(track_id).cloned()
+    }
+
     /// Compute a diff between current track state and staged changes.
     pub fn preview(&self, current_tracks: &[Track]) -> Vec<ChangeDiff> {
         let map = self.changes.lock().unwrap_or_else(|e| e.into_inner());

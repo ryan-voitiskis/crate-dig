@@ -1,3 +1,4 @@
+mod audio;
 mod beatport;
 mod changes;
 mod corpus;
@@ -6,6 +7,7 @@ mod discogs;
 mod eval_routing;
 mod eval_tasks;
 mod genre;
+mod store;
 mod tools;
 mod types;
 mod xml;

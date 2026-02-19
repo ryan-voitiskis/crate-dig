@@ -1162,7 +1162,7 @@ Select Spotify in Media Browser and load tracks from the track list to the deck.
 You can automatically log in to TIDAL by connecting a USB storage device or SD memory card created on rekordbox for CloudDirectPlay authentication to your DJ equipment and logging in to rekordbox CloudDirectPlay.
 
 Also, with some DJ equipment, you can automatically log in to TIDAL by logging into rekordbox CloudDirectPlay using a mobile device.
-Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
+Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
 
 * As of rekordbox ver. 7.0.6, login to TIDAL has been changed to a Single Sign On method.
 With the Single Sign On method, if you log in to TIDAL on rekordbox in advance, you do not need to enter your login account and password for TIDAL on the DJ equipment.
@@ -1217,7 +1217,7 @@ To use Cloud Analysis on DJ equipment, you must prepare the following environmen
 - rekordbox for Mac/Windows ver. 7.
 - Authentication device (USB storage device or SD memory card) *
 
-*Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
+*Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
 
 ---
 
@@ -1231,9 +1231,9 @@ You will need the following listed below:
 - Cloud Library Sync turned on.
 - A Dropbox account, logged in.
 
-Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](http://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
+Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](https://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
 
-*1 Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
+*1 Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
 *2 With Core plan and Free plan (Hardware Unlock or owner registration), you can use Cloud Export for up to 1000 songs.
 
 ---
@@ -2092,7 +2092,7 @@ Please note that the library conversion may take some time and you won't be able
 
 You can use rekordbox ver. 6 without importing your library from ver. 5 (or earlier). In this case you would use rekordbox with an empty library.
 
-You can also start rekordbox ver. 6 with an empty library, convert your old library from ver. 5 (or earlier), and then import the library to ver. 6 at a later. date Find out how to do this [here](https://rekordbox.com/en/support/faq/library-6/#faq-q60002).
+You can also start rekordbox ver. 6 with an empty library, convert your old library from ver. 5 (or earlier), and then import the library to ver. 6 at a later date. Find out how to do this [here](https://rekordbox.com/en/support/faq/library-6/#faq-q60002).
 
 ---
 
@@ -2855,7 +2855,7 @@ If the upload is not complete, the music file cannot be loaded.
 Upload the music files you want to use to cloud storage beforehand, then use them once the upload is complete.
 You can upload with rekordbox.
 - **Impact of cloud storage maintenance or failure**
-When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded.Try again when the cloud storage is back online.
+When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded. Try again when the cloud storage is back online.
 You can check the status of these issues on the cloud storage service websites below.
 [Dropbox](https://status.dropbox.com/)
 [Google Drive](https://www.google.co.jp/appsstatus/dashboard/)
@@ -2880,7 +2880,7 @@ Please note that promotional offers will not be applied even if you sign-up agai
 
 ### How do I use rekordbox CloudDirectPlay?
 
-Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manual](https://rekordbox.com/en/download/#manual)s page for how to use rekordbox CloudDirectPlay.
+Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](https://rekordbox.com/en/download/#manual) page for how to use rekordbox CloudDirectPlay.
 
 ---
 
