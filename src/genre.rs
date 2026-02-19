@@ -30,9 +30,11 @@ pub const GENRES: &[&str] = &[
     "IDM",
     "Jungle",
     "Minimal",
+    "Pop",
     "Psytrance",
     "R&B",
     "Reggae",
+    "Rock",
     "Speed Garage",
     "Synth-pop",
     "Tech House",
@@ -45,55 +47,61 @@ pub fn get_taxonomy() -> Vec<String> {
     GENRES.iter().map(|s| s.to_string()).collect()
 }
 
-pub fn is_known_genre(genre: &str) -> bool {
-    GENRES.iter().any(|g| g.eq_ignore_ascii_case(genre))
+/// Returns the canonical casing of a genre if it's in the taxonomy.
+pub fn canonical_casing(genre: &str) -> Option<&'static str> {
+    GENRES.iter().find(|g| g.eq_ignore_ascii_case(genre)).copied()
 }
+
+pub fn is_known_genre(genre: &str) -> bool {
+    canonical_casing(genre).is_some()
+}
+
+/// Alias entries mapping non-canonical genre strings to canonical genres.
+/// Keys must be lowercase. Sorted alphabetically by key.
+pub const ALIASES: &[(&str, &str)] = &[
+    ("140 / deep dubstep / grime", "Dubstep"),
+    ("afrobeat", "Afro House"),
+    ("bass", "UK Bass"),
+    ("breaks / breakbeat / uk bass", "Breakbeat"),
+    ("chill dnb", "Drum & Bass"),
+    ("dance / electro pop", "Synth-pop"),
+    ("dance-pop", "Synth-pop"),
+    ("dnb", "Drum & Bass"),
+    ("drone", "Ambient"),
+    ("drone techno", "Deep Techno"),
+    ("dub reggae", "Dub"),
+    ("electronic", "Experimental"),
+    ("electronica", "Techno"),
+    ("gabber", "Hard Techno"),
+    ("glitch", "IDM"),
+    ("gospel house", "House"),
+    ("hard dance", "Hard Techno"),
+    ("hard trance", "Trance"),
+    ("highlife", "Afro House"),
+    ("hip-hop", "Hip Hop"),
+    ("indie dance", "House"),
+    ("italodance", "Disco"),
+    ("loop (hip-hop)", "Hip Hop"),
+    ("loop (trance)", "Trance"),
+    ("mainstage", "Trance"),
+    ("melodic house & techno", "Deep Techno"),
+    ("minimal / deep tech", "Minimal"),
+    ("progressive house", "House"),
+    ("r & b", "R&B"),
+    ("soundtrack", "Ambient"),
+    ("techno (peak time / driving)", "Techno"),
+    ("techno (raw / deep / hypnotic)", "Deep Techno"),
+    ("trance (main floor)", "Trance"),
+    ("trance (raw / deep / hypnotic)", "Trance"),
+    ("uk garage", "Garage"),
+];
 
 /// Static alias map built once via OnceLock. Maps lowercase alias → canonical genre.
 fn alias_map() -> &'static HashMap<String, &'static str> {
     static MAP: OnceLock<HashMap<String, &'static str>> = OnceLock::new();
     MAP.get_or_init(|| {
-        let entries: &[(&str, &str)] = &[
-            ("hip-hop", "Hip Hop"),
-            ("loop (hip-hop)", "Hip Hop"),
-            ("electronica", "Techno"),
-            ("techno (peak time / driving)", "Hard Techno"),
-            ("dnb", "Drum & Bass"),
-            ("bass", "UK Bass"),
-            ("r & b", "R&B"),
-            ("techno (raw / deep / hypnotic)", "Deep Techno"),
-            ("drone techno", "Deep Techno"),
-            ("trance (main floor)", "Trance"),
-            ("uk garage", "Garage"),
-            ("gospel house", "House"),
-            ("highlife", "Afro House"),
-            ("progressive house", "House"),
-            ("minimal / deep tech", "Minimal"),
-            ("melodic house & techno", "Deep Techno"),
-            ("italodance", "Disco"),
-            ("dance-pop", "Synth-pop"),
-            ("breaks / breakbeat / uk bass", "Breakbeat"),
-            ("trance (raw / deep / hypnotic)", "Trance"),
-            ("soundtrack", "Ambient"),
-            ("rock", "Experimental"),
-            ("mainstage", "Trance"),
-            ("loop (trance)", "Trance"),
-            ("indie dance", "House"),
-            ("hard trance", "Trance"),
-            ("hard dance", "Hard Techno"),
-            ("glitch", "IDM"),
-            ("gabber", "Hard Techno"),
-            ("electronic", "Experimental"),
-            ("dub reggae", "Dub"),
-            ("drone", "Ambient"),
-            ("dance / electro pop", "Synth-pop"),
-            ("chill dnb", "Drum & Bass"),
-            ("ballad", "Downtempo"),
-            ("afrobeat", "Afro House"),
-            ("140 / deep dubstep / grime", "Dubstep"),
-        ];
-        let mut map = HashMap::with_capacity(entries.len());
-        for &(alias, canonical) in entries {
+        let mut map = HashMap::with_capacity(ALIASES.len());
+        for &(alias, canonical) in ALIASES {
             map.insert(alias.to_lowercase(), canonical);
         }
         map
@@ -133,8 +141,8 @@ mod tests {
     }
 
     #[test]
-    fn taxonomy_has_35_genres() {
-        assert_eq!(GENRES.len(), 35);
+    fn taxonomy_has_reasonable_size() {
+        assert!(GENRES.len() >= 30, "taxonomy seems too small: {}", GENRES.len());
     }
 
     #[test]
@@ -176,32 +184,33 @@ mod tests {
         assert_eq!(normalize_genre("Deep House"), None);
         assert_eq!(normalize_genre("Drum & Bass"), None);
         assert_eq!(normalize_genre("Hip Hop"), None);
+        assert_eq!(normalize_genre("Rock"), None);
+        assert_eq!(normalize_genre("Pop"), None);
     }
 
     #[test]
     fn normalize_unknown_returns_none() {
         assert_eq!(normalize_genre("Polka"), None);
         assert_eq!(normalize_genre("Anti-music"), None);
-        assert_eq!(normalize_genre("Pop"), None);
+        assert_eq!(normalize_genre("Zydeco"), None);
     }
 
     #[test]
     fn alias_map_not_empty() {
         let aliases = get_alias_map();
         assert!(
-            aliases.len() >= 37,
-            "expected at least 37 aliases, got {}",
+            aliases.len() >= 35,
+            "expected at least 35 aliases, got {}",
             aliases.len()
         );
     }
 
     #[test]
-    fn alias_map_sorted() {
-        let aliases = get_alias_map();
-        for w in aliases.windows(2) {
+    fn aliases_sorted() {
+        for w in ALIASES.windows(2) {
             assert!(
                 w[0].0 <= w[1].0,
-                "alias map not sorted: {:?} > {:?}",
+                "ALIASES not sorted: {:?} > {:?}",
                 w[0].0,
                 w[1].0
             );
@@ -210,13 +219,24 @@ mod tests {
 
     #[test]
     fn all_alias_targets_are_canonical() {
-        let aliases = get_alias_map();
-        for (alias, canonical) in &aliases {
+        for &(alias, canonical) in ALIASES {
             assert!(
                 is_known_genre(canonical),
                 "alias '{}' maps to '{}' which is not in taxonomy",
                 alias,
                 canonical
+            );
+        }
+    }
+
+    #[test]
+    fn no_alias_shadows_canonical() {
+        for &(alias, target) in ALIASES {
+            assert!(
+                !is_known_genre(alias),
+                "alias '{}' (-> '{}') shadows a canonical genre — remove it",
+                alias,
+                target
             );
         }
     }

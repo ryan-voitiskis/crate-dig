@@ -1878,12 +1878,7 @@ impl ReklawdboxServer {
 /// Map a genre/style string through the taxonomy.
 /// Returns (maps_to, mapping_type) where mapping_type is "exact", "alias", or "unknown".
 fn map_genre_through_taxonomy(style: &str) -> (Option<String>, &'static str) {
-    if genre::is_known_genre(style) {
-        // Find the canonical casing from the taxonomy
-        let canonical = genre::GENRES
-            .iter()
-            .find(|g| g.eq_ignore_ascii_case(style))
-            .unwrap_or(&style);
+    if let Some(canonical) = genre::canonical_casing(style) {
         (Some(canonical.to_string()), "exact")
     } else if let Some(canonical) = genre::normalize_genre(style) {
         (Some(canonical.to_string()), "alias")
@@ -1972,12 +1967,7 @@ pub(crate) fn resolve_single_track(
 
     let current_genre_canonical = if track.genre.is_empty() {
         serde_json::Value::Null
-    } else if genre::is_known_genre(&track.genre) {
-        let canonical = genre::GENRES
-            .iter()
-            .find(|g| g.eq_ignore_ascii_case(&track.genre))
-            .map(|g| g.to_string())
-            .unwrap_or_else(|| track.genre.clone());
+    } else if let Some(canonical) = genre::canonical_casing(&track.genre) {
         serde_json::json!(canonical)
     } else if let Some(canonical) = genre::normalize_genre(&track.genre) {
         serde_json::json!(canonical)
@@ -2348,10 +2338,7 @@ mod tests {
     }
 
     fn canonical_genre_name(raw_genre: &str) -> String {
-        if let Some(canonical) = genre::GENRES
-            .iter()
-            .find(|g| g.eq_ignore_ascii_case(raw_genre))
-        {
+        if let Some(canonical) = genre::canonical_casing(raw_genre) {
             return canonical.to_string();
         }
         if let Some(alias_target) = genre::normalize_genre(raw_genre) {
