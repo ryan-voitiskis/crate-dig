@@ -831,7 +831,10 @@ impl CrateDigServer {
                 };
                 if let serde_json::Value::Object(ref mut map) = result {
                     map.insert("cache_hit".to_string(), serde_json::json!(true));
-                    map.insert("cached_at".to_string(), serde_json::json!(cached.created_at));
+                    map.insert(
+                        "cached_at".to_string(),
+                        serde_json::json!(cached.created_at),
+                    );
                 } else {
                     result = serde_json::json!({
                         "result": null,
@@ -905,7 +908,10 @@ impl CrateDigServer {
                 };
                 if let serde_json::Value::Object(ref mut map) = result {
                     map.insert("cache_hit".to_string(), serde_json::json!(true));
-                    map.insert("cached_at".to_string(), serde_json::json!(cached.created_at));
+                    map.insert(
+                        "cached_at".to_string(),
+                        serde_json::json!(cached.created_at),
+                    );
                 } else {
                     result = serde_json::json!({
                         "result": null,
@@ -964,9 +970,7 @@ impl CrateDigServer {
         let max_tracks = p.max_tracks.unwrap_or(50).min(200) as usize;
         let skip_cached = p.skip_cached.unwrap_or(true);
         let force_refresh = p.force_refresh.unwrap_or(false);
-        let providers: Vec<String> = p
-            .providers
-            .unwrap_or_else(|| vec!["discogs".to_string()]);
+        let providers: Vec<String> = p.providers.unwrap_or_else(|| vec!["discogs".to_string()]);
 
         // Validate providers
         for prov in &providers {
@@ -982,8 +986,7 @@ impl CrateDigServer {
         let tracks = {
             let conn = self.conn()?;
             if let Some(ref ids) = p.track_ids {
-                db::get_tracks_by_ids(&conn, ids)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::get_tracks_by_ids(&conn, ids).map_err(|e| err(format!("DB error: {e}")))?
             } else if let Some(ref playlist_id) = p.playlist_id {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
@@ -1001,8 +1004,7 @@ impl CrateDigServer {
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
-                db::search_tracks(&conn, &search)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
 
@@ -1036,22 +1038,32 @@ impl CrateDigServer {
                     "discogs" => {
                         match discogs::lookup(&self.state.http, &track.artist, &track.title).await {
                             Ok(Some(r)) => {
-                                let json_str = serde_json::to_string(&r)
-                                    .map_err(|e| err(format!("{e}")))?;
+                                let json_str =
+                                    serde_json::to_string(&r).map_err(|e| err(format!("{e}")))?;
                                 let quality = if r.fuzzy_match { "fuzzy" } else { "exact" };
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
-                                    &store, provider, &norm_artist, &norm_title,
-                                    Some(quality), Some(&json_str),
-                                ).map_err(|e| err(format!("Cache write error: {e}")))?;
+                                    &store,
+                                    provider,
+                                    &norm_artist,
+                                    &norm_title,
+                                    Some(quality),
+                                    Some(&json_str),
+                                )
+                                .map_err(|e| err(format!("Cache write error: {e}")))?;
                                 enriched += 1;
                             }
                             Ok(None) => {
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
-                                    &store, provider, &norm_artist, &norm_title,
-                                    Some("none"), None,
-                                ).map_err(|e| err(format!("Cache write error: {e}")))?;
+                                    &store,
+                                    provider,
+                                    &norm_artist,
+                                    &norm_title,
+                                    Some("none"),
+                                    None,
+                                )
+                                .map_err(|e| err(format!("Cache write error: {e}")))?;
                                 skipped += 1;
                             }
                             Err(e) => {
@@ -1066,23 +1078,34 @@ impl CrateDigServer {
                         }
                     }
                     "beatport" => {
-                        match beatport::lookup(&self.state.http, &track.artist, &track.title).await {
+                        match beatport::lookup(&self.state.http, &track.artist, &track.title).await
+                        {
                             Ok(Some(r)) => {
-                                let json_str = serde_json::to_string(&r)
-                                    .map_err(|e| err(format!("{e}")))?;
+                                let json_str =
+                                    serde_json::to_string(&r).map_err(|e| err(format!("{e}")))?;
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
-                                    &store, provider, &norm_artist, &norm_title,
-                                    Some("exact"), Some(&json_str),
-                                ).map_err(|e| err(format!("Cache write error: {e}")))?;
+                                    &store,
+                                    provider,
+                                    &norm_artist,
+                                    &norm_title,
+                                    Some("exact"),
+                                    Some(&json_str),
+                                )
+                                .map_err(|e| err(format!("Cache write error: {e}")))?;
                                 enriched += 1;
                             }
                             Ok(None) => {
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
-                                    &store, provider, &norm_artist, &norm_title,
-                                    Some("none"), None,
-                                ).map_err(|e| err(format!("Cache write error: {e}")))?;
+                                    &store,
+                                    provider,
+                                    &norm_artist,
+                                    &norm_title,
+                                    Some("none"),
+                                    None,
+                                )
+                                .map_err(|e| err(format!("Cache write error: {e}")))?;
                                 skipped += 1;
                             }
                             Err(e) => {
@@ -1154,23 +1177,24 @@ impl CrateDigServer {
         // Check cache
         if skip_cached {
             let store = self.internal_conn()?;
-            if let Some(cached) =
-                store::get_audio_analysis(&store, &file_path, "stratum-dsp")
-                    .map_err(|e| err(format!("Cache read error: {e}")))?
+            if let Some(cached) = store::get_audio_analysis(&store, &file_path, "stratum-dsp")
+                .map_err(|e| err(format!("Cache read error: {e}")))?
             {
                 if cached.file_size == file_size && cached.file_mtime == file_mtime {
-                    let mut result: serde_json::Value =
-                        serde_json::from_str(&cached.features_json)
-                            .map_err(|e| err(format!("Cache parse error: {e}")))?;
+                    let mut result: serde_json::Value = serde_json::from_str(&cached.features_json)
+                        .map_err(|e| err(format!("Cache parse error: {e}")))?;
                     if let serde_json::Value::Object(ref mut map) = result {
                         map.insert("cache_hit".to_string(), serde_json::json!(true));
-                        map.insert("cached_at".to_string(), serde_json::json!(cached.created_at));
+                        map.insert(
+                            "cached_at".to_string(),
+                            serde_json::json!(cached.created_at),
+                        );
                         map.insert("track_id".to_string(), serde_json::json!(track.id));
                         map.insert("title".to_string(), serde_json::json!(track.title));
                         map.insert("artist".to_string(), serde_json::json!(track.artist));
                     }
-                    let json = serde_json::to_string_pretty(&result)
-                        .map_err(|e| err(format!("{e}")))?;
+                    let json =
+                        serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
                     return Ok(CallToolResult::success(vec![Content::text(json)]));
                 }
             }
@@ -1178,24 +1202,20 @@ impl CrateDigServer {
 
         // Decode audio on a blocking task
         let path_clone = file_path.clone();
-        let (samples, sample_rate) = tokio::task::spawn_blocking(move || {
-            audio::decode_to_samples(&path_clone)
-        })
-        .await
-        .map_err(|e| err(format!("Decode task failed: {e}")))?
-        .map_err(|e| err(format!("Decode error: {e}")))?;
+        let (samples, sample_rate) =
+            tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone))
+                .await
+                .map_err(|e| err(format!("Decode task failed: {e}")))?
+                .map_err(|e| err(format!("Decode error: {e}")))?;
 
         // Run analysis on a blocking task
-        let analysis = tokio::task::spawn_blocking(move || {
-            audio::analyze(&samples, sample_rate)
-        })
-        .await
-        .map_err(|e| err(format!("Analysis task failed: {e}")))?
-        .map_err(|e| err(format!("Analysis error: {e}")))?;
+        let analysis = tokio::task::spawn_blocking(move || audio::analyze(&samples, sample_rate))
+            .await
+            .map_err(|e| err(format!("Analysis task failed: {e}")))?
+            .map_err(|e| err(format!("Analysis error: {e}")))?;
 
         // Cache result
-        let features_json =
-            serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
+        let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
         {
             let store = self.internal_conn()?;
             store::set_audio_analysis(
@@ -1211,8 +1231,7 @@ impl CrateDigServer {
         }
 
         // Build response
-        let mut result =
-            serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?;
+        let mut result = serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?;
         if let serde_json::Value::Object(ref mut map) = result {
             map.insert("cache_hit".to_string(), serde_json::json!(false));
             map.insert("track_id".to_string(), serde_json::json!(track.id));
@@ -1238,8 +1257,7 @@ impl CrateDigServer {
         let tracks = {
             let conn = self.conn()?;
             if let Some(ref ids) = p.track_ids {
-                db::get_tracks_by_ids(&conn, ids)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::get_tracks_by_ids(&conn, ids).map_err(|e| err(format!("DB error: {e}")))?
             } else if let Some(ref playlist_id) = p.playlist_id {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
@@ -1257,8 +1275,7 @@ impl CrateDigServer {
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
-                db::search_tracks(&conn, &search)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
 
@@ -1311,30 +1328,17 @@ impl CrateDigServer {
                     store::get_audio_analysis(&store, &file_path, "stratum-dsp")
                         .map_err(|e| err(format!("Cache read error: {e}")))?
                 {
-                    if cached_entry.file_size == file_size
-                        && cached_entry.file_mtime == file_mtime
+                    if cached_entry.file_size == file_size && cached_entry.file_mtime == file_mtime
                     {
                         cached += 1;
                         if let Ok(mut val) =
                             serde_json::from_str::<serde_json::Value>(&cached_entry.features_json)
                         {
                             if let serde_json::Value::Object(ref mut map) = val {
-                                map.insert(
-                                    "track_id".to_string(),
-                                    serde_json::json!(track.id),
-                                );
-                                map.insert(
-                                    "title".to_string(),
-                                    serde_json::json!(track.title),
-                                );
-                                map.insert(
-                                    "artist".to_string(),
-                                    serde_json::json!(track.artist),
-                                );
-                                map.insert(
-                                    "cache_hit".to_string(),
-                                    serde_json::json!(true),
-                                );
+                                map.insert("track_id".to_string(), serde_json::json!(track.id));
+                                map.insert("title".to_string(), serde_json::json!(track.title));
+                                map.insert("artist".to_string(), serde_json::json!(track.artist));
+                                map.insert("cache_hit".to_string(), serde_json::json!(true));
                             }
                             results.push(val);
                         }
@@ -1345,10 +1349,8 @@ impl CrateDigServer {
 
             // Decode + analyze
             let path_clone = file_path.clone();
-            let decode_result = tokio::task::spawn_blocking(move || {
-                audio::decode_to_samples(&path_clone)
-            })
-            .await;
+            let decode_result =
+                tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone)).await;
 
             let (samples, sample_rate) = match decode_result {
                 Ok(Ok(v)) => v,
@@ -1372,15 +1374,13 @@ impl CrateDigServer {
                 }
             };
 
-            let analysis_result = tokio::task::spawn_blocking(move || {
-                audio::analyze(&samples, sample_rate)
-            })
-            .await;
+            let analysis_result =
+                tokio::task::spawn_blocking(move || audio::analyze(&samples, sample_rate)).await;
 
             match analysis_result {
                 Ok(Ok(analysis)) => {
-                    let features_json = serde_json::to_string(&analysis)
-                        .map_err(|e| err(format!("{e}")))?;
+                    let features_json =
+                        serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
 
                     // Cache the result
                     {
@@ -1397,8 +1397,8 @@ impl CrateDigServer {
                         .map_err(|e| err(format!("Cache write error: {e}")))?;
                     }
 
-                    let mut val = serde_json::to_value(&analysis)
-                        .map_err(|e| err(format!("{e}")))?;
+                    let mut val =
+                        serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?;
                     if let serde_json::Value::Object(ref mut map) = val {
                         map.insert("track_id".to_string(), serde_json::json!(track.id));
                         map.insert("title".to_string(), serde_json::json!(track.title));
@@ -1425,7 +1425,6 @@ impl CrateDigServer {
                     }));
                 }
             }
-
         }
 
         let result = serde_json::json!({
@@ -1442,7 +1441,9 @@ impl CrateDigServer {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
-    #[tool(description = "Get all available data for a track in one call: Rekordbox metadata, cached audio analysis, cached enrichment, staged changes, and genre taxonomy mappings. Cache-only — never triggers external calls.")]
+    #[tool(
+        description = "Get all available data for a track in one call: Rekordbox metadata, cached audio analysis, cached enrichment, staged changes, and genre taxonomy mappings. Cache-only — never triggers external calls."
+    )]
     async fn resolve_track_data(
         &self,
         params: Parameters<ResolveTrackDataParams>,
@@ -1468,8 +1469,8 @@ impl CrateDigServer {
                 .map_err(|e| err(format!("Cache read error: {e}")))?;
             let bc = store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
                 .map_err(|e| err(format!("Cache read error: {e}")))?;
-            let audio_cache_key = resolve_file_path(&track.file_path)
-                .unwrap_or_else(|_| track.file_path.clone());
+            let audio_cache_key =
+                resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
             let sc = store::get_audio_analysis(&store, &audio_cache_key, "stratum-dsp")
                 .map_err(|e| err(format!("Cache read error: {e}")))?;
             (dc, bc, sc)
@@ -1489,7 +1490,9 @@ impl CrateDigServer {
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
-    #[tool(description = "Get all available data for multiple tracks. Same as resolve_track_data but batched. Cache-only — never triggers external calls.")]
+    #[tool(
+        description = "Get all available data for multiple tracks. Same as resolve_track_data but batched. Cache-only — never triggers external calls."
+    )]
     async fn resolve_tracks_data(
         &self,
         params: Parameters<ResolveTracksDataParams>,
@@ -1500,8 +1503,7 @@ impl CrateDigServer {
         let tracks = {
             let conn = self.conn()?;
             if let Some(ref ids) = p.track_ids {
-                db::get_tracks_by_ids(&conn, ids)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::get_tracks_by_ids(&conn, ids).map_err(|e| err(format!("DB error: {e}")))?
             } else if let Some(ref playlist_id) = p.playlist_id {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
@@ -1519,8 +1521,7 @@ impl CrateDigServer {
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
-                db::search_tracks(&conn, &search)
-                    .map_err(|e| err(format!("DB error: {e}")))?
+                db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
 
@@ -1537,8 +1538,8 @@ impl CrateDigServer {
                     .map_err(|e| err(format!("Cache read error: {e}")))?;
                 let bc = store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
                     .map_err(|e| err(format!("Cache read error: {e}")))?;
-                let audio_cache_key = resolve_file_path(&track.file_path)
-                    .unwrap_or_else(|_| track.file_path.clone());
+                let audio_cache_key =
+                    resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
                 let sc = store::get_audio_analysis(&store, &audio_cache_key, "stratum-dsp")
                     .map_err(|e| err(format!("Cache read error: {e}")))?;
                 (dc, bc, sc)
@@ -1606,9 +1607,8 @@ pub(crate) fn resolve_single_track(
     });
 
     // --- Audio analysis section ---
-    let stratum_json = stratum_cache.and_then(|sc| {
-        serde_json::from_str::<serde_json::Value>(&sc.features_json).ok()
-    });
+    let stratum_json = stratum_cache
+        .and_then(|sc| serde_json::from_str::<serde_json::Value>(&sc.features_json).ok());
 
     let (bpm_agreement, key_agreement) = if let Some(ref sj) = stratum_json {
         let stratum_bpm = sj.get("bpm").and_then(|v| v.as_f64());
@@ -1732,7 +1732,9 @@ pub(crate) fn resolve_single_track(
 /// Injects match_quality and cached_at metadata into the returned object.
 fn parse_enrichment_cache(cache: Option<&store::CachedEnrichment>) -> Option<serde_json::Value> {
     cache.and_then(|c| {
-        let mut val = c.response_json.as_ref()
+        let mut val = c
+            .response_json
+            .as_ref()
             .and_then(|json_str| serde_json::from_str::<serde_json::Value>(json_str).ok())?;
         if let serde_json::Value::Object(ref mut map) = val {
             map.insert("match_quality".into(), serde_json::json!(c.match_quality));
@@ -1783,8 +1785,14 @@ impl ServerHandler for CrateDigServer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::{HashMap, HashSet};
+    use std::sync::{Arc, Mutex, OnceLock};
+
     use rmcp::ServiceExt;
     use rmcp::model::CallToolRequestParams;
+    use rusqlite::{Connection, params};
+    use serde::Deserialize;
+    use tempfile::TempDir;
 
     fn extract_json(result: &CallToolResult) -> serde_json::Value {
         let text = result
@@ -1852,6 +1860,227 @@ mod tests {
             .expect("server should close cleanly after tool call");
 
         result
+    }
+
+    const GOLDEN_GENRES_FIXTURE_PATH: &str = "tests/fixtures/golden_genres.json";
+
+    #[derive(Debug, Deserialize)]
+    struct GoldenGenreFixtureEntry {
+        artist: String,
+        title: String,
+        expected_genre: String,
+        notes: String,
+    }
+
+    fn default_http_client_for_tests() -> reqwest::Client {
+        reqwest::Client::builder()
+            .user_agent("CrateGuide/2.0")
+            .build()
+            .expect("default test HTTP client should build")
+    }
+
+    fn create_server_with_connections(
+        db_conn: Connection,
+        store_conn: Connection,
+        http: reqwest::Client,
+    ) -> CrateDigServer {
+        let server = CrateDigServer {
+            state: Arc::new(ServerState {
+                db: OnceLock::new(),
+                internal_db: OnceLock::new(),
+                db_path: None,
+                changes: ChangeManager::new(),
+                http,
+            }),
+            tool_router: CrateDigServer::tool_router(),
+        };
+
+        server
+            .state
+            .db
+            .set(Ok(Mutex::new(db_conn)))
+            .expect("test DB should initialize exactly once");
+        server
+            .state
+            .internal_db
+            .set(Ok(Mutex::new(store_conn)))
+            .expect("test internal store should initialize exactly once");
+
+        server
+    }
+
+    fn create_real_server_with_temp_store(
+        http: reqwest::Client,
+    ) -> Option<(CrateDigServer, TempDir)> {
+        let db_conn = db::open_real_db()?;
+        let store_dir = tempfile::tempdir().ok()?;
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(
+            store_path
+                .to_str()
+                .expect("temp store path should be UTF-8"),
+        )
+        .expect("internal store should open for integration test");
+
+        let server = create_server_with_connections(db_conn, store_conn, http);
+        Some((server, store_dir))
+    }
+
+    fn sample_real_tracks(server: &CrateDigServer, limit: u32) -> Vec<crate::types::Track> {
+        let conn = server
+            .conn()
+            .expect("real DB connection should be available for integration test");
+        db::search_tracks(
+            &conn,
+            &db::SearchParams {
+                query: None,
+                artist: None,
+                genre: None,
+                rating_min: None,
+                bpm_min: None,
+                bpm_max: None,
+                key: None,
+                playlist: None,
+                has_genre: Some(true),
+                exclude_samples: true,
+                limit: Some(limit),
+            },
+        )
+        .expect("sample search should succeed")
+        .into_iter()
+        .filter(|t| !t.artist.trim().is_empty() && !t.title.trim().is_empty())
+        .collect()
+    }
+
+    fn create_single_track_test_db(track_id: &str, raw_file_path: &str) -> Connection {
+        let conn = Connection::open_in_memory().expect("in-memory DB should open");
+        conn.execute_batch(
+            "
+            CREATE TABLE djmdArtist (
+                ID VARCHAR(255) PRIMARY KEY,
+                Name VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdAlbum (
+                ID VARCHAR(255) PRIMARY KEY,
+                Name VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdGenre (
+                ID VARCHAR(255) PRIMARY KEY,
+                Name VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdKey (
+                ID VARCHAR(255) PRIMARY KEY,
+                ScaleName VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdLabel (
+                ID VARCHAR(255) PRIMARY KEY,
+                Name VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdColor (
+                ID VARCHAR(255) PRIMARY KEY,
+                ColorCode INTEGER,
+                Commnt VARCHAR(255),
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+            CREATE TABLE djmdContent (
+                ID VARCHAR(255) PRIMARY KEY,
+                Title VARCHAR(255),
+                ArtistID VARCHAR(255),
+                AlbumID VARCHAR(255),
+                GenreID VARCHAR(255),
+                KeyID VARCHAR(255),
+                ColorID VARCHAR(255),
+                LabelID VARCHAR(255),
+                RemixerID VARCHAR(255),
+                BPM INTEGER DEFAULT 0,
+                Rating INTEGER DEFAULT 0,
+                Commnt TEXT DEFAULT '',
+                ReleaseYear INTEGER DEFAULT 0,
+                Length INTEGER DEFAULT 0,
+                FolderPath VARCHAR(255) DEFAULT '',
+                DJPlayCount VARCHAR(255) DEFAULT '0',
+                BitRate INTEGER DEFAULT 0,
+                SampleRate INTEGER DEFAULT 0,
+                FileType INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT '',
+                rb_local_deleted INTEGER DEFAULT 0
+            );
+
+            INSERT INTO djmdArtist (ID, Name) VALUES ('a1', 'Aníbal');
+            INSERT INTO djmdAlbum (ID, Name) VALUES ('al1', 'Encoded Paths');
+            INSERT INTO djmdGenre (ID, Name) VALUES ('g1', 'Deep House');
+            INSERT INTO djmdKey (ID, ScaleName) VALUES ('k1', 'Am');
+            INSERT INTO djmdLabel (ID, Name) VALUES ('l1', 'Test Label');
+            INSERT INTO djmdColor (ID, ColorCode, Commnt) VALUES ('c1', 16711935, 'Rose');
+            ",
+        )
+        .expect("test schema should initialize");
+
+        conn.execute(
+            "INSERT INTO djmdContent (
+                ID, Title, ArtistID, AlbumID, GenreID, KeyID, ColorID, LabelID, RemixerID,
+                BPM, Rating, Commnt, ReleaseYear, Length, FolderPath, DJPlayCount, BitRate,
+                SampleRate, FileType, created_at, rb_local_deleted
+            ) VALUES (
+                ?1, 'Señorita', 'a1', 'al1', 'g1', 'k1', 'c1', 'l1', '',
+                12800, 204, 'percent path test', 2025, 240, ?2, '0', 1411,
+                44100, 5, '2025-01-01', 0
+            )",
+            params![track_id, raw_file_path],
+        )
+        .expect("test track should insert");
+
+        conn
+    }
+
+    fn canonical_genre_name(raw_genre: &str) -> String {
+        if let Some(canonical) = genre::GENRES
+            .iter()
+            .find(|g| g.eq_ignore_ascii_case(raw_genre))
+        {
+            return canonical.to_string();
+        }
+        if let Some(alias_target) = genre::normalize_genre(raw_genre) {
+            return alias_target.to_string();
+        }
+        raw_genre.to_string()
+    }
+
+    fn load_golden_genres_fixture() -> Vec<GoldenGenreFixtureEntry> {
+        let raw = std::fs::read_to_string(GOLDEN_GENRES_FIXTURE_PATH)
+            .expect("golden genres fixture should be readable");
+        serde_json::from_str(&raw).expect("golden genres fixture should be valid JSON")
+    }
+
+    fn find_track_by_artist_and_title(
+        conn: &Connection,
+        artist: &str,
+        title: &str,
+    ) -> Option<crate::types::Track> {
+        let sql = format!(
+            "{}
+             WHERE c.rb_local_deleted = 0
+               AND lower(COALESCE(a.Name, '')) = lower(?1)
+               AND lower(COALESCE(c.Title, '')) = lower(?2)
+             LIMIT 1",
+            db::TRACK_SELECT
+        );
+        let mut stmt = conn
+            .prepare(&sql)
+            .expect("fixture lookup query should prepare");
+        let mut rows = stmt
+            .query_map(params![artist, title], db::row_to_track)
+            .expect("fixture lookup query should run");
+        match rows.next() {
+            Some(Ok(track)) => Some(track),
+            Some(Err(e)) => panic!("fixture lookup failed for {artist} - {title}: {e}"),
+            None => None,
+        }
     }
 
     #[tokio::test]
@@ -1978,6 +2207,509 @@ mod tests {
         assert_has_provenance(&payload);
     }
 
+    #[tokio::test]
+    async fn enrich_tracks_invalid_provider_returns_error() {
+        let server = CrateDigServer::new(None);
+
+        let err = server
+            .enrich_tracks(Parameters(EnrichTracksParams {
+                track_ids: None,
+                playlist_id: None,
+                query: None,
+                artist: None,
+                genre: None,
+                has_genre: None,
+                bpm_min: None,
+                bpm_max: None,
+                key: None,
+                rating_min: None,
+                max_tracks: Some(1),
+                providers: Some(vec!["spotify".to_string()]),
+                skip_cached: Some(true),
+                force_refresh: Some(false),
+            }))
+            .await
+            .expect_err("invalid provider should fail validation");
+
+        assert!(
+            format!("{err}").contains("unknown provider 'spotify'"),
+            "error should mention invalid provider, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn resolve_track_data_uses_decoded_path_for_audio_cache_lookup() {
+        let temp_audio_dir = tempfile::tempdir().expect("temp audio dir should create");
+        let decoded_path = temp_audio_dir.path().join("Aníbal Track.flac");
+        std::fs::write(&decoded_path, b"fake-audio-data")
+            .expect("decoded path file should exist for resolve_file_path");
+
+        let decoded_path_str = decoded_path.to_string_lossy().to_string();
+        let raw_path = decoded_path_str
+            .replace("Aníbal", "An%C3%ADbal")
+            .replace(' ', "%20");
+        assert_ne!(
+            raw_path, decoded_path_str,
+            "raw path must differ from decoded path for this regression test"
+        );
+        assert!(
+            std::fs::metadata(&decoded_path_str).is_ok(),
+            "decoded file path should exist"
+        );
+        assert!(
+            std::fs::metadata(&raw_path).is_err(),
+            "raw encoded path should not exist"
+        );
+
+        let db_conn = create_single_track_test_db("encoded-track-1", &raw_path);
+        let store_dir = tempfile::tempdir().expect("temp store dir should create");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(
+            store_path
+                .to_str()
+                .expect("temp store path should be UTF-8"),
+        )
+        .expect("temp internal store should open");
+
+        store::set_audio_analysis(
+            &store_conn,
+            &decoded_path_str,
+            "stratum-dsp",
+            12,
+            1_700_000_000,
+            "stratum-dsp-1.0.0",
+            r#"{"bpm":128.0,"key":"Am","analyzer_version":"stratum-dsp-1.0.0"}"#,
+        )
+        .expect("audio cache entry should write with decoded cache key");
+
+        let server =
+            create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+        let result = server
+            .resolve_track_data(Parameters(ResolveTrackDataParams {
+                track_id: "encoded-track-1".to_string(),
+            }))
+            .await
+            .expect("resolve_track_data should succeed");
+        let payload = extract_json(&result);
+
+        assert_eq!(
+            payload["data_completeness"]["stratum_dsp"], true,
+            "decoded path lookup should find stratum cache entry"
+        );
+        assert!(
+            payload["audio_analysis"]["stratum_dsp"].is_object(),
+            "audio_analysis.stratum_dsp should be populated from cache"
+        );
+        assert_eq!(payload["audio_analysis"]["stratum_dsp"]["key"], "Am");
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn force_refresh_bypasses_enrichment_cache() {
+        let offline_http = reqwest::Client::builder()
+            .user_agent("CrateGuide/2.0")
+            .proxy(
+                reqwest::Proxy::all("http://127.0.0.1:9").expect("offline proxy URL should parse"),
+            )
+            .build()
+            .expect("offline HTTP client should build");
+
+        let Some((server, _store_dir)) = create_real_server_with_temp_store(offline_http) else {
+            eprintln!("Skipping: backup tarball not found (set REKORDBOX_TEST_BACKUP)");
+            return;
+        };
+
+        let track = sample_real_tracks(&server, 1)
+            .into_iter()
+            .next()
+            .expect("integration test needs at least one real track");
+        let norm_artist = discogs::normalize(&track.artist);
+        let norm_title = discogs::normalize(&track.title);
+        let cached_json = serde_json::json!({"genre":"Sentinel Genre","key":"Am","bpm":128});
+        let cached_json_str = cached_json.to_string();
+
+        {
+            let store = server
+                .internal_conn()
+                .expect("internal store should be available");
+            store::set_enrichment(
+                &store,
+                "beatport",
+                &norm_artist,
+                &norm_title,
+                Some("exact"),
+                Some(&cached_json_str),
+            )
+            .expect("sentinel cache entry should write");
+        }
+
+        let cache_hit = server
+            .lookup_beatport(Parameters(LookupBeatportParams {
+                artist: track.artist.clone(),
+                title: track.title.clone(),
+                force_refresh: Some(false),
+            }))
+            .await
+            .expect("lookup_beatport(force_refresh=false) should return cache");
+        let cache_hit_json = extract_json(&cache_hit);
+        assert_eq!(cache_hit_json["cache_hit"], true);
+        assert_eq!(cache_hit_json["genre"], "Sentinel Genre");
+
+        let refresh_err = server
+            .lookup_beatport(Parameters(LookupBeatportParams {
+                artist: track.artist.clone(),
+                title: track.title.clone(),
+                force_refresh: Some(true),
+            }))
+            .await
+            .expect_err("force_refresh=true should bypass cache and attempt HTTP call");
+        assert!(
+            format!("{refresh_err}").contains("Beatport error"),
+            "force refresh should fail via offline HTTP path, got: {refresh_err}"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn enrich_tracks_beatport_schema_matches_individual_lookup() {
+        let Some((server, _store_dir)) =
+            create_real_server_with_temp_store(default_http_client_for_tests())
+        else {
+            eprintln!("Skipping: backup tarball not found (set REKORDBOX_TEST_BACKUP)");
+            return;
+        };
+
+        let candidates = sample_real_tracks(&server, 30);
+        assert!(
+            !candidates.is_empty(),
+            "integration test needs candidate tracks from real DB"
+        );
+
+        let mut selected_track: Option<crate::types::Track> = None;
+        for track in candidates.into_iter().take(10) {
+            let lookup = server
+                .lookup_beatport(Parameters(LookupBeatportParams {
+                    artist: track.artist.clone(),
+                    title: track.title.clone(),
+                    force_refresh: Some(true),
+                }))
+                .await;
+
+            let Ok(result) = lookup else {
+                continue;
+            };
+            let payload = extract_json(&result);
+            if payload
+                .get("genre")
+                .and_then(serde_json::Value::as_str)
+                .is_some()
+            {
+                selected_track = Some(track);
+                break;
+            }
+        }
+
+        let track = selected_track.expect(
+            "could not find a track with a successful Beatport match; \
+             rerun when network/providers are available",
+        );
+        let norm_artist = discogs::normalize(&track.artist);
+        let norm_title = discogs::normalize(&track.title);
+
+        let individual_cache = {
+            let store = server
+                .internal_conn()
+                .expect("internal store should be available");
+            store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+                .expect("cache read should succeed")
+                .expect("individual lookup should have created cache entry")
+        };
+        let individual_json: serde_json::Value = serde_json::from_str(
+            individual_cache
+                .response_json
+                .as_deref()
+                .expect("individual beatport cache should contain JSON"),
+        )
+        .expect("individual beatport cache JSON should parse");
+        assert!(
+            individual_json
+                .get("genre")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "individual beatport cache should have string 'genre'"
+        );
+        let individual_fields: HashSet<String> = individual_json
+            .as_object()
+            .expect("individual beatport cache should be object")
+            .keys()
+            .cloned()
+            .collect();
+
+        {
+            let store = server
+                .internal_conn()
+                .expect("internal store should be available");
+            store
+                .execute(
+                    "DELETE FROM enrichment_cache
+                     WHERE provider = ?1 AND query_artist = ?2 AND query_title = ?3",
+                    params!["beatport", &norm_artist, &norm_title],
+                )
+                .expect("cache clear should succeed");
+        }
+
+        let enrich_result = server
+            .enrich_tracks(Parameters(EnrichTracksParams {
+                track_ids: Some(vec![track.id.clone()]),
+                playlist_id: None,
+                query: None,
+                artist: None,
+                genre: None,
+                has_genre: None,
+                bpm_min: None,
+                bpm_max: None,
+                key: None,
+                rating_min: None,
+                max_tracks: Some(1),
+                providers: Some(vec!["beatport".to_string()]),
+                skip_cached: Some(false),
+                force_refresh: Some(true),
+            }))
+            .await
+            .expect("enrich_tracks should succeed for beatport provider");
+        let enrich_payload = extract_json(&enrich_result);
+        assert_eq!(enrich_payload["summary"]["total"], 1);
+
+        let batch_cache = {
+            let store = server
+                .internal_conn()
+                .expect("internal store should be available");
+            store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+                .expect("cache read should succeed")
+                .expect("batch enrich should have created beatport cache entry")
+        };
+        let batch_json: serde_json::Value = serde_json::from_str(
+            batch_cache
+                .response_json
+                .as_deref()
+                .expect("batch beatport cache should contain JSON"),
+        )
+        .expect("batch beatport cache JSON should parse");
+        assert!(
+            batch_json
+                .get("genre")
+                .and_then(serde_json::Value::as_str)
+                .is_some(),
+            "batch beatport cache should have string 'genre'"
+        );
+        assert!(
+            batch_json.get("genres").is_none(),
+            "beatport cache should not be transformed into discogs-style 'genres' schema"
+        );
+
+        let batch_fields: HashSet<String> = batch_json
+            .as_object()
+            .expect("batch beatport cache should be object")
+            .keys()
+            .cloned()
+            .collect();
+        assert_eq!(
+            batch_fields, individual_fields,
+            "batch and individual beatport cache JSON should share the same schema"
+        );
+    }
+
+    #[tokio::test]
+    #[ignore]
+    async fn resolve_tracks_data_batch_consistency() {
+        let Some((server, _store_dir)) =
+            create_real_server_with_temp_store(default_http_client_for_tests())
+        else {
+            eprintln!("Skipping: backup tarball not found (set REKORDBOX_TEST_BACKUP)");
+            return;
+        };
+
+        let tracks = sample_real_tracks(&server, 5);
+        assert!(
+            !tracks.is_empty(),
+            "integration test needs tracks from real DB"
+        );
+        let track_ids: Vec<String> = tracks.iter().map(|t| t.id.clone()).collect();
+
+        let batch_result = server
+            .resolve_tracks_data(Parameters(ResolveTracksDataParams {
+                track_ids: Some(track_ids.clone()),
+                playlist_id: None,
+                query: None,
+                artist: None,
+                genre: None,
+                has_genre: None,
+                bpm_min: None,
+                bpm_max: None,
+                key: None,
+                rating_min: None,
+                max_tracks: Some(track_ids.len() as u32),
+            }))
+            .await
+            .expect("batch resolve should succeed");
+        let batch_payload = extract_json(&batch_result);
+        let batch_items = batch_payload
+            .as_array()
+            .expect("batch resolve payload should be an array");
+        assert_eq!(
+            batch_items.len(),
+            track_ids.len(),
+            "batch resolve should return one entry per requested track"
+        );
+
+        let mut by_track_id: HashMap<String, serde_json::Value> = HashMap::new();
+        for item in batch_items {
+            let track_id = item
+                .get("track_id")
+                .and_then(serde_json::Value::as_str)
+                .expect("resolved track item should include track_id");
+            by_track_id.insert(track_id.to_string(), item.clone());
+        }
+
+        for track_id in &track_ids {
+            let single_result = server
+                .resolve_track_data(Parameters(ResolveTrackDataParams {
+                    track_id: track_id.clone(),
+                }))
+                .await
+                .expect("single resolve should succeed");
+            let single_payload = extract_json(&single_result);
+            assert_eq!(
+                by_track_id
+                    .get(track_id)
+                    .expect("batch output should include every requested track"),
+                &single_payload,
+                "batch resolve output should match single-track resolve output"
+            );
+        }
+    }
+
+    #[test]
+    fn golden_genres_fixture_is_well_formed() {
+        let entries = load_golden_genres_fixture();
+        assert!(
+            !entries.is_empty(),
+            "golden genres fixture should contain at least one entry"
+        );
+
+        let mut unique = HashSet::new();
+        for entry in &entries {
+            assert!(
+                !entry.artist.trim().is_empty(),
+                "fixture artist must be non-empty"
+            );
+            assert!(
+                !entry.title.trim().is_empty(),
+                "fixture title must be non-empty"
+            );
+            assert!(
+                !entry.notes.trim().is_empty(),
+                "fixture notes must be non-empty"
+            );
+            assert!(
+                genre::is_known_genre(&entry.expected_genre),
+                "expected_genre '{}' must be in taxonomy",
+                entry.expected_genre
+            );
+            assert!(
+                genre::normalize_genre(&entry.expected_genre).is_none(),
+                "expected_genre '{}' must be canonical, not alias",
+                entry.expected_genre
+            );
+
+            let key = format!(
+                "{}::{}",
+                entry.artist.to_lowercase(),
+                entry.title.to_lowercase()
+            );
+            assert!(unique.insert(key), "duplicate (artist, title) in fixture");
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn golden_dataset_genre_accuracy() {
+        let entries = load_golden_genres_fixture();
+        let Some(conn) = db::open_real_db() else {
+            eprintln!("Skipping: backup tarball not found (set REKORDBOX_TEST_BACKUP)");
+            return;
+        };
+
+        let mut compared = 0usize;
+        let mut correct = 0usize;
+        let mut missing_tracks = Vec::new();
+        let mut no_genre = Vec::new();
+        let mut mismatches = Vec::new();
+
+        for entry in &entries {
+            let Some(track) = find_track_by_artist_and_title(&conn, &entry.artist, &entry.title)
+            else {
+                missing_tracks.push(format!("{} - {}", entry.artist, entry.title));
+                continue;
+            };
+
+            if track.genre.trim().is_empty() {
+                no_genre.push(format!("{} - {}", entry.artist, entry.title));
+                continue;
+            }
+
+            compared += 1;
+            let actual = canonical_genre_name(&track.genre);
+            if actual.eq_ignore_ascii_case(&entry.expected_genre) {
+                correct += 1;
+            } else {
+                mismatches.push(format!(
+                    "{} - {}: expected '{}', actual '{}' ({})",
+                    entry.artist, entry.title, entry.expected_genre, actual, entry.notes
+                ));
+            }
+        }
+
+        let accuracy = if compared == 0 {
+            0.0
+        } else {
+            (correct as f64 / compared as f64) * 100.0
+        };
+        eprintln!(
+            "[integration] golden dataset: total={} compared={} correct={} accuracy={:.1}%",
+            entries.len(),
+            compared,
+            correct,
+            accuracy
+        );
+        if !missing_tracks.is_empty() {
+            eprintln!("[integration] missing tracks ({}):", missing_tracks.len());
+            for item in &missing_tracks {
+                eprintln!("  - {item}");
+            }
+        }
+        if !no_genre.is_empty() {
+            eprintln!(
+                "[integration] tracks with empty genre ({}):",
+                no_genre.len()
+            );
+            for item in &no_genre {
+                eprintln!("  - {item}");
+            }
+        }
+        if !mismatches.is_empty() {
+            eprintln!("[integration] mismatches ({}):", mismatches.len());
+            for item in &mismatches {
+                eprintln!("  - {item}");
+            }
+        }
+
+        assert!(
+            !missing_tracks.is_empty() || compared > 0,
+            "fixture should either report missing tracks or compare at least one track"
+        );
+    }
+
     // --- resolve_single_track unit tests ---
 
     fn make_test_track(id: &str, genre: &str, bpm: f64, key: &str) -> crate::types::Track {
@@ -2012,7 +2744,9 @@ mod tests {
         let result = resolve_single_track(&track, None, None, None, None);
 
         // Verify rekordbox section present
-        let rb = result.get("rekordbox").expect("rekordbox section should exist");
+        let rb = result
+            .get("rekordbox")
+            .expect("rekordbox section should exist");
         assert_eq!(rb["title"], "Track t1");
         assert_eq!(rb["artist"], "Test Artist");
         assert_eq!(rb["genre"], "Deep House");
@@ -2024,13 +2758,27 @@ mod tests {
         assert_eq!(rb["label"], "Test Label");
 
         // Null sections when no cache
-        assert!(result["audio_analysis"].is_null(), "audio_analysis should be null without cache");
-        assert!(result["discogs"].is_null(), "discogs should be null without cache");
-        assert!(result["beatport"].is_null(), "beatport should be null without cache");
-        assert!(result["staged_changes"].is_null(), "staged_changes should be null without staged");
+        assert!(
+            result["audio_analysis"].is_null(),
+            "audio_analysis should be null without cache"
+        );
+        assert!(
+            result["discogs"].is_null(),
+            "discogs should be null without cache"
+        );
+        assert!(
+            result["beatport"].is_null(),
+            "beatport should be null without cache"
+        );
+        assert!(
+            result["staged_changes"].is_null(),
+            "staged_changes should be null without staged"
+        );
 
         // Data completeness
-        let dc = result.get("data_completeness").expect("data_completeness should exist");
+        let dc = result
+            .get("data_completeness")
+            .expect("data_completeness should exist");
         assert_eq!(dc["rekordbox"], true);
         assert_eq!(dc["stratum_dsp"], false);
         assert_eq!(dc["essentia"], false);
@@ -2039,7 +2787,9 @@ mod tests {
         assert_eq!(dc["beatport"], false);
 
         // Genre taxonomy — "Deep House" is canonical
-        let gt = result.get("genre_taxonomy").expect("genre_taxonomy should exist");
+        let gt = result
+            .get("genre_taxonomy")
+            .expect("genre_taxonomy should exist");
         assert_eq!(gt["current_genre_canonical"], "Deep House");
     }
 
@@ -2055,8 +2805,13 @@ mod tests {
         };
         let result = resolve_single_track(&track, None, None, None, Some(&staged));
 
-        let sc = result.get("staged_changes").expect("staged_changes should exist");
-        assert!(!sc.is_null(), "staged_changes should not be null when changes are staged");
+        let sc = result
+            .get("staged_changes")
+            .expect("staged_changes should exist");
+        assert!(
+            !sc.is_null(),
+            "staged_changes should not be null when changes are staged"
+        );
         assert_eq!(sc["genre"], "Deep House");
         assert!(sc["comments"].is_null(), "unstaged field should be null");
         assert_eq!(sc["rating"], 5);
@@ -2124,16 +2879,24 @@ mod tests {
         assert_eq!(gt["current_genre_canonical"], "Techno");
 
         // Discogs style mappings
-        let dsm = gt["discogs_style_mappings"].as_array().expect("should be array");
+        let dsm = gt["discogs_style_mappings"]
+            .as_array()
+            .expect("should be array");
         assert_eq!(dsm.len(), 3);
 
         // Deep House — exact match (canonical genre)
-        let dh = dsm.iter().find(|m| m["style"] == "Deep House").expect("Deep House mapping");
+        let dh = dsm
+            .iter()
+            .find(|m| m["style"] == "Deep House")
+            .expect("Deep House mapping");
         assert_eq!(dh["mapping_type"], "exact");
         assert_eq!(dh["maps_to"], "Deep House");
 
         // Garage House — alias mapping
-        let gh = dsm.iter().find(|m| m["style"] == "Garage House").expect("Garage House mapping");
+        let gh = dsm
+            .iter()
+            .find(|m| m["style"] == "Garage House")
+            .expect("Garage House mapping");
         // "Garage House" is not in the alias map, so it should be unknown
         // Let's check: normalize_genre("Garage House") — it's not in alias_map
         // Actually: "gospel house" -> "House" is in the alias map but not "garage house"
@@ -2142,7 +2905,10 @@ mod tests {
         assert!(gh["maps_to"].is_null());
 
         // Some Unknown Style — unknown
-        let unknown = dsm.iter().find(|m| m["style"] == "Some Unknown Style").expect("unknown mapping");
+        let unknown = dsm
+            .iter()
+            .find(|m| m["style"] == "Some Unknown Style")
+            .expect("unknown mapping");
         assert_eq!(unknown["mapping_type"], "unknown");
         assert!(unknown["maps_to"].is_null());
 
@@ -2153,8 +2919,14 @@ mod tests {
         assert_eq!(bgm["maps_to"], "Techno");
 
         // Enrichment data is present
-        assert!(result["discogs"].is_object(), "discogs should be parsed object");
-        assert!(result["beatport"].is_object(), "beatport should be parsed object");
+        assert!(
+            result["discogs"].is_object(),
+            "discogs should be parsed object"
+        );
+        assert!(
+            result["beatport"].is_object(),
+            "beatport should be parsed object"
+        );
     }
 
     #[test]
@@ -2163,7 +2935,10 @@ mod tests {
         let result = resolve_single_track(&track, None, None, None, None);
 
         let gt = &result["genre_taxonomy"];
-        assert!(gt["current_genre_canonical"].is_null(), "empty genre should map to null canonical");
+        assert!(
+            gt["current_genre_canonical"].is_null(),
+            "empty genre should map to null canonical"
+        );
     }
 
     #[test]
@@ -2172,7 +2947,10 @@ mod tests {
         let result = resolve_single_track(&track, None, None, None, None);
 
         let gt = &result["genre_taxonomy"];
-        assert!(gt["current_genre_canonical"].is_null(), "unknown genre 'Polka' should map to null");
+        assert!(
+            gt["current_genre_canonical"].is_null(),
+            "unknown genre 'Polka' should map to null"
+        );
     }
 
     #[test]
@@ -2197,11 +2975,22 @@ mod tests {
 
         let result = resolve_single_track(&track, None, None, Some(&stratum_cache), None);
 
-        let aa = result.get("audio_analysis").expect("audio_analysis should exist");
-        assert!(!aa.is_null(), "audio_analysis should not be null with stratum cache");
-        assert_eq!(aa["bpm_agreement"], true, "BPM 128.0 vs 128.5 should agree (within 2.0)");
+        let aa = result
+            .get("audio_analysis")
+            .expect("audio_analysis should exist");
+        assert!(
+            !aa.is_null(),
+            "audio_analysis should not be null with stratum cache"
+        );
+        assert_eq!(
+            aa["bpm_agreement"], true,
+            "BPM 128.0 vs 128.5 should agree (within 2.0)"
+        );
         assert_eq!(aa["key_agreement"], true, "Key Am vs Am should agree");
-        assert!(aa["stratum_dsp"].is_object(), "stratum_dsp should be the parsed features");
+        assert!(
+            aa["stratum_dsp"].is_object(),
+            "stratum_dsp should be the parsed features"
+        );
         assert!(aa["essentia"].is_null(), "essentia should always be null");
 
         let dc = &result["data_completeness"];
@@ -2230,7 +3019,10 @@ mod tests {
         let result = resolve_single_track(&track, None, None, Some(&stratum_cache), None);
 
         let aa = &result["audio_analysis"];
-        assert_eq!(aa["bpm_agreement"], false, "BPM 128.0 vs 64.0 should disagree");
+        assert_eq!(
+            aa["bpm_agreement"], false,
+            "BPM 128.0 vs 64.0 should disagree"
+        );
         assert_eq!(aa["key_agreement"], false, "Key Am vs Cm should disagree");
     }
 
@@ -2251,7 +3043,13 @@ mod tests {
         let result = resolve_single_track(&track, Some(&discogs_cache), None, None, None);
 
         // discogs cached but no match -> null enrichment data, but data_completeness = true
-        assert!(result["discogs"].is_null(), "discogs with no response_json should be null");
-        assert_eq!(result["data_completeness"]["discogs"], true, "cache entry exists so completeness is true");
+        assert!(
+            result["discogs"].is_null(),
+            "discogs with no response_json should be null"
+        );
+        assert_eq!(
+            result["data_completeness"]["discogs"], true,
+            "cache entry exists so completeness is true"
+        );
     }
 }

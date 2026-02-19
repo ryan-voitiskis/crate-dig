@@ -1,0 +1,56 @@
+[
+  {
+    "artist": "Bjarki",
+    "title": "( . )_( . )",
+    "expected_genre": "Techno",
+    "notes": "Stripped-down peak-time techno groove."
+  },
+  {
+    "artist": "Sigha",
+    "title": "09",
+    "expected_genre": "Techno",
+    "notes": "Functional techno tool with driving rhythm."
+  },
+  {
+    "artist": "prince of denmark",
+    "title": "0r6145",
+    "expected_genre": "Techno",
+    "notes": "Deep warehouse techno aesthetic."
+  },
+  {
+    "artist": "Daniel Stefanik",
+    "title": "#six",
+    "expected_genre": "House",
+    "notes": "Classic house drum programming and feel."
+  },
+  {
+    "artist": "Matt Karmil",
+    "title": "210",
+    "expected_genre": "House",
+    "notes": "House groove with steady four-on-the-floor pulse."
+  },
+  {
+    "artist": "New Members",
+    "title": "3000",
+    "expected_genre": "House",
+    "notes": "Straightforward modern house roller."
+  },
+  {
+    "artist": "Soulphiction",
+    "title": "24-7 Love Affair",
+    "expected_genre": "Deep House",
+    "notes": "Soulful deep house arrangement."
+  },
+  {
+    "artist": "Road Hog",
+    "title": "271",
+    "expected_genre": "Deep House",
+    "notes": "Low-slung deep house with warm bassline."
+  },
+  {
+    "artist": "MoMa Ready",
+    "title": "A Deep Progression",
+    "expected_genre": "Deep House",
+    "notes": "Explicit deep-house styling in title and arrangement."
+  }
+]
