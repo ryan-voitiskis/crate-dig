@@ -396,6 +396,14 @@ pub struct SearchTracksParams {
     pub playlist: Option<String>,
     #[schemars(description = "Filter by whether track has a genre set")]
     pub has_genre: Option<bool>,
+    #[schemars(description = "Filter by label name (partial match)")]
+    pub label: Option<String>,
+    #[schemars(description = "Filter by file path/folder (partial match)")]
+    pub path: Option<String>,
+    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    pub added_after: Option<String>,
+    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    pub added_before: Option<String>,
     #[schemars(description = "Include Rekordbox factory samples (default false)")]
     pub include_samples: Option<bool>,
     #[schemars(description = "Max results (default 50, max 200)")]
@@ -468,10 +476,12 @@ pub struct SuggestNormalizationsParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LookupDiscogsParams {
-    #[schemars(description = "Artist name")]
-    pub artist: String,
-    #[schemars(description = "Track title")]
-    pub title: String,
+    #[schemars(description = "Track ID — auto-fills artist/title/album from library")]
+    pub track_id: Option<String>,
+    #[schemars(description = "Artist name (required if no track_id)")]
+    pub artist: Option<String>,
+    #[schemars(description = "Track title (required if no track_id)")]
+    pub title: Option<String>,
     #[schemars(description = "Album/release title for more accurate matching")]
     pub album: Option<String>,
     #[schemars(description = "Bypass cache and fetch fresh data (default false)")]
@@ -480,10 +490,12 @@ pub struct LookupDiscogsParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct LookupBeatportParams {
-    #[schemars(description = "Artist name")]
-    pub artist: String,
-    #[schemars(description = "Track title")]
-    pub title: String,
+    #[schemars(description = "Track ID — auto-fills artist/title from library")]
+    pub track_id: Option<String>,
+    #[schemars(description = "Artist name (required if no track_id)")]
+    pub artist: Option<String>,
+    #[schemars(description = "Track title (required if no track_id)")]
+    pub title: Option<String>,
     #[schemars(description = "Bypass cache and fetch fresh data (default false)")]
     pub force_refresh: Option<bool>,
 }
@@ -510,6 +522,14 @@ pub struct EnrichTracksParams {
     pub key: Option<String>,
     #[schemars(description = "Minimum star rating (1-5)")]
     pub rating_min: Option<u8>,
+    #[schemars(description = "Filter by label name (partial match)")]
+    pub label: Option<String>,
+    #[schemars(description = "Filter by file path/folder (partial match)")]
+    pub path: Option<String>,
+    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    pub added_after: Option<String>,
+    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to enrich (default 50)")]
     pub max_tracks: Option<u32>,
     #[schemars(description = "Providers to use: 'discogs', 'beatport' (default ['discogs'])")]
@@ -550,6 +570,14 @@ pub struct AnalyzeAudioBatchParams {
     pub key: Option<String>,
     #[schemars(description = "Minimum star rating (1-5)")]
     pub rating_min: Option<u8>,
+    #[schemars(description = "Filter by label name (partial match)")]
+    pub label: Option<String>,
+    #[schemars(description = "Filter by file path/folder (partial match)")]
+    pub path: Option<String>,
+    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    pub added_after: Option<String>,
+    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to analyze (default 20)")]
     pub max_tracks: Option<u32>,
     #[schemars(description = "Skip tracks already in cache (default true)")]
@@ -584,6 +612,14 @@ pub struct ResolveTracksDataParams {
     pub key: Option<String>,
     #[schemars(description = "Minimum star rating (1-5)")]
     pub rating_min: Option<u8>,
+    #[schemars(description = "Filter by label name (partial match)")]
+    pub label: Option<String>,
+    #[schemars(description = "Filter by file path/folder (partial match)")]
+    pub path: Option<String>,
+    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    pub added_after: Option<String>,
+    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to resolve (default 50)")]
     pub max_tracks: Option<u32>,
 }
@@ -626,6 +662,10 @@ impl ReklawdboxServer {
             key: params.0.key,
             playlist: params.0.playlist,
             has_genre: params.0.has_genre,
+            label: params.0.label,
+            path: params.0.path,
+            added_after: params.0.added_after,
+            added_before: params.0.added_before,
             exclude_samples: !params.0.include_samples.unwrap_or(false),
             limit: params.0.limit,
         };
@@ -996,15 +1036,43 @@ impl ReklawdboxServer {
     }
 
     #[tool(
-        description = "Look up a track on Discogs for genre/style enrichment. Returns release info with genres and styles, or null if not found. Results are cached."
+        description = "Look up a track on Discogs for genre/style enrichment. Returns release info with genres and styles, or null if not found. Results are cached. Pass track_id to auto-fill artist/title/album from the library."
     )]
     async fn lookup_discogs(
         &self,
         params: Parameters<LookupDiscogsParams>,
     ) -> Result<CallToolResult, McpError> {
         let force_refresh = params.0.force_refresh.unwrap_or(false);
-        let norm_artist = discogs::normalize(&params.0.artist);
-        let norm_title = discogs::normalize(&params.0.title);
+
+        // Resolve artist/title/album: from track_id or explicit params
+        let (artist, title, album) = if let Some(ref track_id) = params.0.track_id {
+            let conn = self.conn()?;
+            let track = db::get_track(&conn, track_id)
+                .map_err(|e| err(format!("DB error: {e}")))?
+                .ok_or_else(|| {
+                    McpError::invalid_params(format!("Track '{track_id}' not found"), None)
+                })?;
+            let album = params
+                .0
+                .album
+                .or_else(|| (!track.album.is_empty()).then(|| track.album.clone()));
+            (
+                params.0.artist.unwrap_or(track.artist),
+                params.0.title.unwrap_or(track.title),
+                album,
+            )
+        } else {
+            let artist = params.0.artist.ok_or_else(|| {
+                McpError::invalid_params("artist is required when track_id is not provided", None)
+            })?;
+            let title = params.0.title.ok_or_else(|| {
+                McpError::invalid_params("title is required when track_id is not provided", None)
+            })?;
+            (artist, title, params.0.album)
+        };
+
+        let norm_artist = discogs::normalize(&artist);
+        let norm_title = discogs::normalize(&title);
 
         if !force_refresh {
             let store = self.internal_conn()?;
@@ -1038,9 +1106,9 @@ impl ReklawdboxServer {
 
         let result = discogs::lookup(
             &self.state.http,
-            &params.0.artist,
-            &params.0.title,
-            params.0.album.as_deref(),
+            &artist,
+            &title,
+            album.as_deref(),
         )
         .await
         .map_err(|e| err(format!("Discogs error: {e}")))?;
@@ -1075,15 +1143,38 @@ impl ReklawdboxServer {
     }
 
     #[tool(
-        description = "Look up a track on Beatport for genre/BPM/key enrichment. Returns track info or null if not found. Results are cached."
+        description = "Look up a track on Beatport for genre/BPM/key enrichment. Returns track info or null if not found. Results are cached. Pass track_id to auto-fill artist/title from the library."
     )]
     async fn lookup_beatport(
         &self,
         params: Parameters<LookupBeatportParams>,
     ) -> Result<CallToolResult, McpError> {
         let force_refresh = params.0.force_refresh.unwrap_or(false);
-        let norm_artist = discogs::normalize(&params.0.artist);
-        let norm_title = discogs::normalize(&params.0.title);
+
+        // Resolve artist/title: from track_id or explicit params
+        let (artist, title) = if let Some(ref track_id) = params.0.track_id {
+            let conn = self.conn()?;
+            let track = db::get_track(&conn, track_id)
+                .map_err(|e| err(format!("DB error: {e}")))?
+                .ok_or_else(|| {
+                    McpError::invalid_params(format!("Track '{track_id}' not found"), None)
+                })?;
+            (
+                params.0.artist.unwrap_or(track.artist),
+                params.0.title.unwrap_or(track.title),
+            )
+        } else {
+            let artist = params.0.artist.ok_or_else(|| {
+                McpError::invalid_params("artist is required when track_id is not provided", None)
+            })?;
+            let title = params.0.title.ok_or_else(|| {
+                McpError::invalid_params("title is required when track_id is not provided", None)
+            })?;
+            (artist, title)
+        };
+
+        let norm_artist = discogs::normalize(&artist);
+        let norm_title = discogs::normalize(&title);
 
         if !force_refresh {
             let store = self.internal_conn()?;
@@ -1115,7 +1206,7 @@ impl ReklawdboxServer {
             }
         }
 
-        let result = beatport::lookup(&self.state.http, &params.0.artist, &params.0.title)
+        let result = beatport::lookup(&self.state.http, &artist, &title)
             .await
             .map_err(|e| err(format!("Beatport error: {e}")))?;
 
@@ -1188,6 +1279,10 @@ impl ReklawdboxServer {
                     key: p.key,
                     playlist: None,
                     has_genre: p.has_genre,
+                    label: p.label,
+                    path: p.path,
+                    added_after: p.added_after,
+                    added_before: p.added_before,
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
@@ -1516,6 +1611,10 @@ impl ReklawdboxServer {
                     key: p.key,
                     playlist: None,
                     has_genre: p.has_genre,
+                    label: p.label,
+                    path: p.path,
+                    added_after: p.added_after,
+                    added_before: p.added_before,
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
@@ -1909,6 +2008,10 @@ impl ReklawdboxServer {
                     key: p.key,
                     playlist: None,
                     has_genre: p.has_genre,
+                    label: p.label,
+                    path: p.path,
+                    added_after: p.added_after,
+                    added_before: p.added_before,
                     exclude_samples: true,
                     limit: Some(max_tracks as u32),
                 };
@@ -2323,6 +2426,10 @@ mod tests {
                 key: None,
                 playlist: None,
                 has_genre: Some(true),
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 exclude_samples: true,
                 limit: Some(limit),
             },
@@ -2802,6 +2909,10 @@ mod tests {
                 bpm_max: None,
                 key: None,
                 rating_min: None,
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 max_tracks: Some(1),
                 providers: Some(vec!["spotify".to_string()]),
                 skip_cached: Some(true),
@@ -2905,6 +3016,10 @@ mod tests {
             bpm_max: None,
             key: None,
             rating_min: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             max_tracks: Some(10),
             providers: Some(vec!["discogs".to_string()]),
             skip_cached: Some(true),
@@ -2944,6 +3059,10 @@ mod tests {
                 bpm_max: None,
                 key: None,
                 rating_min: None,
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 max_tracks: Some(10),
                 providers: Some(vec!["discogs".to_string()]),
                 skip_cached: Some(true),
@@ -3085,8 +3204,9 @@ mod tests {
 
         let cache_hit = server
             .lookup_beatport(Parameters(LookupBeatportParams {
-                artist: track.artist.clone(),
-                title: track.title.clone(),
+                track_id: None,
+                artist: Some(track.artist.clone()),
+                title: Some(track.title.clone()),
                 force_refresh: Some(false),
             }))
             .await
@@ -3097,8 +3217,9 @@ mod tests {
 
         let refresh_err = server
             .lookup_beatport(Parameters(LookupBeatportParams {
-                artist: track.artist.clone(),
-                title: track.title.clone(),
+                track_id: None,
+                artist: Some(track.artist.clone()),
+                title: Some(track.title.clone()),
                 force_refresh: Some(true),
             }))
             .await
@@ -3129,8 +3250,9 @@ mod tests {
         for track in candidates.into_iter().take(10) {
             let lookup = server
                 .lookup_beatport(Parameters(LookupBeatportParams {
-                    artist: track.artist.clone(),
-                    title: track.title.clone(),
+                    track_id: None,
+                    artist: Some(track.artist.clone()),
+                    title: Some(track.title.clone()),
                     force_refresh: Some(true),
                 }))
                 .await;
@@ -3210,6 +3332,10 @@ mod tests {
                 bpm_max: None,
                 key: None,
                 rating_min: None,
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 max_tracks: Some(1),
                 providers: Some(vec!["beatport".to_string()]),
                 skip_cached: Some(false),
@@ -3288,6 +3414,10 @@ mod tests {
                 bpm_max: None,
                 key: None,
                 rating_min: None,
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 max_tracks: Some(track_ids.len() as u32),
             }))
             .await

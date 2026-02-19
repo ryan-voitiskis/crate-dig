@@ -587,6 +587,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(5),
         };

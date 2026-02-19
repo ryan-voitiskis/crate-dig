@@ -108,6 +108,10 @@ pub struct SearchParams {
     pub key: Option<String>,
     pub playlist: Option<String>,
     pub has_genre: Option<bool>,
+    pub label: Option<String>,
+    pub path: Option<String>,
+    pub added_after: Option<String>,
+    pub added_before: Option<String>,
     pub exclude_samples: bool,
     pub limit: Option<u32>,
 }
@@ -176,6 +180,30 @@ pub fn search_tracks(
         } else {
             sql.push_str(" AND (g.Name IS NULL OR g.Name = '')");
         }
+    }
+
+    if let Some(ref label) = params.label {
+        let idx = bind_values.len() + 1;
+        sql.push_str(&format!(" AND l.Name LIKE ?{idx} ESCAPE '\\'"));
+        bind_values.push(Box::new(format!("%{}%", escape_like(label))));
+    }
+
+    if let Some(ref path) = params.path {
+        let idx = bind_values.len() + 1;
+        sql.push_str(&format!(" AND c.FolderPath LIKE ?{idx} ESCAPE '\\'"));
+        bind_values.push(Box::new(format!("%{}%", escape_like(path))));
+    }
+
+    if let Some(ref added_after) = params.added_after {
+        let idx = bind_values.len() + 1;
+        sql.push_str(&format!(" AND c.created_at >= ?{idx}"));
+        bind_values.push(Box::new(added_after.clone()));
+    }
+
+    if let Some(ref added_before) = params.added_before {
+        let idx = bind_values.len() + 1;
+        sql.push_str(&format!(" AND c.created_at <= ?{idx}"));
+        bind_values.push(Box::new(added_before.clone()));
     }
 
     if params.exclude_samples {
@@ -605,6 +633,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -625,6 +657,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: true,
             limit: None,
         };
@@ -646,6 +682,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -667,6 +707,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -688,6 +732,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: Some(false),
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -709,6 +757,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -729,6 +781,10 @@ mod tests {
             key: Some("Am".to_string()),
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -750,6 +806,10 @@ mod tests {
             key: None,
             playlist: Some("p1".to_string()),
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: None,
         };
@@ -973,6 +1033,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(10),
         };
@@ -990,6 +1054,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(50),
         };
@@ -1019,6 +1087,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(200),
         };
@@ -1071,6 +1143,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: Some(false),
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(50),
         };
@@ -1095,6 +1171,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: Some(true),
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(50),
         };
@@ -1180,6 +1260,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: false,
             limit: Some(1),
         };
@@ -1266,6 +1350,10 @@ mod tests {
                 key: None,
                 playlist: None,
                 has_genre: None,
+                label: None,
+                path: None,
+                added_after: None,
+                added_before: None,
                 exclude_samples: false,
                 limit: Some(5),
             };
@@ -1309,6 +1397,10 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
             exclude_samples: true,
             limit: Some(200),
         };
