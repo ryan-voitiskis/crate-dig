@@ -1,6 +1,8 @@
 use rusqlite::{Connection, OpenFlags, params};
 
-use crate::types::{GenreCount, KeyCount, LibraryStats, Playlist, Track, rating_to_stars};
+use crate::types::{
+    GenreCount, KeyCount, LibraryStats, Playlist, Track, file_type_to_kind, rating_to_stars,
+};
 
 /// The universal Rekordbox 6/7 SQLCipher key (publicly known, same for all installations).
 const DB_KEY: &str = "402fd482c38817c35ffa8ffb8c7d93143b749e7d315df7a81732a1ff43608497";
@@ -65,28 +67,32 @@ pub(crate) fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error
             .unwrap_or(0),
     };
 
+    let file_type_raw: i32 = row.get("FileType")?;
+
     Ok(Track {
         id: row.get("ID")?,
-        title: row.get("Title")?,
-        artist: row.get("ArtistName")?,
-        album: row.get("AlbumName")?,
-        genre: row.get("GenreName")?,
+        title: row.get::<_, String>("Title")?.trim().to_string(),
+        artist: row.get::<_, String>("ArtistName")?.trim().to_string(),
+        album: row.get::<_, String>("AlbumName")?.trim().to_string(),
+        genre: row.get::<_, String>("GenreName")?.trim().to_string(),
         bpm: bpm_raw as f64 / 100.0,
-        key: row.get("KeyName")?,
+        key: row.get::<_, String>("KeyName")?.trim().to_string(),
         rating: rating_to_stars(rating_raw as u16),
-        comments: row.get("Comments")?,
-        color: row.get("ColorName")?,
+        comments: row.get::<_, String>("Comments")?.trim().to_string(),
+        color: row.get::<_, String>("ColorName")?.trim().to_string(),
         color_code: row.get("ColorCode")?,
-        label: row.get("LabelName")?,
-        remixer: row.get("RemixerName")?,
+        label: row.get::<_, String>("LabelName")?.trim().to_string(),
+        remixer: row.get::<_, String>("RemixerName")?.trim().to_string(),
         year: row.get("ReleaseYear")?,
         length: row.get("Length")?,
         file_path: row.get("FolderPath")?,
         play_count,
         bit_rate: row.get("BitRate")?,
         sample_rate: row.get("SampleRate")?,
-        file_type: row.get("FileType")?,
-        date_added: row.get("DateAdded")?,
+        file_type: file_type_raw,
+        file_type_name: file_type_to_kind(file_type_raw).to_string(),
+        date_added: row.get::<_, String>("DateAdded")?.trim().to_string(),
+        position: None,
     })
 }
 
@@ -217,7 +223,7 @@ pub fn get_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error
             COALESCE(p.Attribute, 0) AS Attribute,
             (SELECT COUNT(*) FROM djmdSongPlaylist sp WHERE sp.PlaylistID = p.ID) AS TrackCount
         FROM djmdPlaylist p
-        WHERE p.rb_local_deleted = 0
+        WHERE p.rb_local_deleted = 0 AND p.ID != '200000'
         ORDER BY p.Seq
     ";
     let mut stmt = conn.prepare(sql)?;
@@ -225,7 +231,7 @@ pub fn get_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error
         let attr: i32 = row.get("Attribute")?;
         Ok(Playlist {
             id: row.get("ID")?,
-            name: row.get("Name")?,
+            name: row.get::<_, String>("Name")?.trim().to_string(),
             track_count: row.get("TrackCount")?,
             parent_id: row.get("ParentID")?,
             is_folder: attr == 1,
@@ -235,21 +241,32 @@ pub fn get_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error
     rows.collect()
 }
 
+fn row_to_playlist_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error> {
+    let mut track = row_to_track(row)?;
+    track.position = Some(row.get::<_, u32>("Position")?);
+    Ok(track)
+}
+
 pub fn get_playlist_tracks(
     conn: &Connection,
     playlist_id: &str,
     limit: Option<u32>,
 ) -> Result<Vec<Track>, rusqlite::Error> {
     let limit = limit.unwrap_or(200).min(200);
+    // Insert sp.TrackNo column before the FROM clause in TRACK_SELECT
+    let sql = TRACK_SELECT.replace(
+        "\nFROM djmdContent c",
+        ",\n    sp.TrackNo AS Position\nFROM djmdContent c",
+    );
     let sql = format!(
-        "{TRACK_SELECT}
+        "{sql}
          INNER JOIN djmdSongPlaylist sp ON sp.ContentID = c.ID
          WHERE sp.PlaylistID = ?1 AND c.rb_local_deleted = 0
          ORDER BY sp.TrackNo
          LIMIT {limit}"
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params![playlist_id], row_to_track)?;
+    let rows = stmt.query_map(params![playlist_id], row_to_playlist_track)?;
     rows.collect()
 }
 
@@ -752,6 +769,8 @@ mod tests {
         assert_eq!(track.comments, "iconic garage vocal");
         assert_eq!(track.label, "Hyperdub");
         assert_eq!(track.year, 2007);
+        assert_eq!(track.file_type_name, "FLAC File");
+        assert_eq!(track.position, None);
     }
 
     #[test]
@@ -779,7 +798,12 @@ mod tests {
         let tracks = get_playlist_tracks(&conn, "p1", None).unwrap();
         assert_eq!(tracks.len(), 2);
         assert_eq!(tracks[0].title, "Archangel");
+        assert_eq!(tracks[0].position, Some(1));
         assert_eq!(tracks[1].title, "R.I.P.");
+        assert_eq!(tracks[1].position, Some(2));
+
+        // file_type_name should be populated
+        assert_eq!(tracks[0].file_type_name, "FLAC File");
     }
 
     #[test]

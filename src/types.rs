@@ -23,7 +23,10 @@ pub struct Track {
     pub bit_rate: i32,
     pub sample_rate: i32,
     pub file_type: i32,
+    pub file_type_name: String,
     pub date_added: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -91,6 +94,18 @@ pub struct NormalizationSuggestion {
     pub current_genre: String,
     pub suggested_genre: Option<String>,
     pub confidence: String, // "alias" | "unknown" | "canonical"
+}
+
+/// Map Rekordbox integer file type to human-readable kind string.
+pub fn file_type_to_kind(file_type: i32) -> &'static str {
+    match file_type {
+        1 => "MP3 File",
+        4 => "M4A File",
+        5 => "FLAC File",
+        11 => "WAV File",
+        12 => "AIFF File",
+        _ => "Audio File",
+    }
 }
 
 /// Convert 1-5 star rating to Rekordbox DB/XML encoding (0/51/102/153/204/255).

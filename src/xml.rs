@@ -36,21 +36,10 @@ pub fn path_to_location(file_path: &str) -> String {
     format!("file://localhost{encoded}")
 }
 
-fn file_type_to_kind(file_type: i32) -> &'static str {
-    match file_type {
-        1 => "MP3 File",
-        4 => "M4A File",
-        5 => "FLAC File",
-        11 => "WAV File",
-        12 => "AIFF File",
-        _ => "Audio File",
-    }
-}
-
 fn write_track(out: &mut String, track: &Track, track_id: usize) {
     let rating = crate::types::stars_to_rating(track.rating);
     let location = path_to_location(&track.file_path);
-    let kind = file_type_to_kind(track.file_type);
+    let kind = crate::types::file_type_to_kind(track.file_type);
 
     write!(
         out,
@@ -162,7 +151,9 @@ mod tests {
             bit_rate: 1411,
             sample_rate: 44100,
             file_type: 5,
+            file_type_name: "FLAC File".to_string(),
             date_added: "2023-01-15".to_string(),
+            position: None,
         }
     }
 

@@ -258,7 +258,9 @@ mod tests {
             bit_rate: 1411,
             sample_rate: 44100,
             file_type: 5,
+            file_type_name: "FLAC File".to_string(),
             date_added: "2023-01-01".to_string(),
+            position: None,
         }
     }
 
