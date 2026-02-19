@@ -461,6 +461,8 @@ pub struct LookupDiscogsParams {
     pub artist: String,
     #[schemars(description = "Track title")]
     pub title: String,
+    #[schemars(description = "Album/release title for more accurate matching")]
+    pub album: Option<String>,
     #[schemars(description = "Bypass cache and fetch fresh data (default false)")]
     pub force_refresh: Option<bool>,
 }
@@ -581,7 +583,7 @@ use rmcp::handler::server::wrapper::Parameters;
 impl ReklawdboxServer {
     pub fn new(db_path: Option<String>) -> Self {
         let http = reqwest::Client::builder()
-            .user_agent("CrateGuide/2.0")
+            .user_agent("Reklawdbox/0.1")
             .build()
             .expect("failed to build HTTP client");
         Self {
@@ -952,9 +954,14 @@ impl ReklawdboxServer {
             }
         }
 
-        let result = discogs::lookup(&self.state.http, &params.0.artist, &params.0.title)
-            .await
-            .map_err(|e| err(format!("Discogs error: {e}")))?;
+        let result = discogs::lookup(
+            &self.state.http,
+            &params.0.artist,
+            &params.0.title,
+            params.0.album.as_deref(),
+        )
+        .await
+        .map_err(|e| err(format!("Discogs error: {e}")))?;
 
         let (match_quality, response_json) = match &result {
             Some(r) => {
@@ -1132,7 +1139,14 @@ impl ReklawdboxServer {
 
                 match provider.as_str() {
                     "discogs" => {
-                        match discogs::lookup(&self.state.http, &track.artist, &track.title).await {
+                        let album = if track.album.is_empty() {
+                            None
+                        } else {
+                            Some(track.album.as_str())
+                        };
+                        match discogs::lookup(&self.state.http, &track.artist, &track.title, album)
+                            .await
+                        {
                             Ok(Some(r)) => {
                                 let json_str =
                                     serde_json::to_string(&r).map_err(|e| err(format!("{e}")))?;
@@ -2168,7 +2182,7 @@ mod tests {
 
     fn default_http_client_for_tests() -> reqwest::Client {
         reqwest::Client::builder()
-            .user_agent("CrateGuide/2.0")
+            .user_agent("Reklawdbox/0.1")
             .build()
             .expect("default test HTTP client should build")
     }
@@ -2964,7 +2978,7 @@ mod tests {
     #[ignore]
     async fn force_refresh_bypasses_enrichment_cache() {
         let offline_http = reqwest::Client::builder()
-            .user_agent("CrateGuide/2.0")
+            .user_agent("Reklawdbox/0.1")
             .proxy(
                 reqwest::Proxy::all("http://127.0.0.1:9").expect("offline proxy URL should parse"),
             )

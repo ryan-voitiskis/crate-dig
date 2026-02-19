@@ -13,14 +13,14 @@ static CREDENTIALS: OnceLock<Result<Credentials, String>> = OnceLock::new();
 
 fn get_credentials() -> Result<&'static Credentials, String> {
     let result = CREDENTIALS.get_or_init(|| {
-        let key = std::env::var("CRATE_DIG_DISCOGS_KEY")
-            .map_err(|_| "CRATE_DIG_DISCOGS_KEY not set".to_string())?;
-        let secret = std::env::var("CRATE_DIG_DISCOGS_SECRET")
-            .map_err(|_| "CRATE_DIG_DISCOGS_SECRET not set".to_string())?;
-        let token = std::env::var("CRATE_DIG_DISCOGS_TOKEN")
-            .map_err(|_| "CRATE_DIG_DISCOGS_TOKEN not set".to_string())?;
-        let token_secret = std::env::var("CRATE_DIG_DISCOGS_TOKEN_SECRET")
-            .map_err(|_| "CRATE_DIG_DISCOGS_TOKEN_SECRET not set".to_string())?;
+        let key = std::env::var("REKLAWDBOX_DISCOGS_KEY")
+            .map_err(|_| "REKLAWDBOX_DISCOGS_KEY not set".to_string())?;
+        let secret = std::env::var("REKLAWDBOX_DISCOGS_SECRET")
+            .map_err(|_| "REKLAWDBOX_DISCOGS_SECRET not set".to_string())?;
+        let token = std::env::var("REKLAWDBOX_DISCOGS_TOKEN")
+            .map_err(|_| "REKLAWDBOX_DISCOGS_TOKEN not set".to_string())?;
+        let token_secret = std::env::var("REKLAWDBOX_DISCOGS_TOKEN_SECRET")
+            .map_err(|_| "REKLAWDBOX_DISCOGS_TOKEN_SECRET not set".to_string())?;
         let signature = format!("{secret}&{token_secret}");
         Ok(Credentials {
             consumer_key: key,
@@ -38,6 +38,7 @@ pub struct DiscogsResult {
     pub label: String,
     pub genres: Vec<String>,
     pub styles: Vec<String>,
+    pub url: String,
     pub fuzzy_match: bool,
 }
 
@@ -53,6 +54,7 @@ struct SearchResult {
     label: Option<Vec<String>>,
     genre: Option<Vec<String>>,
     style: Option<Vec<String>>,
+    uri: Option<String>,
 }
 
 /// Normalize a string for matching: lowercase, strip non-alphanumeric.
@@ -75,14 +77,16 @@ pub async fn lookup(
     client: &Client,
     artist: &str,
     title: &str,
+    album: Option<&str>,
 ) -> Result<Option<DiscogsResult>, String> {
-    lookup_inner(client, artist, title, false).await
+    lookup_inner(client, artist, title, album, false).await
 }
 
 async fn lookup_inner(
     client: &Client,
     artist: &str,
     title: &str,
+    album: Option<&str>,
     is_retry: bool,
 ) -> Result<Option<DiscogsResult>, String> {
     // Rate limit
@@ -90,14 +94,22 @@ async fn lookup_inner(
 
     let creds = get_credentials()?;
 
-    let query = format!("{artist} {title}");
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
 
+    let mut query_params = format!(
+        "artist={artist}&track={track}&type=release&per_page=15",
+        artist = urlencoding(artist),
+        track = urlencoding(title),
+    );
+    if let Some(album) = album.filter(|a| !a.is_empty()) {
+        query_params.push_str(&format!("&release_title={}", urlencoding(album)));
+    }
+
     let url = format!(
-        "https://api.discogs.com/database/search?q={query}&type=release&per_page=5\
+        "https://api.discogs.com/database/search?{query_params}\
          &oauth_consumer_key={key}\
          &oauth_nonce={nonce}\
          &oauth_signature={sig}\
@@ -105,7 +117,6 @@ async fn lookup_inner(
          &oauth_timestamp={timestamp}\
          &oauth_token={token}\
          &oauth_version=1.0",
-        query = urlencoding(&query),
         key = creds.consumer_key,
         nonce = nonce(),
         sig = urlencoding(&creds.signature),
@@ -124,7 +135,7 @@ async fn lookup_inner(
         }
         eprintln!("[reklawdbox] Discogs rate limited, waiting 30s...");
         tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-        return Box::pin(lookup_inner(client, artist, title, true)).await;
+        return Box::pin(lookup_inner(client, artist, title, album, true)).await;
     }
 
     if !resp.status().is_success() {
@@ -156,6 +167,11 @@ async fn lookup_inner(
 }
 
 fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
+    let url = r
+        .uri
+        .as_deref()
+        .map(|uri| format!("https://www.discogs.com{uri}"))
+        .unwrap_or_default();
     DiscogsResult {
         title: r.title.clone().unwrap_or_default(),
         year: r.year.clone().unwrap_or_default(),
@@ -166,6 +182,7 @@ fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
             .unwrap_or_default(),
         genres: r.genre.clone().unwrap_or_default(),
         styles: r.style.clone().unwrap_or_default(),
+        url,
         fuzzy_match: fuzzy,
     }
 }
