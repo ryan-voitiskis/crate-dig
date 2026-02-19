@@ -244,6 +244,30 @@ where
         .collect()
 }
 
+/// Convert stratum-dsp's circle-of-fifths notation to standard Camelot.
+///
+/// stratum-dsp uses its own numbering (A=major, B=minor, C=1).
+/// Standard Camelot (Rekordbox/Mixed In Key): A=minor, B=major, C=8.
+///
+/// Mapping: flip A↔B, number = (stratum + 6) % 12 + 1.
+fn to_camelot(stratum_notation: &str) -> String {
+    let (num_str, letter) = if stratum_notation.ends_with('A') || stratum_notation.ends_with('B') {
+        let (n, l) = stratum_notation.split_at(stratum_notation.len() - 1);
+        (n, l)
+    } else {
+        return stratum_notation.to_string();
+    };
+
+    let stratum_num: u32 = match num_str.parse() {
+        Ok(n) if (1..=12).contains(&n) => n,
+        _ => return stratum_notation.to_string(),
+    };
+
+    let camelot_num = (stratum_num + 6) % 12 + 1;
+    let camelot_letter = if letter == "A" { "B" } else { "A" };
+    format!("{camelot_num}{camelot_letter}")
+}
+
 pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, String> {
     let config = stratum_dsp::AnalysisConfig::default();
 
@@ -260,7 +284,7 @@ pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, Strin
         bpm: result.bpm as f64,
         bpm_confidence: confidence.bpm_confidence as f64,
         key: result.key.name(),
-        key_camelot: result.key.numerical(),
+        key_camelot: to_camelot(&result.key.numerical()),
         key_confidence: confidence.key_confidence as f64,
         key_clarity: result.key_clarity as f64,
         grid_stability: confidence.grid_stability as f64,
@@ -287,7 +311,7 @@ mod tests {
             bpm: 128.0,
             bpm_confidence: 0.95,
             key: "Am".to_string(),
-            key_camelot: "1B".to_string(),
+            key_camelot: "8A".to_string(),
             key_confidence: 0.88,
             key_clarity: 0.72,
             grid_stability: 0.91,
@@ -304,7 +328,7 @@ mod tests {
         assert!((back.bpm - 128.0).abs() < f64::EPSILON);
         assert!((back.bpm_confidence - 0.95).abs() < f64::EPSILON);
         assert_eq!(back.key, "Am");
-        assert_eq!(back.key_camelot, "1B");
+        assert_eq!(back.key_camelot, "8A");
         assert!((back.key_confidence - 0.88).abs() < f64::EPSILON);
         assert!((back.key_clarity - 0.72).abs() < f64::EPSILON);
         assert!((back.grid_stability - 0.91).abs() < f64::EPSILON);
@@ -313,6 +337,49 @@ mod tests {
         assert_eq!(back.analyzer_version, "stratum-dsp-1.0.0");
         assert_eq!(back.flags, vec!["MultimodalBpm"]);
         assert_eq!(back.warnings, vec!["Low key clarity"]);
+    }
+
+    #[test]
+    fn to_camelot_converts_all_major_keys() {
+        // stratum-dsp A (major) → standard Camelot B (major)
+        // number = (stratum + 6) % 12 + 1
+        assert_eq!(to_camelot("1A"), "8B");   // C
+        assert_eq!(to_camelot("2A"), "9B");   // G
+        assert_eq!(to_camelot("3A"), "10B");  // D
+        assert_eq!(to_camelot("4A"), "11B");  // A
+        assert_eq!(to_camelot("5A"), "12B");  // E
+        assert_eq!(to_camelot("6A"), "1B");   // B
+        assert_eq!(to_camelot("7A"), "2B");   // F#
+        assert_eq!(to_camelot("8A"), "3B");   // C#
+        assert_eq!(to_camelot("9A"), "4B");   // G#
+        assert_eq!(to_camelot("10A"), "5B");  // D#
+        assert_eq!(to_camelot("11A"), "6B");  // A#
+        assert_eq!(to_camelot("12A"), "7B");  // F
+    }
+
+    #[test]
+    fn to_camelot_converts_all_minor_keys() {
+        // stratum-dsp B (minor) → standard Camelot A (minor)
+        assert_eq!(to_camelot("1B"), "8A");   // Am
+        assert_eq!(to_camelot("2B"), "9A");   // Em
+        assert_eq!(to_camelot("3B"), "10A");  // Bm
+        assert_eq!(to_camelot("4B"), "11A");  // F#m
+        assert_eq!(to_camelot("5B"), "12A");  // C#m
+        assert_eq!(to_camelot("6B"), "1A");   // G#m
+        assert_eq!(to_camelot("7B"), "2A");   // D#m
+        assert_eq!(to_camelot("8B"), "3A");   // A#m
+        assert_eq!(to_camelot("9B"), "4A");   // Fm
+        assert_eq!(to_camelot("10B"), "5A");  // Cm
+        assert_eq!(to_camelot("11B"), "6A");  // Gm
+        assert_eq!(to_camelot("12B"), "7A");  // Dm
+    }
+
+    #[test]
+    fn to_camelot_passes_through_invalid_input() {
+        assert_eq!(to_camelot(""), "");
+        assert_eq!(to_camelot("X"), "X");
+        assert_eq!(to_camelot("0A"), "0A");
+        assert_eq!(to_camelot("13A"), "13A");
     }
 
     #[test]
