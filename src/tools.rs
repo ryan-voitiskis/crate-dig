@@ -2238,6 +2238,167 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn enrich_tracks_discogs_skip_cached_reports_cached_counts() {
+        let db_conn = create_single_track_test_db("cached-track-1", "/tmp/cached-track-1.flac");
+        db_conn
+            .execute(
+                "INSERT INTO djmdContent (
+                    ID, Title, ArtistID, AlbumID, GenreID, KeyID, ColorID, LabelID, RemixerID,
+                    BPM, Rating, Commnt, ReleaseYear, Length, FolderPath, DJPlayCount, BitRate,
+                    SampleRate, FileType, created_at, rb_local_deleted
+                ) VALUES (
+                    ?1, ?2, 'a1', 'al1', 'g1', 'k1', 'c1', 'l1', '',
+                    12700, 153, 'cached batch test', 2025, 230, ?3, '0', 1411,
+                    44100, 5, '2025-01-01', 0
+                )",
+                params![
+                    "cached-track-2",
+                    "Corazón Cached",
+                    "/tmp/cached-track-2.flac"
+                ],
+            )
+            .expect("second test track should insert");
+
+        let store_dir = tempfile::tempdir().expect("temp store dir should create");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(
+            store_path
+                .to_str()
+                .expect("temp store path should be UTF-8"),
+        )
+        .expect("temp internal store should open");
+
+        let artist = "Aníbal";
+        let title_one = "Señorita";
+        let title_two = "Corazón Cached";
+        let norm_artist = discogs::normalize(artist);
+        let norm_title_one = discogs::normalize(title_one);
+        let norm_title_two = discogs::normalize(title_two);
+
+        let cached_one = serde_json::json!({
+            "title": "Anibal - Senorita",
+            "genres": ["Electronic"],
+            "styles": ["Deep House"],
+            "fuzzy_match": false
+        })
+        .to_string();
+        let cached_two = serde_json::json!({
+            "title": "Anibal - Corazon Cached",
+            "genres": ["Electronic"],
+            "styles": ["House"],
+            "fuzzy_match": false
+        })
+        .to_string();
+
+        store::set_enrichment(
+            &store_conn,
+            "discogs",
+            &norm_artist,
+            &norm_title_one,
+            Some("exact"),
+            Some(&cached_one),
+        )
+        .expect("first sentinel discogs cache entry should write");
+        store::set_enrichment(
+            &store_conn,
+            "discogs",
+            &norm_artist,
+            &norm_title_two,
+            Some("exact"),
+            Some(&cached_two),
+        )
+        .expect("second sentinel discogs cache entry should write");
+
+        let server =
+            create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+
+        let params = EnrichTracksParams {
+            track_ids: Some(vec![
+                "cached-track-1".to_string(),
+                "cached-track-2".to_string(),
+            ]),
+            playlist_id: None,
+            query: None,
+            artist: None,
+            genre: None,
+            has_genre: None,
+            bpm_min: None,
+            bpm_max: None,
+            key: None,
+            rating_min: None,
+            max_tracks: Some(10),
+            providers: Some(vec!["discogs".to_string()]),
+            skip_cached: Some(true),
+            force_refresh: Some(false),
+        };
+
+        let first_result = server
+            .enrich_tracks(Parameters(params))
+            .await
+            .expect("enrich_tracks should succeed when everything is cached");
+        let first_payload = extract_json(&first_result);
+        assert_eq!(first_payload["summary"]["total"], 2);
+        assert_eq!(first_payload["summary"]["enriched"], 0);
+        assert_eq!(first_payload["summary"]["cached"], 2);
+        assert_eq!(first_payload["summary"]["skipped"], 0);
+        assert_eq!(first_payload["summary"]["failed"], 0);
+        assert_eq!(
+            first_payload["failures"]
+                .as_array()
+                .expect("failures should be an array")
+                .len(),
+            0
+        );
+
+        let second_result = server
+            .enrich_tracks(Parameters(EnrichTracksParams {
+                track_ids: Some(vec![
+                    "cached-track-1".to_string(),
+                    "cached-track-2".to_string(),
+                ]),
+                playlist_id: None,
+                query: None,
+                artist: None,
+                genre: None,
+                has_genre: None,
+                bpm_min: None,
+                bpm_max: None,
+                key: None,
+                rating_min: None,
+                max_tracks: Some(10),
+                providers: Some(vec!["discogs".to_string()]),
+                skip_cached: Some(true),
+                force_refresh: Some(false),
+            }))
+            .await
+            .expect("second enrich_tracks run should also be fully cached");
+        let second_payload = extract_json(&second_result);
+        assert_eq!(second_payload["summary"]["total"], 2);
+        assert_eq!(second_payload["summary"]["enriched"], 0);
+        assert_eq!(second_payload["summary"]["cached"], 2);
+        assert_eq!(second_payload["summary"]["skipped"], 0);
+        assert_eq!(second_payload["summary"]["failed"], 0);
+
+        let store = server
+            .internal_conn()
+            .expect("internal store should be available");
+        let entry_one = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title_one)
+            .expect("cache read should succeed")
+            .expect("first cache entry should still exist");
+        let entry_two = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title_two)
+            .expect("cache read should succeed")
+            .expect("second cache entry should still exist");
+        assert_eq!(
+            entry_one.response_json.as_deref(),
+            Some(cached_one.as_str())
+        );
+        assert_eq!(
+            entry_two.response_json.as_deref(),
+            Some(cached_two.as_str())
+        );
+    }
+
+    #[tokio::test]
     async fn resolve_track_data_uses_decoded_path_for_audio_cache_lookup() {
         let temp_audio_dir = tempfile::tempdir().expect("temp audio dir should create");
         let decoded_path = temp_audio_dir.path().join("Aníbal Track.flac");
