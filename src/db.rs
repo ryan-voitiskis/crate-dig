@@ -240,7 +240,7 @@ fn search_tracks_with_limit_policy(
     rows.collect()
 }
 
-fn escape_like(s: &str) -> String {
+pub(crate) fn escape_like(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('%', "\\%")
         .replace('_', "\\_")
@@ -253,6 +253,7 @@ pub fn search_tracks(
     search_tracks_with_limit_policy(conn, params, Some(50), Some(200))
 }
 
+/// Unbounded variant of `search_tracks` with no safety limit. Intended for `cache_coverage` only.
 pub fn search_tracks_unbounded(
     conn: &Connection,
     params: &SearchParams,
@@ -347,6 +348,7 @@ pub fn get_playlist_tracks(
     get_playlist_tracks_with_limit_policy(conn, playlist_id, limit, Some(200), Some(200))
 }
 
+/// Unbounded variant of `get_playlist_tracks` with no safety limit. Intended for `cache_coverage` only.
 pub fn get_playlist_tracks_unbounded(
     conn: &Connection,
     playlist_id: &str,

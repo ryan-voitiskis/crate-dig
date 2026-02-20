@@ -112,6 +112,7 @@ fn write_track(out: &mut String, track: &Track, track_id: usize) {
     out.push_str("/>\n");
 }
 
+#[cfg(test)]
 pub fn generate_xml(tracks: &[Track]) -> String {
     generate_xml_with_playlists(tracks, &[])
         .expect("playlist validation should not fail when no playlists are provided")
@@ -181,6 +182,7 @@ pub fn generate_xml_with_playlists(
     Ok(out)
 }
 
+#[cfg(test)]
 pub fn write_xml(tracks: &[Track], path: &Path) -> Result<(), std::io::Error> {
     write_xml_with_playlists(tracks, &[], path)
 }
