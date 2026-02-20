@@ -9,3 +9,11 @@
 
 # Rekordbox data
 rekordbox-exports/
+
+# Node / Wrangler local artifacts
+node_modules/
+broker/.wrangler/
+broker/.dev.vars
+
+# Local-only generated branding export (source PNG is tracked)
+broker/assets/branding/reklawdbox-logo-callback.jpg
