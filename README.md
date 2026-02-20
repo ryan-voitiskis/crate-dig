@@ -6,6 +6,12 @@ stages metadata changes in memory, and writes Rekordbox-compatible XML for safe 
 Built as a single static Rust binary with zero runtime dependencies. Operated through
 an MCP host (Codex, Claude Code, etc.) — no web UI, no CLI flags, just MCP.
 
+### Why MCP, not CLI?
+
+A CLI binary called via shell would work fine from Claude Code (which has Bash access),
+but Claude Desktop and other MCP hosts **cannot execute shell commands** — they can only
+call MCP tools. MCP keeps reklawdbox usable from any compliant host.
+
 ## Build
 
 ```bash
