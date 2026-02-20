@@ -53,6 +53,18 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             PRAGMA user_version = 1;",
         )?;
     }
+    if version < 2 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS broker_discogs_session (
+                broker_url TEXT PRIMARY KEY,
+                session_token TEXT NOT NULL,
+                expires_at INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+            PRAGMA user_version = 2;",
+        )?;
+    }
     Ok(())
 }
 
@@ -168,6 +180,69 @@ pub fn set_audio_analysis(
     Ok(())
 }
 
+pub struct BrokerDiscogsSession {
+    pub broker_url: String,
+    pub session_token: String,
+    pub expires_at: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+pub fn get_broker_discogs_session(
+    conn: &Connection,
+    broker_url: &str,
+) -> Result<Option<BrokerDiscogsSession>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT broker_url, session_token, expires_at, created_at, updated_at
+         FROM broker_discogs_session
+         WHERE broker_url = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![broker_url], |row| {
+        Ok(BrokerDiscogsSession {
+            broker_url: row.get(0)?,
+            session_token: row.get(1)?,
+            expires_at: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+        })
+    })?;
+    match rows.next() {
+        Some(Ok(entry)) => Ok(Some(entry)),
+        Some(Err(e)) => Err(e),
+        None => Ok(None),
+    }
+}
+
+pub fn set_broker_discogs_session(
+    conn: &Connection,
+    broker_url: &str,
+    session_token: &str,
+    expires_at: i64,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO broker_discogs_session (broker_url, session_token, expires_at)
+         VALUES (?1, ?2, ?3)
+         ON CONFLICT(broker_url)
+         DO UPDATE SET
+            session_token = ?2,
+            expires_at = ?3,
+            updated_at = datetime('now')",
+        params![broker_url, session_token, expires_at],
+    )?;
+    Ok(())
+}
+
+pub fn clear_broker_discogs_session(
+    conn: &Connection,
+    broker_url: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM broker_discogs_session WHERE broker_url = ?1",
+        params![broker_url],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -185,7 +260,7 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 1);
+        assert_eq!(version, 2);
 
         let tables: Vec<String> = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -196,6 +271,7 @@ mod tests {
             .unwrap();
         assert!(tables.contains(&"enrichment_cache".to_string()));
         assert!(tables.contains(&"audio_analysis_cache".to_string()));
+        assert!(tables.contains(&"broker_discogs_session".to_string()));
     }
 
     #[test]
@@ -211,7 +287,7 @@ mod tests {
         let version: i32 = conn2
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 1);
+        assert_eq!(version, 2);
     }
 
     #[test]
@@ -356,5 +432,44 @@ mod tests {
         assert_eq!(entry.file_mtime, 300);
         assert_eq!(entry.analysis_version, "1.1.0");
         assert_eq!(entry.features_json, "new");
+    }
+
+    #[test]
+    fn test_broker_discogs_session_round_trip() {
+        let (_dir, conn) = open_temp_store();
+
+        set_broker_discogs_session(
+            &conn,
+            "https://broker.example.com",
+            "session-token-1",
+            1_800_000_000,
+        )
+        .unwrap();
+
+        let row = get_broker_discogs_session(&conn, "https://broker.example.com")
+            .unwrap()
+            .expect("broker session should exist");
+        assert_eq!(row.broker_url, "https://broker.example.com");
+        assert_eq!(row.session_token, "session-token-1");
+        assert_eq!(row.expires_at, 1_800_000_000);
+        assert!(!row.created_at.is_empty());
+        assert!(!row.updated_at.is_empty());
+
+        set_broker_discogs_session(
+            &conn,
+            "https://broker.example.com",
+            "session-token-2",
+            1_900_000_000,
+        )
+        .unwrap();
+        let row = get_broker_discogs_session(&conn, "https://broker.example.com")
+            .unwrap()
+            .expect("broker session should still exist");
+        assert_eq!(row.session_token, "session-token-2");
+        assert_eq!(row.expires_at, 1_900_000_000);
+
+        clear_broker_discogs_session(&conn, "https://broker.example.com").unwrap();
+        let missing = get_broker_discogs_session(&conn, "https://broker.example.com").unwrap();
+        assert!(missing.is_none());
     }
 }

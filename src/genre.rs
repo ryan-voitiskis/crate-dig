@@ -49,7 +49,10 @@ pub fn get_taxonomy() -> Vec<String> {
 
 /// Returns the canonical casing of a genre if it's in the taxonomy.
 pub fn canonical_casing(genre: &str) -> Option<&'static str> {
-    GENRES.iter().find(|g| g.eq_ignore_ascii_case(genre)).copied()
+    GENRES
+        .iter()
+        .find(|g| g.eq_ignore_ascii_case(genre))
+        .copied()
 }
 
 pub fn is_known_genre(genre: &str) -> bool {
@@ -142,7 +145,11 @@ mod tests {
 
     #[test]
     fn taxonomy_has_reasonable_size() {
-        assert!(GENRES.len() >= 30, "taxonomy seems too small: {}", GENRES.len());
+        assert!(
+            GENRES.len() >= 30,
+            "taxonomy seems too small: {}",
+            GENRES.len()
+        );
     }
 
     #[test]

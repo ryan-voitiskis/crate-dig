@@ -343,35 +343,35 @@ mod tests {
     fn to_camelot_converts_all_major_keys() {
         // stratum-dsp A (major) → standard Camelot B (major)
         // number = (stratum + 6) % 12 + 1
-        assert_eq!(to_camelot("1A"), "8B");   // C
-        assert_eq!(to_camelot("2A"), "9B");   // G
-        assert_eq!(to_camelot("3A"), "10B");  // D
-        assert_eq!(to_camelot("4A"), "11B");  // A
-        assert_eq!(to_camelot("5A"), "12B");  // E
-        assert_eq!(to_camelot("6A"), "1B");   // B
-        assert_eq!(to_camelot("7A"), "2B");   // F#
-        assert_eq!(to_camelot("8A"), "3B");   // C#
-        assert_eq!(to_camelot("9A"), "4B");   // G#
-        assert_eq!(to_camelot("10A"), "5B");  // D#
-        assert_eq!(to_camelot("11A"), "6B");  // A#
-        assert_eq!(to_camelot("12A"), "7B");  // F
+        assert_eq!(to_camelot("1A"), "8B"); // C
+        assert_eq!(to_camelot("2A"), "9B"); // G
+        assert_eq!(to_camelot("3A"), "10B"); // D
+        assert_eq!(to_camelot("4A"), "11B"); // A
+        assert_eq!(to_camelot("5A"), "12B"); // E
+        assert_eq!(to_camelot("6A"), "1B"); // B
+        assert_eq!(to_camelot("7A"), "2B"); // F#
+        assert_eq!(to_camelot("8A"), "3B"); // C#
+        assert_eq!(to_camelot("9A"), "4B"); // G#
+        assert_eq!(to_camelot("10A"), "5B"); // D#
+        assert_eq!(to_camelot("11A"), "6B"); // A#
+        assert_eq!(to_camelot("12A"), "7B"); // F
     }
 
     #[test]
     fn to_camelot_converts_all_minor_keys() {
         // stratum-dsp B (minor) → standard Camelot A (minor)
-        assert_eq!(to_camelot("1B"), "8A");   // Am
-        assert_eq!(to_camelot("2B"), "9A");   // Em
-        assert_eq!(to_camelot("3B"), "10A");  // Bm
-        assert_eq!(to_camelot("4B"), "11A");  // F#m
-        assert_eq!(to_camelot("5B"), "12A");  // C#m
-        assert_eq!(to_camelot("6B"), "1A");   // G#m
-        assert_eq!(to_camelot("7B"), "2A");   // D#m
-        assert_eq!(to_camelot("8B"), "3A");   // A#m
-        assert_eq!(to_camelot("9B"), "4A");   // Fm
-        assert_eq!(to_camelot("10B"), "5A");  // Cm
-        assert_eq!(to_camelot("11B"), "6A");  // Gm
-        assert_eq!(to_camelot("12B"), "7A");  // Dm
+        assert_eq!(to_camelot("1B"), "8A"); // Am
+        assert_eq!(to_camelot("2B"), "9A"); // Em
+        assert_eq!(to_camelot("3B"), "10A"); // Bm
+        assert_eq!(to_camelot("4B"), "11A"); // F#m
+        assert_eq!(to_camelot("5B"), "12A"); // C#m
+        assert_eq!(to_camelot("6B"), "1A"); // G#m
+        assert_eq!(to_camelot("7B"), "2A"); // D#m
+        assert_eq!(to_camelot("8B"), "3A"); // A#m
+        assert_eq!(to_camelot("9B"), "4A"); // Fm
+        assert_eq!(to_camelot("10B"), "5A"); // Cm
+        assert_eq!(to_camelot("11B"), "6A"); // Gm
+        assert_eq!(to_camelot("12B"), "7A"); // Dm
     }
 
     #[test]

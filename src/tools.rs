@@ -29,6 +29,7 @@ struct ServerState {
     db: OnceLock<Result<Mutex<Connection>, String>>,
     internal_db: OnceLock<Result<Mutex<Connection>, String>>,
     essentia_python: OnceLock<Option<String>>,
+    discogs_pending: Mutex<Option<discogs::PendingDeviceSession>>,
     db_path: Option<String>,
     changes: ChangeManager,
     http: reqwest::Client,
@@ -89,10 +90,185 @@ impl ReklawdboxServer {
             .get_or_init(probe_essentia_python_path)
             .clone()
     }
+
+    async fn lookup_discogs_live(
+        &self,
+        artist: &str,
+        title: &str,
+        album: Option<&str>,
+    ) -> Result<Option<discogs::DiscogsResult>, discogs::LookupError> {
+        if let Some(cfg) = discogs::BrokerConfig::from_env() {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs() as i64;
+
+            let persisted_session = {
+                let store = self.internal_conn().map_err(|e| {
+                    discogs::LookupError::message(format!("Internal store error: {e}"))
+                })?;
+                store::get_broker_discogs_session(&store, &cfg.base_url).map_err(|e| {
+                    discogs::LookupError::message(format!("Broker session cache read error: {e}"))
+                })?
+            };
+
+            if let Some(session) = persisted_session {
+                if session.expires_at > now {
+                    match discogs::lookup_via_broker(
+                        &self.state.http,
+                        &cfg,
+                        &session.session_token,
+                        artist,
+                        title,
+                        album,
+                    )
+                    .await
+                    {
+                        Ok(result) => return Ok(result),
+                        Err(discogs::LookupError::AuthRequired(_)) => {
+                            let store = self.internal_conn().map_err(|e| {
+                                discogs::LookupError::message(format!("Internal store error: {e}"))
+                            })?;
+                            store::clear_broker_discogs_session(&store, &cfg.base_url).map_err(
+                                |e| {
+                                    discogs::LookupError::message(format!(
+                                        "Broker session cache clear error: {e}"
+                                    ))
+                                },
+                            )?;
+                        }
+                        Err(e) => return Err(e),
+                    }
+                } else {
+                    let store = self.internal_conn().map_err(|e| {
+                        discogs::LookupError::message(format!("Internal store error: {e}"))
+                    })?;
+                    store::clear_broker_discogs_session(&store, &cfg.base_url).map_err(|e| {
+                        discogs::LookupError::message(format!(
+                            "Broker session cache clear error: {e}"
+                        ))
+                    })?;
+                }
+            }
+
+            let pending = {
+                let lock = self.state.discogs_pending.lock().map_err(|_| {
+                    discogs::LookupError::message("Discogs auth state lock poisoned")
+                })?;
+                lock.clone()
+            };
+
+            if let Some(pending) = pending {
+                if pending.expires_at > now {
+                    let status = discogs::device_session_status(&self.state.http, &cfg, &pending)
+                        .await
+                        .map_err(|e| {
+                            discogs::LookupError::message(format!(
+                                "Discogs broker status error: {e}"
+                            ))
+                        })?;
+
+                    if status.status == "authorized" || status.status == "finalized" {
+                        let finalized =
+                            discogs::device_session_finalize(&self.state.http, &cfg, &pending)
+                                .await
+                                .map_err(|e| {
+                                    discogs::LookupError::message(format!(
+                                        "Discogs broker finalize error: {e}"
+                                    ))
+                                })?;
+
+                        {
+                            let store = self.internal_conn().map_err(|e| {
+                                discogs::LookupError::message(format!("Internal store error: {e}"))
+                            })?;
+                            store::set_broker_discogs_session(
+                                &store,
+                                &cfg.base_url,
+                                &finalized.session_token,
+                                finalized.expires_at,
+                            )
+                            .map_err(|e| {
+                                discogs::LookupError::message(format!(
+                                    "Broker session cache write error: {e}"
+                                ))
+                            })?;
+                        }
+                        {
+                            let mut lock = self.state.discogs_pending.lock().map_err(|_| {
+                                discogs::LookupError::message("Discogs auth state lock poisoned")
+                            })?;
+                            *lock = None;
+                        }
+
+                        return discogs::lookup_via_broker(
+                            &self.state.http,
+                            &cfg,
+                            &finalized.session_token,
+                            artist,
+                            title,
+                            album,
+                        )
+                        .await;
+                    }
+
+                    if status.status == "pending" {
+                        return Err(discogs::LookupError::AuthRequired(
+                            discogs::pending_auth_remediation(&pending),
+                        ));
+                    }
+                }
+
+                let mut lock = self.state.discogs_pending.lock().map_err(|_| {
+                    discogs::LookupError::message("Discogs auth state lock poisoned")
+                })?;
+                *lock = None;
+            }
+
+            let started = discogs::device_session_start(&self.state.http, &cfg)
+                .await
+                .map_err(|e| {
+                    discogs::LookupError::message(format!("Discogs broker start error: {e}"))
+                })?;
+            {
+                let mut lock = self.state.discogs_pending.lock().map_err(|_| {
+                    discogs::LookupError::message("Discogs auth state lock poisoned")
+                })?;
+                *lock = Some(started.clone());
+            }
+            return Err(discogs::LookupError::AuthRequired(
+                discogs::pending_auth_remediation(&started),
+            ));
+        }
+
+        if discogs::legacy_credentials_configured() {
+            return discogs::lookup_with_legacy_credentials(&self.state.http, artist, title, album)
+                .await
+                .map_err(discogs::LookupError::message);
+        }
+
+        Err(discogs::LookupError::AuthRequired(
+            discogs::missing_auth_remediation(),
+        ))
+    }
 }
 
 fn err(msg: String) -> McpError {
     McpError::internal_error(msg, None)
+}
+
+fn auth_remediation_message(remediation: &discogs::AuthRemediation) -> String {
+    let mut lines = vec![remediation.message.clone()];
+    if let Some(auth_url) = remediation.auth_url.as_deref() {
+        lines.push(format!("Open this URL in a browser: {auth_url}"));
+    }
+    if let Some(poll_interval) = remediation.poll_interval_seconds {
+        lines.push(format!("Suggested poll interval: {poll_interval}s"));
+    }
+    if let Some(expires_at) = remediation.expires_at {
+        lines.push(format!("Auth session expires_at (unix): {expires_at}"));
+    }
+    lines.join("\n")
 }
 
 const ESSENTIA_PYTHON_ENV_VAR: &str = "CRATE_DIG_ESSENTIA_PYTHON";
@@ -400,9 +576,13 @@ pub struct SearchTracksParams {
     pub label: Option<String>,
     #[schemars(description = "Filter by file path/folder (partial match)")]
     pub path: Option<String>,
-    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    #[schemars(
+        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
+    )]
     pub added_after: Option<String>,
-    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    #[schemars(
+        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
+    )]
     pub added_before: Option<String>,
     #[schemars(description = "Include Rekordbox factory samples (default false)")]
     pub include_samples: Option<bool>,
@@ -526,9 +706,13 @@ pub struct EnrichTracksParams {
     pub label: Option<String>,
     #[schemars(description = "Filter by file path/folder (partial match)")]
     pub path: Option<String>,
-    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    #[schemars(
+        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
+    )]
     pub added_after: Option<String>,
-    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    #[schemars(
+        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
+    )]
     pub added_before: Option<String>,
     #[schemars(description = "Max tracks to enrich (default 50)")]
     pub max_tracks: Option<u32>,
@@ -574,9 +758,13 @@ pub struct AnalyzeAudioBatchParams {
     pub label: Option<String>,
     #[schemars(description = "Filter by file path/folder (partial match)")]
     pub path: Option<String>,
-    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    #[schemars(
+        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
+    )]
     pub added_after: Option<String>,
-    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    #[schemars(
+        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
+    )]
     pub added_before: Option<String>,
     #[schemars(description = "Max tracks to analyze (default 20)")]
     pub max_tracks: Option<u32>,
@@ -616,9 +804,13 @@ pub struct ResolveTracksDataParams {
     pub label: Option<String>,
     #[schemars(description = "Filter by file path/folder (partial match)")]
     pub path: Option<String>,
-    #[schemars(description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')")]
+    #[schemars(
+        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
+    )]
     pub added_after: Option<String>,
-    #[schemars(description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')")]
+    #[schemars(
+        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
+    )]
     pub added_before: Option<String>,
     #[schemars(description = "Max tracks to resolve (default 50)")]
     pub max_tracks: Option<u32>,
@@ -638,6 +830,7 @@ impl ReklawdboxServer {
                 db: OnceLock::new(),
                 internal_db: OnceLock::new(),
                 essentia_python: OnceLock::new(),
+                discogs_pending: Mutex::new(None),
                 db_path,
                 changes: ChangeManager::new(),
                 http,
@@ -1015,8 +1208,7 @@ impl ReklawdboxServer {
                     ));
                 }
             }
-            let (affected, remaining) =
-                self.state.changes.clear_fields(params.0.track_ids, fields);
+            let (affected, remaining) = self.state.changes.clear_fields(params.0.track_ids, fields);
             let result = serde_json::json!({
                 "affected": affected,
                 "remaining": remaining,
@@ -1104,14 +1296,13 @@ impl ReklawdboxServer {
             }
         }
 
-        let result = discogs::lookup(
-            &self.state.http,
-            &artist,
-            &title,
-            album.as_deref(),
-        )
-        .await
-        .map_err(|e| err(format!("Discogs error: {e}")))?;
+        let result = self
+            .lookup_discogs_live(&artist, &title, album.as_deref())
+            .await
+            .map_err(|e| match e.auth_remediation() {
+                Some(remediation) => err(auth_remediation_message(remediation)),
+                None => err(format!("Discogs error: {e}")),
+            })?;
 
         let (match_quality, response_json) = match &result {
             Some(r) => {
@@ -1297,6 +1488,7 @@ impl ReklawdboxServer {
         let mut cached = 0usize;
         let mut skipped = 0usize;
         let mut failed: Vec<serde_json::Value> = Vec::new();
+        let mut discogs_auth_error: Option<String> = None;
 
         for track in &tracks {
             let norm_artist = discogs::normalize(&track.artist);
@@ -1316,12 +1508,24 @@ impl ReklawdboxServer {
 
                 match provider.as_str() {
                     "discogs" => {
+                        if let Some(auth_err) = discogs_auth_error.clone() {
+                            failed.push(serde_json::json!({
+                                "track_id": track.id,
+                                "artist": track.artist,
+                                "title": track.title,
+                                "provider": provider,
+                                "error": auth_err,
+                            }));
+                            continue;
+                        }
+
                         let album = if track.album.is_empty() {
                             None
                         } else {
                             Some(track.album.as_str())
                         };
-                        match discogs::lookup(&self.state.http, &track.artist, &track.title, album)
+                        match self
+                            .lookup_discogs_live(&track.artist, &track.title, album)
                             .await
                         {
                             Ok(Some(r)) => {
@@ -1354,12 +1558,20 @@ impl ReklawdboxServer {
                                 skipped += 1;
                             }
                             Err(e) => {
+                                let error_message = if let Some(remediation) = e.auth_remediation()
+                                {
+                                    let msg = auth_remediation_message(remediation);
+                                    discogs_auth_error = Some(msg.clone());
+                                    msg
+                                } else {
+                                    e.to_string()
+                                };
                                 failed.push(serde_json::json!({
                                     "track_id": track.id,
                                     "artist": track.artist,
                                     "title": track.title,
                                     "provider": provider,
-                                    "error": e,
+                                    "error": error_message,
                                 }));
                             }
                         }
@@ -2372,6 +2584,7 @@ mod tests {
                 db: OnceLock::new(),
                 internal_db: OnceLock::new(),
                 essentia_python: OnceLock::new(),
+                discogs_pending: Mutex::new(None),
                 db_path: None,
                 changes: ChangeManager::new(),
                 http,
@@ -2924,6 +3137,38 @@ mod tests {
         assert!(
             format!("{err}").contains("unknown provider 'spotify'"),
             "error should mention invalid provider, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn lookup_discogs_without_auth_returns_actionable_remediation() {
+        if discogs::BrokerConfig::from_env().is_some() || discogs::legacy_credentials_configured() {
+            eprintln!("Skipping auth-remediation test: local Discogs env is already configured");
+            return;
+        }
+
+        let server = ReklawdboxServer::new(None);
+        let err = server
+            .lookup_discogs(Parameters(LookupDiscogsParams {
+                track_id: None,
+                artist: Some("No Auth Artist".to_string()),
+                title: Some("No Auth Title".to_string()),
+                album: None,
+                force_refresh: Some(true),
+            }))
+            .await
+            .expect_err(
+                "lookup_discogs should fail with actionable remediation when auth is missing",
+            );
+
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("Discogs auth is not configured"),
+            "error should explain missing auth, got: {msg}"
+        );
+        assert!(
+            msg.contains(discogs::BROKER_URL_ENV),
+            "error should mention broker URL env var, got: {msg}"
         );
     }
 

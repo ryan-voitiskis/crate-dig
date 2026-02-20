@@ -25,11 +25,16 @@ To override, set the `REKORDBOX_DB_PATH` environment variable.
 
 Optional enrichment and analysis environment variables:
 
+- `REKLAWDBOX_DISCOGS_BROKER_URL`
+- `REKLAWDBOX_DISCOGS_BROKER_TOKEN`
+- `CRATE_DIG_ESSENTIA_PYTHON`
+
+Deprecated Discogs fallback (not the default path):
+
 - `REKLAWDBOX_DISCOGS_KEY`
 - `REKLAWDBOX_DISCOGS_SECRET`
 - `REKLAWDBOX_DISCOGS_TOKEN`
 - `REKLAWDBOX_DISCOGS_TOKEN_SECRET`
-- `CRATE_DIG_ESSENTIA_PYTHON`
 
 ### Codex Quickstart
 
@@ -47,13 +52,21 @@ cp mcp-config.example.json .mcp.json
 
 3. Edit `.mcp.json` and set:
 - `REKORDBOX_DB_PATH` (if you are not using the default Rekordbox path)
-- optional Discogs / Essentia env vars
+- optional broker Discogs / Essentia env vars
 
 4. Register or load that config in your Codex MCP host so it starts:
 - command: `./target/release/reklawdbox`
 - transport: `stdio`
 
 5. Verify wiring by running a simple tool call from Codex (for example `read_library`).
+
+## Discogs Auth Flow
+
+1. Configure `REKLAWDBOX_DISCOGS_BROKER_URL` (and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` if required by your broker).
+2. Call `lookup_discogs` for any track.
+3. If auth is missing, the tool returns an actionable message with an `auth_url`.
+4. Open the `auth_url`, approve Discogs access, then run `lookup_discogs` again.
+5. The broker session token is stored in local internal SQLite; Discogs OAuth secrets remain broker-side only.
 
 ## Tools
 
@@ -101,5 +114,6 @@ Synth-pop, Tech House, Techno, Trance, UK Bass
 
 - [`docs/rekordbox-internals.md`](docs/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
 - [`docs/backup-and-restore.md`](docs/backup-and-restore.md) — Backup usage and restore procedures
+- [`docs/discogs-broker-auth.md`](docs/discogs-broker-auth.md) — Discogs broker setup, first-run auth, and re-auth/reset guidance
 - [`CODEX.md`](CODEX.md) — Codex-specific operator/developer workflow notes
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code-specific operator/developer workflow notes

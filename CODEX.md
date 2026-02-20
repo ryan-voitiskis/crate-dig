@@ -32,7 +32,8 @@ python3 docs/rekordbox/verify-phase-b.py
   - Rekordbox DB path (`REKORDBOX_DB_PATH`, optional if default path exists)
   - Rekordbox backup script/runtime shell access for `write_xml` pre-op backup (`backup.sh`)
 - Optional external integrations:
-  - Discogs lookup env vars (`REKLAWDBOX_DISCOGS_*`)
+  - Discogs broker env vars (`REKLAWDBOX_DISCOGS_BROKER_URL`, `REKLAWDBOX_DISCOGS_BROKER_TOKEN`)
+  - Deprecated Discogs legacy env vars (`REKLAWDBOX_DISCOGS_*`)
   - Essentia Python override (`CRATE_DIG_ESSENTIA_PYTHON`)
 
 ## Working Rules

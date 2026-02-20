@@ -41,7 +41,7 @@ types.rs          Shared types: Track, Playlist, TrackChange, LibraryStats, rati
 genre.rs          Genre taxonomy (35 genres), alias map (37 entries), normalize_genre()
 changes.rs        ChangeManager — in-memory staging (Mutex<HashMap<String, TrackChange>>)
 xml.rs            Rekordbox XML writer (template strings, no XML library)
-discogs.rs        Discogs OAuth 1.0a PLAINTEXT client, rate-limited
+discogs.rs        Discogs broker client + deprecated legacy OAuth 1.0a fallback
 beatport.rs       Beatport __NEXT_DATA__ HTML scraper, rate-limited
 ```
 

@@ -314,9 +314,21 @@ mod tests {
         assert_eq!(diffs.len(), 1);
         let td = &diffs[0];
         assert_eq!(td.track_id, "t1");
-        assert!(td.changes.iter().any(|f| f.field == "genre" && f.new_value == "Deep House"));
-        assert!(td.changes.iter().any(|f| f.field == "comments" && f.new_value == "great track"));
-        assert!(td.changes.iter().any(|f| f.field == "rating" && f.new_value == "4"));
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "genre" && f.new_value == "Deep House")
+        );
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "comments" && f.new_value == "great track")
+        );
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "rating" && f.new_value == "4")
+        );
     }
 
     #[test]
@@ -335,9 +347,21 @@ mod tests {
         assert_eq!(diffs.len(), 1); // one track with changes
         let td = &diffs[0];
         assert_eq!(td.changes.len(), 3); // genre, comments, rating changed
-        assert!(td.changes.iter().any(|f| f.field == "genre" && f.new_value == "Deep House"));
-        assert!(td.changes.iter().any(|f| f.field == "comments" && f.new_value == "great bassline"));
-        assert!(td.changes.iter().any(|f| f.field == "rating" && f.new_value == "5"));
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "genre" && f.new_value == "Deep House")
+        );
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "comments" && f.new_value == "great bassline")
+        );
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "rating" && f.new_value == "5")
+        );
     }
 
     #[test]
@@ -436,10 +460,8 @@ mod tests {
         }]);
 
         // Clear just the color field
-        let (affected, remaining) = cm.clear_fields(
-            Some(vec!["t1".to_string()]),
-            &["color".to_string()],
-        );
+        let (affected, remaining) =
+            cm.clear_fields(Some(vec!["t1".to_string()]), &["color".to_string()]);
         assert_eq!(affected, 1);
         assert_eq!(remaining, 1); // entry still exists (other fields set)
 
@@ -460,10 +482,8 @@ mod tests {
             color: None,
         }]);
 
-        let (affected, remaining) = cm.clear_fields(
-            Some(vec!["t1".to_string()]),
-            &["genre".to_string()],
-        );
+        let (affected, remaining) =
+            cm.clear_fields(Some(vec!["t1".to_string()]), &["genre".to_string()]);
         assert_eq!(affected, 1);
         assert_eq!(remaining, 0); // entry removed since all fields are None
         assert!(cm.get("t1").is_none());
@@ -615,7 +635,11 @@ mod tests {
         let diffs = cm.preview(&tracks);
         assert!(!diffs.is_empty(), "expected diffs for staged changes");
         let td = &diffs[0];
-        assert!(td.changes.iter().any(|f| f.field == "genre" && f.new_value == "Deep House"));
+        assert!(
+            td.changes
+                .iter()
+                .any(|f| f.field == "genre" && f.new_value == "Deep House")
+        );
         assert!(
             td.changes
                 .iter()
