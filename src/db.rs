@@ -79,7 +79,7 @@ pub(crate) fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error
         genre: row.get::<_, String>("GenreName")?.trim().to_string(),
         bpm: bpm_raw as f64 / 100.0,
         key: row.get::<_, String>("KeyName")?.trim().to_string(),
-        rating: rating_to_stars(rating_raw as u16),
+        rating: decode_rating_stars(rating_raw),
         comments: row.get::<_, String>("Comments")?.trim().to_string(),
         color: row.get::<_, String>("ColorName")?.trim().to_string(),
         color_code: row.get("ColorCode")?,
@@ -96,6 +96,14 @@ pub(crate) fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error
         date_added: row.get::<_, String>("DateAdded")?.trim().to_string(),
         position: None,
     })
+}
+
+fn decode_rating_stars(rating_raw: i32) -> u8 {
+    match rating_raw {
+        i32::MIN..=-1 => 0,
+        0..=5 => rating_raw as u8,
+        _ => rating_to_stars(rating_raw as u16),
+    }
 }
 
 pub const SAMPLER_PATH_PREFIX: &str = "/Users/vz/Music/rekordbox/Sampler/";
@@ -144,10 +152,14 @@ fn apply_search_filters(
     }
 
     if let Some(rating_min) = params.rating_min {
-        let idx = bind_values.len() + 1;
-        sql.push_str(&format!(" AND c.Rating >= ?{idx}"));
+        let idx_encoded = bind_values.len() + 1;
+        let idx_star_scale = idx_encoded + 1;
+        sql.push_str(&format!(
+            " AND (c.Rating >= ?{idx_encoded} OR (c.Rating BETWEEN 0 AND 5 AND c.Rating >= ?{idx_star_scale}))"
+        ));
         let min_rating = crate::types::stars_to_rating(rating_min) as i32;
         bind_values.push(Box::new(min_rating));
+        bind_values.push(Box::new(rating_min as i32));
     }
 
     if let Some(bpm_min) = params.bpm_min {
@@ -841,6 +853,35 @@ mod tests {
     }
 
     #[test]
+    fn test_search_by_rating_supports_star_scale_storage() {
+        let conn = create_test_db();
+        conn.execute("UPDATE djmdContent SET Rating = 5 WHERE ID = 't4'", [])
+            .expect("fixture rating update should succeed");
+
+        let params = SearchParams {
+            query: None,
+            artist: None,
+            genre: None,
+            rating_min: Some(5),
+            bpm_min: None,
+            bpm_max: None,
+            key: None,
+            playlist: None,
+            has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
+            exclude_samples: false,
+            limit: None,
+        };
+        let tracks = search_tracks(&conn, &params).expect("rating filter should succeed");
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0].id, "t4");
+        assert_eq!(tracks[0].rating, 5);
+    }
+
+    #[test]
     fn test_search_by_key() {
         let conn = create_test_db();
         let params = SearchParams {
@@ -1389,6 +1430,44 @@ mod tests {
             key_sum, stats.total_tracks,
             "key count sum ({key_sum}) != total ({})",
             stats.total_tracks
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn test_real_db_rated_count_matches_rating_filtered_search() {
+        let conn = open_real_db().expect("backup tarball not found");
+        let stats = get_library_stats(&conn).unwrap();
+
+        let params = SearchParams {
+            query: None,
+            artist: None,
+            genre: None,
+            rating_min: Some(1),
+            bpm_min: None,
+            bpm_max: None,
+            key: None,
+            playlist: None,
+            has_genre: None,
+            label: None,
+            path: None,
+            added_after: None,
+            added_before: None,
+            exclude_samples: true,
+            limit: Some(50),
+        };
+        let tracks = search_tracks(&conn, &params).expect("rating-filtered search should succeed");
+
+        if stats.rated_count > 0 {
+            assert!(
+                !tracks.is_empty(),
+                "rated_count={} but rating_min=1 search returned no rows",
+                stats.rated_count
+            );
+        }
+        assert!(
+            tracks.iter().all(|track| track.rating >= 1),
+            "rating_min=1 search should only return tracks with star rating >= 1"
         );
     }
 

@@ -2311,7 +2311,8 @@ impl ReklawdboxServer {
             (from, to)
         };
 
-        let scores = score_transition_profiles(&from_profile, &to_profile, p.energy_phase, priority);
+        let scores =
+            score_transition_profiles(&from_profile, &to_profile, p.energy_phase, priority);
 
         let result = serde_json::json!({
             "from": {
@@ -2410,15 +2411,20 @@ impl ReklawdboxServer {
         }
 
         let actual_target = requested_target.min(profiles_by_id.len());
+        let effective_candidates = if profiles_by_id.len() <= actual_target {
+            1
+        } else {
+            requested_candidates
+        };
         let start_tracks = select_start_track_ids(
             &profiles_by_id,
-            requested_candidates,
+            effective_candidates,
             phases[0],
             p.start_track_id.as_deref(),
         );
 
-        let mut candidates = Vec::with_capacity(requested_candidates);
-        for candidate_index in 0..requested_candidates {
+        let mut candidates = Vec::with_capacity(effective_candidates);
+        for candidate_index in 0..effective_candidates {
             let start_track_id = start_tracks[candidate_index % start_tracks.len()].clone();
             let plan = build_candidate_plan(
                 &profiles_by_id,
@@ -2481,7 +2487,7 @@ impl ReklawdboxServer {
                     .sum::<f64>()
                     / plan.transitions.len() as f64
             };
-            let set_score = mean_composite * 10.0;
+            let set_score = round_score(mean_composite * 10.0);
 
             let id = ((b'A' + (candidate_index as u8)) as char).to_string();
             candidates.push(serde_json::json!({
@@ -3354,14 +3360,14 @@ fn score_genre_axis(
 ) -> AxisScore {
     let Some(from_genre) = from_genre else {
         return AxisScore {
-            value: 0.3,
-            label: "Different families".to_string(),
+            value: 0.5,
+            label: "Unknown genre".to_string(),
         };
     };
     let Some(to_genre) = to_genre else {
         return AxisScore {
-            value: 0.3,
-            label: "Different families".to_string(),
+            value: 0.5,
+            label: "Unknown genre".to_string(),
         };
     };
 
@@ -3404,7 +3410,9 @@ fn composite_score(
 }
 
 fn compute_track_energy(essentia_json: Option<&serde_json::Value>, bpm: f64) -> f64 {
-    let bpm_proxy = ((bpm - 80.0) / 100.0).clamp(0.0, 1.0);
+    // Fallback proxy when Essentia descriptors are unavailable.
+    // This maps typical club tempos (~95-145 BPM) across the full 0-1 range.
+    let bpm_proxy = ((bpm - 95.0) / 50.0).clamp(0.0, 1.0);
     let Some(essentia_json) = essentia_json else {
         return bpm_proxy;
     };
@@ -4258,6 +4266,13 @@ mod tests {
                 candidate["set_score"].as_f64().is_some(),
                 "set_score should be numeric"
             );
+            let set_score = candidate["set_score"]
+                .as_f64()
+                .expect("set_score should be numeric");
+            assert!(
+                (set_score - round_score(set_score)).abs() < 1e-9,
+                "set_score should be rounded to 3 decimal places"
+            );
             assert!(
                 candidate["estimated_duration_minutes"].as_i64().is_some(),
                 "estimated_duration_minutes should be numeric"
@@ -4342,7 +4357,7 @@ mod tests {
         let candidates = payload["candidates"]
             .as_array()
             .expect("candidates should be an array");
-        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates.len(), 1);
         let first = &candidates[0];
         assert_eq!(
             first["tracks"]
@@ -4417,7 +4432,7 @@ mod tests {
         let candidates = payload["candidates"]
             .as_array()
             .expect("candidates should be an array");
-        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates.len(), 1);
         assert_eq!(
             candidates[0]["transitions"]
                 .as_array()
@@ -6385,6 +6400,33 @@ mod tests {
             composite_score(0.0, 0.0, 0.0, 1.0, SetPriority::Genre),
             0.45
         ));
+    }
+
+    #[test]
+    fn score_genre_axis_treats_missing_genre_as_neutral() {
+        let unknown_source =
+            score_genre_axis(None, Some("House"), GenreFamily::Other, GenreFamily::House);
+        assert_eq!(unknown_source.value, 0.5);
+        assert_eq!(unknown_source.label, "Unknown genre");
+
+        let unknown_destination =
+            score_genre_axis(Some("House"), None, GenreFamily::House, GenreFamily::Other);
+        assert_eq!(unknown_destination.value, 0.5);
+        assert_eq!(unknown_destination.label, "Unknown genre");
+    }
+
+    #[test]
+    fn bpm_proxy_energy_keeps_peak_phase_reachable_without_essentia() {
+        let from_energy = compute_track_energy(None, 126.0);
+        let to_energy = compute_track_energy(None, 130.0);
+        let peak = score_energy_axis(from_energy, to_energy, Some(EnergyPhase::Peak));
+
+        assert!(
+            to_energy >= 0.65,
+            "fallback energy should allow peak thresholds"
+        );
+        assert_eq!(peak.value, 1.0);
+        assert_eq!(peak.label, "High and stable (peak phase)");
     }
 
     #[tokio::test]
