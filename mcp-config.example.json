@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "reklawdbox": {
+      "type": "stdio",
+      "command": "./target/release/reklawdbox",
+      "env": {
+        "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
+        "REKLAWDBOX_DISCOGS_KEY": "<optional>",
+        "REKLAWDBOX_DISCOGS_SECRET": "<optional>",
+        "REKLAWDBOX_DISCOGS_TOKEN": "<optional>",
+        "REKLAWDBOX_DISCOGS_TOKEN_SECRET": "<optional>",
+        "CRATE_DIG_ESSENTIA_PYTHON": "<optional>"
+      }
+    }
+  }
+}

@@ -4,7 +4,7 @@ MCP server for Rekordbox 7.x library management. Reads directly from the encrypt
 stages metadata changes in memory, and writes Rekordbox-compatible XML for safe reimport.
 
 Built as a single static Rust binary with zero runtime dependencies. Operated through
-Claude Code — no web UI, no CLI flags, just MCP.
+an MCP host (Codex, Claude Code, etc.) — no web UI, no CLI flags, just MCP.
 
 ## Build
 
@@ -14,14 +14,46 @@ cargo build --release
 
 The binary is at `./target/release/reklawdbox` (~12 MB, arm64).
 
-## Register with Claude Code
+## MCP Host Setup
 
-```bash
-claude mcp add reklawdbox ./target/release/reklawdbox
-```
+- Configure your MCP host to run this server over stdio with command `./target/release/reklawdbox`.
+- Use `mcp-config.example.json` as the baseline for local host configuration.
+- Keep real credentials in local environment variables or untracked local config only.
 
 The server auto-detects the Rekordbox database at `~/Library/Pioneer/rekordbox/master.db`.
 To override, set the `REKORDBOX_DB_PATH` environment variable.
+
+Optional enrichment and analysis environment variables:
+
+- `REKLAWDBOX_DISCOGS_KEY`
+- `REKLAWDBOX_DISCOGS_SECRET`
+- `REKLAWDBOX_DISCOGS_TOKEN`
+- `REKLAWDBOX_DISCOGS_TOKEN_SECRET`
+- `CRATE_DIG_ESSENTIA_PYTHON`
+
+### Codex Quickstart
+
+1. Build the binary:
+
+```bash
+cargo build --release
+```
+
+2. Create local MCP config from template:
+
+```bash
+cp mcp-config.example.json .mcp.json
+```
+
+3. Edit `.mcp.json` and set:
+- `REKORDBOX_DB_PATH` (if you are not using the default Rekordbox path)
+- optional Discogs / Essentia env vars
+
+4. Register or load that config in your Codex MCP host so it starts:
+- command: `./target/release/reklawdbox`
+- transport: `stdio`
+
+5. Verify wiring by running a simple tool call from Codex (for example `read_library`).
 
 ## Tools
 
@@ -69,3 +101,5 @@ Synth-pop, Tech House, Techno, Trance, UK Bass
 
 - [`docs/rekordbox-internals.md`](docs/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
 - [`docs/backup-and-restore.md`](docs/backup-and-restore.md) — Backup usage and restore procedures
+- [`CODEX.md`](CODEX.md) — Codex-specific operator/developer workflow notes
+- [`CLAUDE.md`](CLAUDE.md) — Claude Code-specific operator/developer workflow notes

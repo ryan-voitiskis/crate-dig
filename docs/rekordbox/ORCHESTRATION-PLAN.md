@@ -322,7 +322,7 @@ Agent W4: reference/developer-integration.md (WebFetch)
 
 ### Total Phase A: ~37 agents
 
-**Parallelism constraint:** Claude Code allows multiple concurrent Task agents. The orchestrator should batch these in waves of ~8-10 to avoid overload. Suggested waves:
+**Parallelism constraint:** The orchestrator host should run multiple concurrent agents in bounded waves (~8-10) to avoid overload. In Codex, use `spawn_agent` in batches; in other hosts, use equivalent task/agent APIs. Suggested waves:
 
 - **Wave 1:** M1-M6 + G5, G10, G12, G17 (10 agents — small/fast guides mixed with manual chunks)
 - **Wave 2:** M7-M13 + G6, G8, G13 (10 agents)
@@ -405,7 +405,7 @@ The orchestrator agent should be spawned with the following instructions:
 
 1. **Read this plan** (`docs/rekordbox/ORCHESTRATION-PLAN.md`)
 2. **Create task list** tracking all agents across phases
-3. **Execute Phase A** in waves, spawning agents with the Task tool
+3. **Execute Phase A** in waves, spawning agents with the host task/agent tool (for Codex: `spawn_agent`)
 4. **Wait for each wave** to complete before starting the next
 5. **Execute Phase B** after all Phase A agents finish
 6. **Execute Phase C** after all Phase B agents finish
