@@ -1133,8 +1133,8 @@ impl ReklawdboxServer {
         &self,
         params: Parameters<WriteXmlParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ids = self.state.changes.pending_ids();
-        if ids.is_empty() {
+        let snapshot = self.state.changes.take(None);
+        if snapshot.is_empty() {
             let mut result = serde_json::json!({
                 "message": "No changes to write.",
                 "track_count": 0,
@@ -1162,21 +1162,41 @@ impl ReklawdboxServer {
             }
         }
 
-        let conn = self.conn()?;
-        let current_tracks =
-            db::get_tracks_by_ids(&conn, &ids).map_err(|e| err(format!("DB error: {e}")))?;
-        let modified_tracks = self.state.changes.apply_changes(&current_tracks);
+        let ids: Vec<String> = snapshot
+            .iter()
+            .map(|change| change.track_id.clone())
+            .collect();
+
+        let conn = match self.conn() {
+            Ok(conn) => conn,
+            Err(e) => {
+                self.state.changes.restore(snapshot);
+                return Err(e);
+            }
+        };
+        let current_tracks = match db::get_tracks_by_ids(&conn, &ids) {
+            Ok(tracks) => tracks,
+            Err(e) => {
+                self.state.changes.restore(snapshot);
+                return Err(err(format!("DB error: {e}")));
+            }
+        };
+        let modified_tracks = self
+            .state
+            .changes
+            .apply_snapshot(&current_tracks, &snapshot);
 
         let timestamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         let output_path = params.0.output_path.map(PathBuf::from).unwrap_or_else(|| {
             PathBuf::from(format!("rekordbox-exports/reklawdbox-{timestamp}.xml"))
         });
 
-        xml::write_xml(&modified_tracks, &output_path)
-            .map_err(|e| err(format!("Write error: {e}")))?;
+        if let Err(e) = xml::write_xml(&modified_tracks, &output_path) {
+            self.state.changes.restore(snapshot);
+            return Err(err(format!("Write error: {e}")));
+        }
 
         let track_count = modified_tracks.len();
-        self.state.changes.clear(None);
 
         let mut result = serde_json::json!({
             "path": output_path.to_string_lossy(),

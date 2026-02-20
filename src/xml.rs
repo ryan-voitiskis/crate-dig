@@ -24,15 +24,26 @@ pub fn xml_escape(s: &str) -> String {
 pub fn path_to_location(file_path: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 
-    // Encode everything except unreserved chars and path separators
+    let mut normalized = file_path.replace('\\', "/");
+    let bytes = normalized.as_bytes();
+    let is_windows_drive = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+    if is_windows_drive {
+        normalized.insert(0, '/');
+    } else if !normalized.starts_with('/') {
+        normalized.insert(0, '/');
+    }
+
+    // Encode everything except unreserved chars and path separators.
+    // Keep ':' for Windows drive letters in file URIs.
     const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
         .remove(b'-')
         .remove(b'_')
         .remove(b'.')
         .remove(b'~')
+        .remove(b':')
         .remove(b'/');
 
-    let encoded = utf8_percent_encode(file_path, ENCODE_SET).to_string();
+    let encoded = utf8_percent_encode(&normalized, ENCODE_SET).to_string();
     format!("file://localhost{encoded}")
 }
 
@@ -184,6 +195,14 @@ mod tests {
         assert_eq!(
             path_to_location("/Users/vz/Music/Drum & Bass/track.flac"),
             "file://localhost/Users/vz/Music/Drum%20%26%20Bass/track.flac"
+        );
+    }
+
+    #[test]
+    fn test_path_to_location_windows_path() {
+        assert_eq!(
+            path_to_location(r"C:\Users\vz\Music\my track.flac"),
+            "file://localhost/C:/Users/vz/Music/my%20track.flac"
         );
     }
 

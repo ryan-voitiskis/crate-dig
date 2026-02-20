@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use rusqlite::{Connection, OpenFlags, params};
 
 use crate::types::{
@@ -410,18 +412,31 @@ pub fn get_tracks_by_ids(conn: &Connection, ids: &[String]) -> Result<Vec<Track>
     if ids.is_empty() {
         return Ok(vec![]);
     }
-    let placeholders: Vec<String> = (1..=ids.len()).map(|i| format!("?{i}")).collect();
-    let sql = format!(
-        "{TRACK_SELECT} WHERE c.ID IN ({}) AND c.rb_local_deleted = 0",
-        placeholders.join(", ")
-    );
-    let mut stmt = conn.prepare(&sql)?;
-    let refs: Vec<&dyn rusqlite::types::ToSql> = ids
-        .iter()
-        .map(|s| s as &dyn rusqlite::types::ToSql)
-        .collect();
-    let rows = stmt.query_map(refs.as_slice(), row_to_track)?;
-    rows.collect()
+    // Keep well below common SQLite variable limits (e.g. 999) to avoid prepare failures.
+    const MAX_BIND_VARS_PER_QUERY: usize = 900;
+
+    let mut result = Vec::new();
+    let mut seen_ids: HashSet<String> = HashSet::new();
+    for chunk in ids.chunks(MAX_BIND_VARS_PER_QUERY) {
+        let placeholders: Vec<String> = (1..=chunk.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "{TRACK_SELECT} WHERE c.ID IN ({}) AND c.rb_local_deleted = 0",
+            placeholders.join(", ")
+        );
+        let mut stmt = conn.prepare(&sql)?;
+        let refs: Vec<&dyn rusqlite::types::ToSql> = chunk
+            .iter()
+            .map(|s| s as &dyn rusqlite::types::ToSql)
+            .collect();
+        let rows = stmt.query_map(refs.as_slice(), row_to_track)?;
+        for track in rows.collect::<Result<Vec<_>, _>>()? {
+            if seen_ids.insert(track.id.clone()) {
+                result.push(track);
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 pub fn default_db_path() -> Option<String> {
@@ -904,6 +919,15 @@ mod tests {
         let conn = create_test_db();
         let tracks = get_tracks_by_ids(&conn, &["t1".to_string(), "t3".to_string()]).unwrap();
         assert_eq!(tracks.len(), 2);
+    }
+
+    #[test]
+    fn test_get_tracks_by_ids_batches_large_input() {
+        let conn = create_test_db();
+        let ids: Vec<String> = (0..1200).map(|_| "t1".to_string()).collect();
+        let tracks = get_tracks_by_ids(&conn, &ids).unwrap();
+        assert_eq!(tracks.len(), 1);
+        assert_eq!(tracks[0].id, "t1");
     }
 
     /// Load all tracks from the DB by paging with OFFSET.

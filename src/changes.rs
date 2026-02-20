@@ -21,20 +21,7 @@ impl ChangeManager {
         let staged = changes.len();
         for change in changes {
             map.entry(change.track_id.clone())
-                .and_modify(|existing| {
-                    if change.genre.is_some() {
-                        existing.genre = change.genre.clone();
-                    }
-                    if change.comments.is_some() {
-                        existing.comments = change.comments.clone();
-                    }
-                    if change.rating.is_some() {
-                        existing.rating = change.rating;
-                    }
-                    if change.color.is_some() {
-                        existing.color = change.color.clone();
-                    }
-                })
+                .and_modify(|existing| merge_track_change(existing, &change))
                 .or_insert(change);
         }
         (staged, map.len())
@@ -128,32 +115,37 @@ impl ChangeManager {
 
     pub fn apply_changes(&self, tracks: &[Track]) -> Vec<Track> {
         let map = self.changes.lock().unwrap_or_else(|e| e.into_inner());
-        tracks
+        apply_changes_with_map(tracks, &map)
+    }
+
+    /// Apply a specific snapshot of staged changes, independent of in-memory staged state.
+    pub fn apply_snapshot(&self, tracks: &[Track], snapshot: &[TrackChange]) -> Vec<Track> {
+        let snapshot_map: HashMap<String, TrackChange> = snapshot
             .iter()
-            .map(|track| {
-                if let Some(change) = map.get(&track.id) {
-                    let mut modified = track.clone();
-                    if let Some(ref genre) = change.genre {
-                        modified.genre = genre.clone();
-                    }
-                    if let Some(ref comments) = change.comments {
-                        modified.comments = comments.clone();
-                    }
-                    if let Some(rating) = change.rating {
-                        modified.rating = rating;
-                    }
-                    if let Some(ref color) = change.color {
-                        modified.color = color.clone();
-                        if let Some(code) = color::color_name_to_code(color) {
-                            modified.color_code = code;
-                        }
-                    }
-                    modified
-                } else {
-                    track.clone()
-                }
-            })
-            .collect()
+            .map(|change| (change.track_id.clone(), change.clone()))
+            .collect();
+        apply_changes_with_map(tracks, &snapshot_map)
+    }
+
+    /// Remove and return staged changes. If `track_ids` is None, drains all staged changes.
+    pub fn take(&self, track_ids: Option<Vec<String>>) -> Vec<TrackChange> {
+        let mut map = self.changes.lock().unwrap_or_else(|e| e.into_inner());
+        match track_ids {
+            Some(ids) => ids.into_iter().filter_map(|id| map.remove(&id)).collect(),
+            None => map.drain().map(|(_, change)| change).collect(),
+        }
+    }
+
+    /// Restore previously taken changes without overwriting newer staged values.
+    pub fn restore(&self, snapshot: Vec<TrackChange>) -> (usize, usize) {
+        let mut map = self.changes.lock().unwrap_or_else(|e| e.into_inner());
+        let restored = snapshot.len();
+        for change in snapshot {
+            map.entry(change.track_id.clone())
+                .and_modify(|existing| merge_missing_fields(existing, &change))
+                .or_insert(change);
+        }
+        (restored, map.len())
     }
 
     /// Clear specific fields from staged changes. Returns (tracks_affected, remaining_tracks).
@@ -230,6 +222,63 @@ impl ChangeManager {
         };
         (cleared, map.len())
     }
+}
+
+fn merge_track_change(existing: &mut TrackChange, incoming: &TrackChange) {
+    if incoming.genre.is_some() {
+        existing.genre = incoming.genre.clone();
+    }
+    if incoming.comments.is_some() {
+        existing.comments = incoming.comments.clone();
+    }
+    if incoming.rating.is_some() {
+        existing.rating = incoming.rating;
+    }
+    if incoming.color.is_some() {
+        existing.color = incoming.color.clone();
+    }
+}
+
+fn merge_missing_fields(existing: &mut TrackChange, incoming: &TrackChange) {
+    if existing.genre.is_none() {
+        existing.genre = incoming.genre.clone();
+    }
+    if existing.comments.is_none() {
+        existing.comments = incoming.comments.clone();
+    }
+    if existing.rating.is_none() {
+        existing.rating = incoming.rating;
+    }
+    if existing.color.is_none() {
+        existing.color = incoming.color.clone();
+    }
+}
+
+fn apply_changes_with_map(tracks: &[Track], map: &HashMap<String, TrackChange>) -> Vec<Track> {
+    tracks
+        .iter()
+        .map(|track| {
+            if let Some(change) = map.get(&track.id) {
+                let mut modified = track.clone();
+                if let Some(ref genre) = change.genre {
+                    modified.genre = genre.clone();
+                }
+                if let Some(ref comments) = change.comments {
+                    modified.comments = comments.clone();
+                }
+                if let Some(rating) = change.rating {
+                    modified.rating = rating;
+                }
+                if let Some(ref color) = change.color {
+                    modified.color = color.clone();
+                    modified.color_code = color::color_name_to_code(color).unwrap_or(0);
+                }
+                modified
+            } else {
+                track.clone()
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -587,6 +636,82 @@ mod tests {
         let modified = cm.apply_changes(&tracks);
         assert_eq!(modified[0].color, "Red");
         assert_eq!(modified[0].color_code, 0xFF0000);
+    }
+
+    #[test]
+    fn test_apply_changes_unknown_color_resets_color_code() {
+        let cm = ChangeManager::new();
+        let mut track = make_track("t1", "House", 3);
+        track.color = "Red".to_string();
+        track.color_code = 0xFF0000;
+        let tracks = vec![track];
+
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: None,
+            comments: None,
+            rating: None,
+            color: Some("Purple".to_string()),
+        }]);
+
+        let modified = cm.apply_changes(&tracks);
+        assert_eq!(modified[0].color, "Purple");
+        assert_eq!(modified[0].color_code, 0);
+    }
+
+    #[test]
+    fn test_take_all_drains_pending_changes() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![
+            TrackChange {
+                track_id: "t1".to_string(),
+                genre: Some("House".to_string()),
+                comments: None,
+                rating: None,
+                color: None,
+            },
+            TrackChange {
+                track_id: "t2".to_string(),
+                genre: Some("Techno".to_string()),
+                comments: None,
+                rating: None,
+                color: None,
+            },
+        ]);
+
+        let snapshot = cm.take(None);
+        assert_eq!(snapshot.len(), 2);
+        assert_eq!(cm.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_restore_keeps_newer_fields_and_restores_missing_ones() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("old".to_string()),
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+        assert_eq!(cm.pending_count(), 0);
+
+        // Simulate newer changes arriving while export is in progress.
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: None,
+            comments: Some("new".to_string()),
+            rating: Some(5),
+            color: None,
+        }]);
+
+        cm.restore(snapshot);
+        let restored = cm.get("t1").expect("t1 should be restored");
+        assert_eq!(restored.genre.as_deref(), Some("House"));
+        assert_eq!(restored.comments.as_deref(), Some("new"));
+        assert_eq!(restored.rating, Some(5));
     }
 
     // ==================== Integration tests (real DB) ====================

@@ -492,12 +492,10 @@ async fn lookup_inner_legacy(
         _ => return Ok(None),
     };
 
-    // Find best match by artist name in result title
-    let norm_artist = normalize(artist);
-
+    // Find best match by artist name in result title.
     for r in &results {
-        let result_title = r.title.as_deref().unwrap_or("").to_lowercase();
-        if result_title.contains(&norm_artist) || norm_artist.len() < 3 {
+        let result_title = r.title.as_deref().unwrap_or("");
+        if result_title_matches_artist(result_title, artist) {
             return Ok(Some(to_result(r, false)));
         }
     }
@@ -525,6 +523,14 @@ fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
         url,
         fuzzy_match: fuzzy,
     }
+}
+
+fn result_title_matches_artist(result_title: &str, artist: &str) -> bool {
+    let norm_artist = normalize(artist);
+    if norm_artist.len() < 3 {
+        return true;
+    }
+    normalize(result_title).contains(&norm_artist)
 }
 
 fn urlencoding(s: &str) -> String {
@@ -592,5 +598,18 @@ mod tests {
             .expect("result should exist");
         assert!(parsed.fuzzy_match);
         assert_eq!(parsed.styles, vec!["Techno"]);
+    }
+
+    #[test]
+    fn result_title_match_handles_punctuation() {
+        assert!(result_title_matches_artist(
+            "A$AP Rocky - Praise The Lord",
+            "A$AP Rocky"
+        ));
+    }
+
+    #[test]
+    fn result_title_match_allows_short_artist_names() {
+        assert!(result_title_matches_artist("Random Result", "DJ"));
     }
 }

@@ -184,6 +184,10 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
                 eprintln!("[audio] decode warning: {e}");
                 continue;
             }
+            Err(symphonia::core::errors::Error::ResetRequired) => {
+                decoder.reset();
+                continue;
+            }
             Err(e) => return Err(format!("Decode error: {e}")),
         };
 

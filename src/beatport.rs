@@ -4,6 +4,11 @@ use serde::{Deserialize, Serialize};
 const BEATPORT_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
 
+enum HttpStatusHandling {
+    NoMatch,
+    Error(String),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BeatportResult {
     pub genre: String,
@@ -41,8 +46,17 @@ pub async fn lookup(
         .await
         .map_err(|e| format!("request failed: {e}"))?;
 
-    if !resp.status().is_success() {
-        return Ok(None);
+    let status = resp.status();
+    if !status.is_success() {
+        let retry_after = resp
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string);
+        return match classify_http_status(status, retry_after.as_deref()) {
+            HttpStatusHandling::NoMatch => Ok(None),
+            HttpStatusHandling::Error(msg) => Err(msg),
+        };
     }
 
     let html = resp
@@ -53,6 +67,39 @@ pub async fn lookup(
     parse_beatport_html(&html, artist, title)
 }
 
+fn classify_http_status(
+    status: reqwest::StatusCode,
+    retry_after: Option<&str>,
+) -> HttpStatusHandling {
+    if status == reqwest::StatusCode::NOT_FOUND {
+        return HttpStatusHandling::NoMatch;
+    }
+
+    if status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
+        return HttpStatusHandling::Error(http_status_error(
+            status,
+            retry_after,
+            "transient/retryable",
+        ));
+    }
+
+    if status.is_client_error() {
+        return HttpStatusHandling::Error(http_status_error(status, retry_after, "client"));
+    }
+
+    HttpStatusHandling::Error(http_status_error(status, retry_after, "unexpected"))
+}
+
+fn http_status_error(status: reqwest::StatusCode, retry_after: Option<&str>, kind: &str) -> String {
+    match retry_after {
+        Some(delay) if !delay.is_empty() => format!(
+            "Beatport {kind} HTTP {status} (Retry-After: {delay})"
+        ),
+        _ => format!("Beatport {kind} HTTP {status}"),
+    }
+}
+
+/// Parse Beatport HTML to extract track data from __NEXT_DATA__ JSON.
 fn parse_beatport_html(
     html: &str,
     artist: &str,
@@ -286,5 +333,42 @@ mod tests {
             .unwrap()
             .expect("expected a beatport match");
         assert_eq!(result.track_name, "Archangel");
+    }
+
+    #[test]
+    fn test_classify_http_status_404_is_no_match() {
+        let result = classify_http_status(reqwest::StatusCode::NOT_FOUND, None);
+        assert!(matches!(result, HttpStatusHandling::NoMatch));
+    }
+
+    #[test]
+    fn test_classify_http_status_429_includes_retry_after_and_retryable_context() {
+        let result = classify_http_status(reqwest::StatusCode::TOO_MANY_REQUESTS, Some("30"));
+        let HttpStatusHandling::Error(msg) = result else {
+            panic!("429 should be treated as retryable error");
+        };
+        assert!(msg.contains("429 Too Many Requests"));
+        assert!(msg.contains("transient/retryable"));
+        assert!(msg.contains("Retry-After: 30"));
+    }
+
+    #[test]
+    fn test_classify_http_status_5xx_is_retryable_error() {
+        let result = classify_http_status(reqwest::StatusCode::BAD_GATEWAY, None);
+        let HttpStatusHandling::Error(msg) = result else {
+            panic!("5xx should be treated as retryable error");
+        };
+        assert!(msg.contains("502 Bad Gateway"));
+        assert!(msg.contains("transient/retryable"));
+    }
+
+    #[test]
+    fn test_classify_http_status_other_4xx_is_client_error() {
+        let result = classify_http_status(reqwest::StatusCode::FORBIDDEN, None);
+        let HttpStatusHandling::Error(msg) = result else {
+            panic!("4xx (other than 404) should be treated as client error");
+        };
+        assert!(msg.contains("403 Forbidden"));
+        assert!(msg.contains("client"));
     }
 }
