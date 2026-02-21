@@ -111,6 +111,8 @@ pub struct DiscogsResult {
     pub genres: Vec<String>,
     pub styles: Vec<String>,
     pub url: String,
+    #[serde(default)]
+    pub cover_image: String,
     pub fuzzy_match: bool,
 }
 
@@ -127,6 +129,7 @@ struct SearchResult {
     genre: Option<Vec<String>>,
     style: Option<Vec<String>>,
     uri: Option<String>,
+    cover_image: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -521,6 +524,7 @@ fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
         genres: r.genre.clone().unwrap_or_default(),
         styles: r.style.clone().unwrap_or_default(),
         url,
+        cover_image: r.cover_image.clone().unwrap_or_default(),
         fuzzy_match: fuzzy,
     }
 }
