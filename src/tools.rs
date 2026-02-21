@@ -370,7 +370,7 @@ fn probe_essentia_python_from_sources(
         .find(|candidate| validate_essentia_python(candidate))
 }
 
-fn probe_essentia_python_path() -> Option<String> {
+pub(crate) fn probe_essentia_python_path() -> Option<String> {
     let env_override = std::env::var(ESSENTIA_PYTHON_ENV_VAR).ok();
     let default_candidate =
         dirs::home_dir().map(|home| home.join(".local/share/reklawdbox/essentia-venv/bin/python"));
@@ -3942,25 +3942,8 @@ fn parse_enrichment_cache(cache: Option<&store::CachedEnrichment>) -> Option<ser
     })
 }
 
-/// Resolve a Rekordbox file path to an actual filesystem path.
-/// Tries the raw path first; if that fails, tries percent-decoding.
 fn resolve_file_path(raw_path: &str) -> Result<String, McpError> {
-    if std::fs::metadata(raw_path).is_ok() {
-        return Ok(raw_path.to_string());
-    }
-
-    let decoded = percent_encoding::percent_decode_str(raw_path)
-        .decode_utf8()
-        .map_err(|e| err(format!("Invalid UTF-8 in file path: {e}")))?
-        .to_string();
-
-    if std::fs::metadata(&decoded).is_ok() {
-        return Ok(decoded);
-    }
-
-    Err(err(format!(
-        "File not found (tried raw and decoded): {raw_path}"
-    )))
+    audio::resolve_audio_path(raw_path).map_err(|msg| err(msg))
 }
 
 #[tool_handler]

@@ -1,6 +1,7 @@
 mod audio;
 mod beatport;
 mod changes;
+mod cli;
 mod color;
 mod corpus;
 mod db;
@@ -18,8 +19,12 @@ use rmcp::transport::stdio;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let server = tools::ReklawdboxServer::new(db::resolve_db_path());
-    let service = server.serve(stdio()).await?;
-    service.waiting().await?;
-    Ok(())
+    if std::env::args().len() > 1 {
+        cli::main().await
+    } else {
+        let server = tools::ReklawdboxServer::new(db::resolve_db_path());
+        let service = server.serve(stdio()).await?;
+        service.waiting().await?;
+        Ok(())
+    }
 }

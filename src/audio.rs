@@ -181,6 +181,27 @@ pub async fn run_essentia(
     parse_essentia_stdout(&output.stdout)
 }
 
+/// Resolve a Rekordbox file path to an actual filesystem path.
+/// Tries the raw path first; if that fails, tries percent-decoding.
+pub(crate) fn resolve_audio_path(raw_path: &str) -> Result<String, String> {
+    if std::fs::metadata(raw_path).is_ok() {
+        return Ok(raw_path.to_string());
+    }
+
+    let decoded = percent_encoding::percent_decode_str(raw_path)
+        .decode_utf8()
+        .map_err(|e| format!("Invalid UTF-8 in file path: {e}"))?
+        .to_string();
+
+    if std::fs::metadata(&decoded).is_ok() {
+        return Ok(decoded);
+    }
+
+    Err(format!(
+        "File not found (tried raw and decoded): {raw_path}"
+    ))
+}
+
 pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
     let file = std::fs::File::open(path)
         .map_err(|e| format!("Failed to open audio file '{path}': {e}"))?;
