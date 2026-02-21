@@ -12,7 +12,7 @@ The agent helps the user build ordered tracklists for DJ sets. It uses cached au
 
 | Tool | Purpose |
 |------|---------|
-| `score_transition` | Deterministic Camelot/BPM/energy math for a track pair. |
+| `score_transition` | Deterministic Camelot/BPM/energy/genre/brightness/rhythm math for a track pair. |
 | `build_set` | Greedy sequencing from a candidate pool. Returns ordered candidates with per-transition scores. |
 | XML playlist export | Extend `write_xml` to emit `<PLAYLISTS>` section with ordered track references. |
 
@@ -313,18 +313,21 @@ Use the stratum-dsp analyzed BPM (more accurate than Rekordbox metadata). Fall b
 Energy is estimated from cached Essentia features when available:
 
 ```
-energy_score = (0.4 * danceability) + (0.3 * normalized_loudness) + (0.3 * onset_rate_normalized)
+normalized_dance = clamp(danceability / 3.0, 0, 1)
+normalized_loudness = clamp((loudness_integrated + 30) / 30, 0, 1)
+onset_rate_normalized = clamp(onset_rate / 10.0, 0, 1)
+energy_score = (0.4 * normalized_dance) + (0.3 * normalized_loudness) + (0.3 * onset_rate_normalized)
 ```
 
 Where:
-- `danceability`: raw Essentia value (0-1 range).
+- `danceability`: raw Essentia value (typical range 0 to ~3).
 - `normalized_loudness`: `(loudness_integrated + 30) / 30`, clamped to 0-1 (maps typical -30..0 LUFS range).
 - `onset_rate_normalized`: `onset_rate / 10.0`, clamped to 0-1 (typical range 0-10 onsets/sec).
 
 If Essentia is not available, fall back to a BPM-based energy proxy:
 
 ```
-energy_proxy = (bpm - 80) / 100, clamped to 0-1
+energy_proxy = (bpm - 95) / 50, clamped to 0-1
 ```
 
 This is crude but directionally correct (higher BPM ≈ higher energy for dance music).
@@ -337,6 +340,10 @@ Energy transition scoring depends on the requested energy curve position:
 | Build | energy rising | 1.0 | 0.3 |
 | Peak | energy high and stable | 1.0 | 0.5 |
 | Release | energy dropping | 1.0 | 0.3 |
+
+Phase-aware loudness-range bonuses:
+- If the set crosses a phase boundary and destination track `loudness_range > 8.0`, add `+0.1` to the energy axis (cap 1.0).
+- If phase stays in Peak and destination track `loudness_range < 4.0`, add `+0.05` (cap 1.0).
 
 ### Genre Compatibility
 
@@ -358,6 +365,32 @@ Genre families for scoring purposes:
 
 Tracks within the "Other" family don't get the 0.7 related-genre bonus with each other (too diverse).
 
+### Brightness Compatibility
+
+Brightness uses Essentia `spectral_centroid_mean` (Hz):
+
+| Absolute delta | Score | Label |
+|-------------|-------|-------|
+| < 300 Hz | 1.0 | Similar brightness |
+| 300-800 Hz | 0.7 | Noticeable shift |
+| 800-1500 Hz | 0.4 | Large timbral jump |
+| > 1500 Hz | 0.2 | Jarring jump |
+
+If either track lacks centroid data, score defaults to `0.5` (neutral unknown).
+
+### Rhythm Compatibility
+
+Rhythm uses Essentia `rhythm_regularity`:
+
+| Absolute delta | Score | Label |
+|-------------|-------|-------|
+| < 0.10 | 1.0 | Matching groove |
+| 0.10-0.25 | 0.7 | Manageable shift |
+| 0.25-0.50 | 0.4 | Challenging shift |
+| > 0.50 | 0.2 | Groove clash |
+
+If either track lacks regularity data, score defaults to `0.5` (neutral unknown).
+
 ### Composite Score
 
 ```
@@ -365,16 +398,18 @@ composite = (key_weight * key_score)
           + (bpm_weight * bpm_score)
           + (energy_weight * energy_score)
           + (genre_weight * genre_score)
+          + (brightness_weight * brightness_score)
+          + (rhythm_weight * rhythm_score)
 ```
 
 Weights by priority axis:
 
-| Priority | key_weight | bpm_weight | energy_weight | genre_weight |
-|----------|-----------|-----------|---------------|-------------|
-| Balanced | 0.35 | 0.25 | 0.20 | 0.20 |
-| Harmonic | 0.55 | 0.20 | 0.15 | 0.10 |
-| Energy | 0.15 | 0.20 | 0.50 | 0.15 |
-| Genre | 0.20 | 0.20 | 0.15 | 0.45 |
+| Priority | key_weight | bpm_weight | energy_weight | genre_weight | brightness_weight | rhythm_weight |
+|----------|-----------|-----------|---------------|-------------|-------------------|---------------|
+| Balanced | 0.30 | 0.20 | 0.18 | 0.17 | 0.08 | 0.07 |
+| Harmonic | 0.48 | 0.18 | 0.12 | 0.08 | 0.08 | 0.06 |
+| Energy | 0.12 | 0.18 | 0.42 | 0.12 | 0.08 | 0.08 |
+| Genre | 0.18 | 0.18 | 0.12 | 0.38 | 0.08 | 0.06 |
 
 ---
 
@@ -439,7 +474,9 @@ Score a single transition between two tracks.
     "bpm": { "value": 1.0, "label": "Seamless (delta 1.5)" },
     "energy": { "value": 1.0, "label": "Rising (build phase)" },
     "genre": { "value": 1.0, "label": "Same genre" },
-    "composite": 0.94
+    "brightness": { "value": 0.7, "label": "Noticeable brightness shift (delta 420 Hz)" },
+    "rhythm": { "value": 1.0, "label": "Matching groove (delta 0.06)" },
+    "composite": 0.92
   }
 }
 ```
@@ -480,7 +517,9 @@ Generate candidate set orderings from a track pool.
             "bpm": { "value": 1.0, "label": "Seamless" },
             "energy": { "value": 1.0, "label": "Rising" },
             "genre": { "value": 1.0, "label": "Same genre" },
-            "composite": 0.94
+            "brightness": { "value": 0.7, "label": "Noticeable brightness shift" },
+            "rhythm": { "value": 1.0, "label": "Matching groove" },
+            "composite": 0.92
           }
         }
       ],
@@ -548,7 +587,7 @@ Track order in the `<NODE>` matches the order in `track_ids`. The `<COLLECTION>`
 
 Set builder is complete when:
 
-- [ ] `score_transition` tool implemented with Camelot, BPM, energy, and genre scoring.
+- [ ] `score_transition` tool implemented with Camelot, BPM, energy, genre, brightness, and rhythm scoring.
 - [ ] `build_set` tool implemented with greedy sequencing and multiple candidate support.
 - [ ] `write_xml` extended with playlist export.
 - [ ] Agent can execute this full SOP end-to-end: parameters → pool → candidates → refine → export.

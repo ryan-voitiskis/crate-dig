@@ -105,7 +105,11 @@ features["average_loudness"] = first_scalar_or_none(es.Loudness()(audio))
 
 rhythm = es.RhythmExtractor2013(method="multifeature")(audio)
 features["bpm_essentia"] = first_scalar_or_none(rhythm[0] if isinstance(rhythm, (tuple, list)) and len(rhythm) > 0 else rhythm)
-features["onset_rate"] = first_scalar_or_none(es.OnsetRate()(audio))
+onset_result = es.OnsetRate()(audio)
+if isinstance(onset_result, (tuple, list)) and len(onset_result) >= 2:
+    features["onset_rate"] = first_scalar_or_none(onset_result[1])
+else:
+    features["onset_rate"] = first_scalar_or_none(onset_result)
 
 beats = rhythm[1]
 if len(beats) > 4:
@@ -513,7 +517,7 @@ class MonoLoader:
 
 class Danceability:
     def __call__(self, audio):
-        return [0.82]
+        return [2.46]
 
 class LoudnessEBUR128:
     def __call__(self, audio):
@@ -537,7 +541,7 @@ class RhythmExtractor2013:
 
 class OnsetRate:
     def __call__(self, audio):
-        return [0.18]
+        return ([0.18, 0.64, 1.02], 5.6)
 
 class BeatsLoudness:
     def __init__(self, beats):
@@ -610,9 +614,10 @@ def column_stack(cols):
         .expect("run_essentia should succeed with fake modules");
 
         assert_eq!(result["analyzer_version"], "2.1-test");
-        assert!((result["danceability"].as_f64().unwrap() - 0.82).abs() < 1e-6);
+        assert!((result["danceability"].as_f64().unwrap() - 2.46).abs() < 1e-6);
         assert!((result["loudness_integrated"].as_f64().unwrap() - (-14.5)).abs() < 1e-6);
         assert!((result["loudness_range"].as_f64().unwrap() - 4.2).abs() < 1e-6);
+        assert!((result["onset_rate"].as_f64().unwrap() - 5.6).abs() < 1e-6);
         assert!(
             result["rhythm_regularity"].as_f64().unwrap() > 0.0,
             "rhythm_regularity should be computed from beat loudness ratios"

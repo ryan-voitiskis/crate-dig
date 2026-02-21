@@ -837,7 +837,7 @@ pub enum SetPriority {
     Genre,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum EnergyPhase {
     Warmup,
@@ -2278,7 +2278,7 @@ impl ReklawdboxServer {
     }
 
     #[tool(
-        description = "Score a single transition between two tracks using key, BPM, energy, and genre compatibility."
+        description = "Score a single transition between two tracks using key, BPM, energy, genre, brightness, and rhythm compatibility."
     )]
     async fn score_transition(
         &self,
@@ -2311,8 +2311,13 @@ impl ReklawdboxServer {
             (from, to)
         };
 
-        let scores =
-            score_transition_profiles(&from_profile, &to_profile, p.energy_phase, priority);
+        let scores = score_transition_profiles(
+            &from_profile,
+            &to_profile,
+            p.energy_phase,
+            p.energy_phase,
+            priority,
+        );
 
         let result = serde_json::json!({
             "from": {
@@ -2888,6 +2893,9 @@ struct TrackProfile {
     key_display: String,
     bpm: f64,
     energy: f64,
+    brightness: Option<f64>,
+    rhythm_regularity: Option<f64>,
+    loudness_range: Option<f64>,
     canonical_genre: Option<String>,
     genre_family: GenreFamily,
 }
@@ -2919,6 +2927,8 @@ struct TransitionScores {
     bpm: AxisScore,
     energy: AxisScore,
     genre: AxisScore,
+    brightness: AxisScore,
+    rhythm: AxisScore,
     composite: f64,
 }
 
@@ -2929,6 +2939,8 @@ impl TransitionScores {
             "bpm": { "value": round_score(self.bpm.value), "label": self.bpm.label },
             "energy": { "value": round_score(self.energy.value), "label": self.energy.label },
             "genre": { "value": round_score(self.genre.value), "label": self.genre.label },
+            "brightness": { "value": round_score(self.brightness.value), "label": self.brightness.label },
+            "rhythm": { "value": round_score(self.rhythm.value), "label": self.rhythm.label },
             "composite": round_score(self.composite),
         })
     }
@@ -3070,14 +3082,24 @@ fn build_candidate_plan(
             break;
         };
 
-        let phase = phases.get(ordered_ids.len()).copied();
+        let to_phase = phases.get(ordered_ids.len()).copied();
+        let from_phase = ordered_ids
+            .len()
+            .checked_sub(1)
+            .and_then(|idx| phases.get(idx).copied());
         let mut scored_next: Vec<(String, TransitionScores)> = remaining
             .iter()
             .filter_map(|candidate_id| {
                 profiles_by_id.get(candidate_id).map(|to_profile| {
                     (
                         candidate_id.clone(),
-                        score_transition_profiles(from_profile, to_profile, phase, priority),
+                        score_transition_profiles(
+                            from_profile,
+                            to_profile,
+                            from_phase,
+                            to_phase,
+                            priority,
+                        ),
                     )
                 })
             })
@@ -3165,6 +3187,18 @@ fn build_track_profile(
         });
 
     let energy = compute_track_energy(essentia_json.as_ref(), bpm);
+    let brightness = essentia_json
+        .as_ref()
+        .and_then(|v| v.get("spectral_centroid_mean"))
+        .and_then(serde_json::Value::as_f64);
+    let rhythm_regularity = essentia_json
+        .as_ref()
+        .and_then(|v| v.get("rhythm_regularity"))
+        .and_then(serde_json::Value::as_f64);
+    let loudness_range = essentia_json
+        .as_ref()
+        .and_then(|v| v.get("loudness_range"))
+        .and_then(serde_json::Value::as_f64);
     let canonical_genre = canonicalize_genre(&track.genre);
     let genre_family = canonical_genre
         .as_deref()
@@ -3177,6 +3211,9 @@ fn build_track_profile(
         key_display,
         bpm,
         energy,
+        brightness,
+        rhythm_regularity,
+        loudness_range,
         canonical_genre,
         genre_family,
     })
@@ -3185,25 +3222,44 @@ fn build_track_profile(
 fn score_transition_profiles(
     from: &TrackProfile,
     to: &TrackProfile,
-    phase: Option<EnergyPhase>,
+    from_phase: Option<EnergyPhase>,
+    to_phase: Option<EnergyPhase>,
     priority: SetPriority,
 ) -> TransitionScores {
     let key = score_key_axis(from.camelot_key, to.camelot_key);
     let bpm = score_bpm_axis(from.bpm, to.bpm);
-    let energy = score_energy_axis(from.energy, to.energy, phase);
+    let energy = score_energy_axis(
+        from.energy,
+        to.energy,
+        from_phase,
+        to_phase,
+        to.loudness_range,
+    );
     let genre = score_genre_axis(
         from.canonical_genre.as_deref(),
         to.canonical_genre.as_deref(),
         from.genre_family,
         to.genre_family,
     );
-    let composite = composite_score(key.value, bpm.value, energy.value, genre.value, priority);
+    let brightness = score_brightness_axis(from.brightness, to.brightness);
+    let rhythm = score_rhythm_axis(from.rhythm_regularity, to.rhythm_regularity);
+    let composite = composite_score(
+        key.value,
+        bpm.value,
+        energy.value,
+        genre.value,
+        brightness.value,
+        rhythm.value,
+        priority,
+    );
 
     TransitionScores {
         key,
         bpm,
         energy,
         genre,
+        brightness,
+        rhythm,
         composite,
     }
 }
@@ -3298,9 +3354,15 @@ fn score_bpm_axis(from_bpm: f64, to_bpm: f64) -> AxisScore {
     }
 }
 
-fn score_energy_axis(from_energy: f64, to_energy: f64, phase: Option<EnergyPhase>) -> AxisScore {
+fn score_energy_axis(
+    from_energy: f64,
+    to_energy: f64,
+    from_phase: Option<EnergyPhase>,
+    to_phase: Option<EnergyPhase>,
+    to_loudness_range: Option<f64>,
+) -> AxisScore {
     let delta = to_energy - from_energy;
-    match phase {
+    let mut axis = match to_phase {
         Some(EnergyPhase::Warmup) => {
             let met = (-0.03..=0.12).contains(&delta);
             AxisScore {
@@ -3349,7 +3411,24 @@ fn score_energy_axis(from_energy: f64, to_energy: f64, phase: Option<EnergyPhase
             value: 1.0,
             label: "No phase preference".to_string(),
         },
+    };
+
+    let is_phase_boundary = matches!(
+        (from_phase, to_phase),
+        (Some(previous), Some(current)) if previous != current
+    );
+    match (to_phase, to_loudness_range) {
+        (Some(_), Some(lra)) if is_phase_boundary && lra > 8.0 => {
+            axis.value = (axis.value + 0.1).clamp(0.0, 1.0);
+            axis.label.push_str(" + dynamic boundary boost");
+        }
+        (Some(EnergyPhase::Peak), Some(lra)) if !is_phase_boundary && lra < 4.0 => {
+            axis.value = (axis.value + 0.05).clamp(0.0, 1.0);
+            axis.label.push_str(" + sustained-peak consistency boost");
+        }
+        _ => {}
     }
+    axis
 }
 
 fn score_genre_axis(
@@ -3389,12 +3468,88 @@ fn score_genre_axis(
     }
 }
 
-fn priority_weights(priority: SetPriority) -> (f64, f64, f64, f64) {
+fn score_brightness_axis(from_centroid: Option<f64>, to_centroid: Option<f64>) -> AxisScore {
+    let Some(from_centroid) = from_centroid else {
+        return AxisScore {
+            value: 0.5,
+            label: "Unknown brightness".to_string(),
+        };
+    };
+    let Some(to_centroid) = to_centroid else {
+        return AxisScore {
+            value: 0.5,
+            label: "Unknown brightness".to_string(),
+        };
+    };
+
+    let delta = (to_centroid - from_centroid).abs();
+    if delta < 300.0 {
+        AxisScore {
+            value: 1.0,
+            label: format!("Similar timbre (delta {:.0} Hz)", delta),
+        }
+    } else if delta < 800.0 {
+        AxisScore {
+            value: 0.7,
+            label: format!("Noticeable brightness shift (delta {:.0} Hz)", delta),
+        }
+    } else if delta < 1500.0 {
+        AxisScore {
+            value: 0.4,
+            label: format!("Large timbral jump (delta {:.0} Hz)", delta),
+        }
+    } else {
+        AxisScore {
+            value: 0.2,
+            label: format!("Jarring brightness jump (delta {:.0} Hz)", delta),
+        }
+    }
+}
+
+fn score_rhythm_axis(from_regularity: Option<f64>, to_regularity: Option<f64>) -> AxisScore {
+    let Some(from_regularity) = from_regularity else {
+        return AxisScore {
+            value: 0.5,
+            label: "Unknown groove".to_string(),
+        };
+    };
+    let Some(to_regularity) = to_regularity else {
+        return AxisScore {
+            value: 0.5,
+            label: "Unknown groove".to_string(),
+        };
+    };
+
+    let delta = (to_regularity - from_regularity).abs();
+    if delta < 0.1 {
+        AxisScore {
+            value: 1.0,
+            label: format!("Matching groove (delta {:.2})", delta),
+        }
+    } else if delta < 0.25 {
+        AxisScore {
+            value: 0.7,
+            label: format!("Manageable groove shift (delta {:.2})", delta),
+        }
+    } else if delta < 0.5 {
+        AxisScore {
+            value: 0.4,
+            label: format!("Challenging groove shift (delta {:.2})", delta),
+        }
+    } else {
+        AxisScore {
+            value: 0.2,
+            label: format!("Groove clash (delta {:.2})", delta),
+        }
+    }
+}
+
+fn priority_weights(priority: SetPriority) -> (f64, f64, f64, f64, f64, f64) {
     match priority {
-        SetPriority::Balanced => (0.35, 0.25, 0.20, 0.20),
-        SetPriority::Harmonic => (0.55, 0.20, 0.15, 0.10),
-        SetPriority::Energy => (0.15, 0.20, 0.50, 0.15),
-        SetPriority::Genre => (0.20, 0.20, 0.15, 0.45),
+        SetPriority::Balanced => (0.30, 0.20, 0.18, 0.17, 0.08, 0.07),
+        SetPriority::Harmonic => (0.48, 0.18, 0.12, 0.08, 0.08, 0.06),
+        SetPriority::Energy => (0.12, 0.18, 0.42, 0.12, 0.08, 0.08),
+        SetPriority::Genre => (0.18, 0.18, 0.12, 0.38, 0.08, 0.06),
     }
 }
 
@@ -3403,10 +3558,17 @@ fn composite_score(
     bpm_score: f64,
     energy_score: f64,
     genre_score: f64,
+    brightness_score: f64,
+    rhythm_score: f64,
     priority: SetPriority,
 ) -> f64 {
-    let (w_key, w_bpm, w_energy, w_genre) = priority_weights(priority);
-    (w_key * key_score) + (w_bpm * bpm_score) + (w_energy * energy_score) + (w_genre * genre_score)
+    let (w_key, w_bpm, w_energy, w_genre, w_brightness, w_rhythm) = priority_weights(priority);
+    (w_key * key_score)
+        + (w_bpm * bpm_score)
+        + (w_energy * energy_score)
+        + (w_genre * genre_score)
+        + (w_brightness * brightness_score)
+        + (w_rhythm * rhythm_score)
 }
 
 fn compute_track_energy(essentia_json: Option<&serde_json::Value>, bpm: f64) -> f64 {
@@ -3429,11 +3591,10 @@ fn compute_track_energy(essentia_json: Option<&serde_json::Value>, bpm: f64) -> 
 
     match (danceability, loudness_integrated, onset_rate) {
         (Some(dance), Some(loudness), Some(onset)) => {
+            let normalized_dance = (dance / 3.0).clamp(0.0, 1.0);
             let normalized_loudness = ((loudness + 30.0) / 30.0).clamp(0.0, 1.0);
             let onset_rate_normalized = (onset / 10.0).clamp(0.0, 1.0);
-            ((0.4 * dance.clamp(0.0, 1.0))
-                + (0.3 * normalized_loudness)
-                + (0.3 * onset_rate_normalized))
+            ((0.4 * normalized_dance) + (0.3 * normalized_loudness) + (0.3 * onset_rate_normalized))
                 .clamp(0.0, 1.0)
         }
         _ => bpm_proxy,
@@ -4172,12 +4333,12 @@ mod tests {
 
     fn seed_build_set_cache(store_conn: &Connection) {
         let rows: [(&str, f64, &str, f64); 6] = [
-            ("/tmp/set-track-1.flac", 122.0, "8A", 0.34),
-            ("/tmp/set-track-2.flac", 124.0, "9A", 0.40),
-            ("/tmp/set-track-3.flac", 126.0, "10A", 0.48),
-            ("/tmp/set-track-4.flac", 128.0, "11A", 0.60),
-            ("/tmp/set-track-5.flac", 130.0, "12A", 0.74),
-            ("/tmp/set-track-6.flac", 123.5, "7A", 0.42),
+            ("/tmp/set-track-1.flac", 122.0, "8A", 1.02),
+            ("/tmp/set-track-2.flac", 124.0, "9A", 1.20),
+            ("/tmp/set-track-3.flac", 126.0, "10A", 1.44),
+            ("/tmp/set-track-4.flac", 128.0, "11A", 1.80),
+            ("/tmp/set-track-5.flac", 130.0, "12A", 2.22),
+            ("/tmp/set-track-6.flac", 123.5, "7A", 1.26),
         ];
 
         for (index, (path, bpm, key_camelot, danceability)) in rows.iter().enumerate() {
@@ -4189,8 +4350,8 @@ mod tests {
             });
             let essentia = serde_json::json!({
                 "danceability": *danceability,
-                "loudness_integrated": -16.0 + (*danceability * 8.0),
-                "onset_rate": 3.0 + (*danceability * 4.0),
+                "loudness_integrated": -18.0 + (*danceability * 4.0),
+                "onset_rate": 2.5 + (*danceability * 2.0),
                 "analyzer_version": "essentia-test"
             });
             store::set_audio_analysis(
@@ -4610,8 +4771,9 @@ mod tests {
             return;
         }
 
-        let track = sample_real_tracks(&server, 20)
+        let track = sample_real_tracks(&server, 40)
             .into_iter()
+            .filter(|t| (120.0..=145.0).contains(&t.bpm))
             .find(|t| resolve_file_path(&t.file_path).is_ok())
             .expect("integration test needs at least one track with accessible audio file");
 
@@ -4629,6 +4791,27 @@ mod tests {
             "real Essentia run should produce feature JSON"
         );
         assert_eq!(first_payload["essentia_cache_hit"], false);
+        let onset_rate = first_payload["essentia"]["onset_rate"]
+            .as_f64()
+            .expect("onset_rate should be present in Essentia output");
+        let danceability = first_payload["essentia"]["danceability"]
+            .as_f64()
+            .expect("danceability should be present in Essentia output");
+        let loudness_integrated = first_payload["essentia"]["loudness_integrated"]
+            .as_f64()
+            .expect("loudness_integrated should be present in Essentia output");
+        assert!(
+            onset_rate > 1.0,
+            "onset_rate should be rate-like (Hz), got {onset_rate}"
+        );
+        assert!(
+            (0.0..=3.5).contains(&danceability),
+            "danceability should stay in plausible Essentia range [0, ~3], got {danceability}"
+        );
+        assert!(
+            (-30.0..=0.0).contains(&loudness_integrated),
+            "loudness_integrated should be in a plausible LUFS range, got {loudness_integrated}"
+        );
 
         let second = server
             .analyze_track_audio(Parameters(AnalyzeTrackAudioParams {
@@ -6376,29 +6559,29 @@ mod tests {
         let approx = |left: f64, right: f64| (left - right).abs() < 1e-9;
 
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, SetPriority::Balanced),
-            0.35
+            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Balanced),
+            0.30
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, SetPriority::Harmonic),
-            0.55
+            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Harmonic),
+            0.48
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, SetPriority::Energy),
-            0.15
+            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Energy),
+            0.12
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, SetPriority::Genre),
-            0.20
+            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Genre),
+            0.18
         ));
 
         assert!(approx(
-            composite_score(0.0, 0.0, 0.0, 1.0, SetPriority::Balanced),
-            0.20
+            composite_score(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, SetPriority::Balanced),
+            0.17
         ));
         assert!(approx(
-            composite_score(0.0, 0.0, 0.0, 1.0, SetPriority::Genre),
-            0.45
+            composite_score(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, SetPriority::Genre),
+            0.38
         ));
     }
 
@@ -6419,7 +6602,13 @@ mod tests {
     fn bpm_proxy_energy_keeps_peak_phase_reachable_without_essentia() {
         let from_energy = compute_track_energy(None, 126.0);
         let to_energy = compute_track_energy(None, 130.0);
-        let peak = score_energy_axis(from_energy, to_energy, Some(EnergyPhase::Peak));
+        let peak = score_energy_axis(
+            from_energy,
+            to_energy,
+            Some(EnergyPhase::Peak),
+            Some(EnergyPhase::Peak),
+            None,
+        );
 
         assert!(
             to_energy >= 0.65,
@@ -6490,7 +6679,7 @@ mod tests {
             1,
             1,
             "essentia-2.1",
-            r#"{"danceability":0.30,"loudness_integrated":-12.0,"onset_rate":3.0}"#,
+            r#"{"danceability":0.90,"loudness_integrated":-12.0,"onset_rate":3.0}"#,
         )
         .expect("source essentia cache should seed");
         store::set_audio_analysis(
@@ -6500,7 +6689,7 @@ mod tests {
             1,
             1,
             "essentia-2.1",
-            r#"{"danceability":0.60,"loudness_integrated":-8.0,"onset_rate":5.0}"#,
+            r#"{"danceability":1.80,"loudness_integrated":-8.0,"onset_rate":5.0}"#,
         )
         .expect("destination essentia cache should seed");
 
@@ -6526,6 +6715,8 @@ mod tests {
         assert_eq!(payload["scores"]["bpm"]["value"], 1.0);
         assert_eq!(payload["scores"]["energy"]["value"], 1.0);
         assert_eq!(payload["scores"]["genre"]["value"], 1.0);
-        assert_eq!(payload["scores"]["composite"], 0.965);
+        assert_eq!(payload["scores"]["brightness"]["value"], 0.5);
+        assert_eq!(payload["scores"]["rhythm"]["value"], 0.5);
+        assert_eq!(payload["scores"]["composite"], 0.895);
     }
 }

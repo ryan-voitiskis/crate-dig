@@ -229,7 +229,7 @@ Track: Artist Name — Track Title
 
   Rekordbox:   genre=(none)  BPM=128.00  key=6A  rating=4★
   Stratum:     BPM=127.8 (✓ agrees)  key=Fm (✓ agrees)  confidence=0.92
-  Essentia:    danceability=0.82  rhythm_regularity=0.88  loudness=-14.5dB
+  Essentia:    danceability=2.10  rhythm_regularity=0.88  loudness=-14.5 LUFS  centroid=1850 Hz
   Discogs:     styles=[Deep House, Tech House]  →  Deep House (exact), Tech House (exact)
   Beatport:    genre=Deep House (exact)
   Taxonomy:    Discogs converges with Beatport on "Deep House"
@@ -375,6 +375,20 @@ Apply this for every track during classification. This is the concrete logic, no
 9. **Discogs and Beatport disagree:** `beatport_genre` is non-null, NOT in `discogs_genres`, and `discogs_genres` is non-empty.
    → `suggested_genre` = null. Confidence = **insufficient**. Present both options to user. Do not pick one.
 
+9b. **Discogs/Beatport disagree + audio features available:** If Step 9 is true and Essentia features are present, compare both candidates against audio expectations and pick the better fit.
+   Use these discriminators:
+   - `spectral_centroid_mean`: lower favors darker genres, higher favors brighter genres.
+   - `rhythm_regularity`: higher favors straighter grooves, lower favors broken/syncopated grooves.
+   - `dynamic_complexity`: higher favors more dynamic genres.
+   - BPM plausibility versus each genre's typical range.
+   Common tie-breaks:
+   - Deep House vs Tech House: Deep House tends darker/sparser; Tech House tends brighter/busier.
+   - Techno vs Trance: Trance usually sits higher BPM and often higher danceability.
+   - House vs Garage: Garage tends lower rhythm regularity and higher dynamic complexity.
+   - Techno vs Electro: Electro often has lower regularity and sparser onset patterns.
+   If audio clearly favors one option, set `suggested_genre` to that option with **low** confidence and note "audio-assisted tie-break."
+   If audio remains ambiguous, keep **insufficient** and present both options.
+
 10. **No enrichment data at all:** Both `discogs_genres` and `beatport_genre` are empty/null.
     → Fall through to Step C (audio-only).
 
@@ -382,17 +396,30 @@ Apply this for every track during classification. This is the concrete logic, no
 
 Only reached when no enrichment data maps to a canonical genre.
 
-Use BPM + Essentia features to suggest a genre family. This is broad-strokes only:
+Use BPM + Essentia features to suggest a likely family. Danceability uses Essentia's native ~0-3 scale.
 
-| BPM range | Rhythm regularity | Danceability | Likely family |
-|-----------|-------------------|--------------|---------------|
-| 160-180 | any | > 0.5 | Drum & Bass |
-| 130-150 | > 0.8 | > 0.7 | Trance |
-| 125-145 | > 0.8 | > 0.6 | Techno |
-| 118-130 | > 0.7 | > 0.6 | House |
-| 80-115 | any | > 0.5 | Hip Hop or Downtempo |
-| 60-110 | < 0.5 | < 0.4 | Ambient |
-| 120-140 | < 0.7 | > 0.5 | Breakbeat |
+| BPM | Rhythm Reg | Danceability | Spectral Centroid | Dynamic Comp | Likely genre |
+|-----------|-------------------|--------------|-------------------|--------------|---------------|
+| 160-180 | any | > 1.5 | any | any | Drum & Bass |
+| 135-150 | > 0.9 | > 2.0 | Mid-High | Mid-High | Trance |
+| 128-145 | > 0.9 | > 1.8 | Mid | High | Techno (peak/driving) |
+| 128-140 | > 0.85 | > 1.2 | Very Low | Low-Mid | Deep Techno / Dub Techno |
+| 125-140 | > 0.9 | > 1.0 | Low-Mid | Low | Minimal |
+| 125-135 | > 0.85 | > 1.5 | Low | Low-Mid | Deep House |
+| 125-135 | > 0.85 | > 1.5 | Mid-High | Mid | Tech House |
+| 118-130 | > 0.8 | > 1.5 | Mid | Mid | House |
+| 120-135 | 0.6-0.8 | > 1.0 | Mid | Mid-High | Garage / UK Garage |
+| 120-140 | < 0.7 | > 1.0 | any | Mid | Breakbeat |
+| 80-115 | any | > 1.0 | any | any | Hip Hop or Downtempo |
+| 60-110 | < 0.5 | < 0.8 | Low | Low | Ambient |
+| 128-145 | > 0.85 | > 1.0 | Mid-High | High | Hard Techno |
+
+Centroid guidelines for table matching:
+- Very Low: `< 600 Hz`
+- Low: `600-1200 Hz`
+- Mid: `1200-2500 Hz`
+- Mid-High: `2500-4000 Hz`
+- High: `> 4000 Hz`
 
 If a track matches one row: confidence = **low**, note "audio-only inference."
 If a track matches multiple rows or none: confidence = **insufficient**.
