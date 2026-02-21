@@ -3243,13 +3243,23 @@ fn score_transition_profiles(
     );
     let brightness = score_brightness_axis(from.brightness, to.brightness);
     let rhythm = score_rhythm_axis(from.rhythm_regularity, to.rhythm_regularity);
+    let brightness_available = from.brightness.is_some() && to.brightness.is_some();
+    let rhythm_available = from.rhythm_regularity.is_some() && to.rhythm_regularity.is_some();
     let composite = composite_score(
         key.value,
         bpm.value,
         energy.value,
         genre.value,
-        brightness.value,
-        rhythm.value,
+        if brightness_available {
+            Some(brightness.value)
+        } else {
+            None
+        },
+        if rhythm_available {
+            Some(rhythm.value)
+        } else {
+            None
+        },
         priority,
     );
 
@@ -3558,17 +3568,31 @@ fn composite_score(
     bpm_score: f64,
     energy_score: f64,
     genre_score: f64,
-    brightness_score: f64,
-    rhythm_score: f64,
+    brightness_score: Option<f64>,
+    rhythm_score: Option<f64>,
     priority: SetPriority,
 ) -> f64 {
     let (w_key, w_bpm, w_energy, w_genre, w_brightness, w_rhythm) = priority_weights(priority);
-    (w_key * key_score)
+    let mut weighted_sum = (w_key * key_score)
         + (w_bpm * bpm_score)
         + (w_energy * energy_score)
-        + (w_genre * genre_score)
-        + (w_brightness * brightness_score)
-        + (w_rhythm * rhythm_score)
+        + (w_genre * genre_score);
+    let mut total_weight = w_key + w_bpm + w_energy + w_genre;
+
+    if let Some(brightness) = brightness_score {
+        weighted_sum += w_brightness * brightness;
+        total_weight += w_brightness;
+    }
+    if let Some(rhythm) = rhythm_score {
+        weighted_sum += w_rhythm * rhythm;
+        total_weight += w_rhythm;
+    }
+
+    if total_weight <= f64::EPSILON {
+        0.0
+    } else {
+        weighted_sum / total_weight
+    }
 }
 
 fn compute_track_energy(essentia_json: Option<&serde_json::Value>, bpm: f64) -> f64 {
@@ -6559,29 +6583,66 @@ mod tests {
         let approx = |left: f64, right: f64| (left - right).abs() < 1e-9;
 
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Balanced),
+            composite_score(
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                Some(0.0),
+                Some(0.0),
+                SetPriority::Balanced
+            ),
             0.30
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Harmonic),
+            composite_score(
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                Some(0.0),
+                Some(0.0),
+                SetPriority::Harmonic
+            ),
             0.48
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Energy),
+            composite_score(
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                Some(0.0),
+                Some(0.0),
+                SetPriority::Energy
+            ),
             0.12
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, 0.0, 0.0, SetPriority::Genre),
+            composite_score(1.0, 0.0, 0.0, 0.0, Some(0.0), Some(0.0), SetPriority::Genre),
             0.18
         ));
 
         assert!(approx(
-            composite_score(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, SetPriority::Balanced),
+            composite_score(
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                Some(0.0),
+                Some(0.0),
+                SetPriority::Balanced
+            ),
             0.17
         ));
         assert!(approx(
-            composite_score(0.0, 0.0, 0.0, 1.0, 0.0, 0.0, SetPriority::Genre),
+            composite_score(0.0, 0.0, 0.0, 1.0, Some(0.0), Some(0.0), SetPriority::Genre),
             0.38
+        ));
+
+        assert!(approx(
+            composite_score(1.0, 0.0, 0.0, 0.0, None, None, SetPriority::Balanced),
+            0.30 / 0.85
         ));
     }
 
@@ -6717,6 +6778,6 @@ mod tests {
         assert_eq!(payload["scores"]["genre"]["value"], 1.0);
         assert_eq!(payload["scores"]["brightness"]["value"], 0.5);
         assert_eq!(payload["scores"]["rhythm"]["value"], 0.5);
-        assert_eq!(payload["scores"]["composite"], 0.895);
+        assert_eq!(payload["scores"]["composite"], 0.965);
     }
 }

@@ -376,7 +376,7 @@ Brightness uses Essentia `spectral_centroid_mean` (Hz):
 | 800-1500 Hz | 0.4 | Large timbral jump |
 | > 1500 Hz | 0.2 | Jarring jump |
 
-If either track lacks centroid data, score defaults to `0.5` (neutral unknown).
+If either track lacks centroid data, score is reported as `0.5` (neutral unknown).
 
 ### Rhythm Compatibility
 
@@ -389,18 +389,16 @@ Rhythm uses Essentia `rhythm_regularity`:
 | 0.25-0.50 | 0.4 | Challenging shift |
 | > 0.50 | 0.2 | Groove clash |
 
-If either track lacks regularity data, score defaults to `0.5` (neutral unknown).
+If either track lacks regularity data, score is reported as `0.5` (neutral unknown).
 
 ### Composite Score
 
 ```
-composite = (key_weight * key_score)
-          + (bpm_weight * bpm_score)
-          + (energy_weight * energy_score)
-          + (genre_weight * genre_score)
-          + (brightness_weight * brightness_score)
-          + (rhythm_weight * rhythm_score)
+weighted_sum = Σ(weight_i * score_i for available axes)
+composite = weighted_sum / Σ(weight_i for available axes)
 ```
+
+For brightness/rhythm specifically: when descriptor data is missing, the axis remains visible in output as `0.5` + `Unknown ...`, but that axis is excluded from the composite denominator so missing Essentia data does not penalize the transition score.
 
 Weights by priority axis:
 
