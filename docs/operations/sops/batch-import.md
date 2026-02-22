@@ -1,22 +1,10 @@
 # Batch Import Preparation — Agent SOP
 
-Standard operating procedure for processing new music into an organized structure ready for Rekordbox import. Agents must follow this document step-by-step.
+Process newly acquired music (downloaded albums, loose tracks, zips) into an organized structure ready for Rekordbox import. Follow step-by-step.
 
-## Overview
-
-This SOP takes a batch of newly acquired music (downloaded albums, loose tracks, zips) and prepares it for Rekordbox import by:
-1. Organizing into a consistent directory structure
-2. Writing complete metadata tags
-3. Embedding cover art
-4. Verifying everything conforms to conventions
-
-It replaces manual workflows by using reklawdbox MCP tools for metadata lookups (Discogs, Beatport) and CLI tools for file operations.
-
-**Goal:** After running this SOP, any processed track can be dragged into Rekordbox and have Artist, Title, Album, Year, Track Number, and Label display correctly without manual editing. Genre is handled separately via the genre classification SOP after import.
+**Goal:** After this SOP, any processed track can be imported into Rekordbox with Artist, Title, Album, Year, Track Number, and Label displaying correctly. Genre is handled separately via the genre classification SOP.
 
 ## Rekordbox Import Readiness
-
-What Rekordbox reads on import by format:
 
 | Field | FLAC | WAV | MP3 |
 |-------|------|-----|-----|
@@ -27,22 +15,20 @@ What Rekordbox reads on import by format:
 | Track | Vorbis Comment | RIFF INFO (tag 3) | ID3v2 (tag 2) |
 | Cover art | Embedded (auto) | **Not imported** | Embedded (auto) |
 
-**WAV cover art limitation:** Rekordbox does not read embedded cover art from WAV files. RIFF INFO has no standard picture field, and Rekordbox ignores ID3v2 picture tags in WAVs. Cover art for WAV tracks must be added manually in Rekordbox after import. The SOP still embeds cover art into WAV tag 2 for compatibility with other applications, but tells the user which WAV tracks need manual cover art in Rekordbox.
+**WAV critical:** Rekordbox reads **only** RIFF INFO (tag 3) from WAV files. ID3v2 (tag 2) is ignored. Both must be written — tag 2 for general compatibility, tag 3 for Rekordbox.
 
-**Critical:** WAV files **must** have RIFF INFO (tag 3) tags. Rekordbox ignores ID3v2 in WAV files. If only tag 2 is written, Rekordbox shows blank fields.
+**WAV cover art:** Rekordbox cannot import cover art from WAV files. Embed in tag 2 for other apps, but note WAV tracks need manual cover art in Rekordbox after import.
 
 ## Constraints
 
-- **Tags are source of truth.** Metadata in tags drives filenames, not the reverse. Always write tags before renaming.
-- **Never set genre.** Genre is curated manually in Rekordbox via the genre classification SOP. Leave genre tags empty.
-- **Stop on ambiguity.** When metadata cannot be determined with confidence, stop and ask the user. Never guess artist names, album years, or label names.
-- **Process album by album.** Complete one album fully before starting the next. Report progress after each.
-- **WAV dual-tag rule.** WAV files must have tags in both tag 2 (ID3v2) and tag 3 (RIFF INFO). Always write both.
-- **Verify before moving.** Confirm tags and filenames are correct before moving files to their final location.
+- **Tags are source of truth.** Write tags before renaming — filenames are derived from tags.
+- **Never set genre.** Leave genre tags empty; handled via genre classification SOP.
+- **Stop on ambiguity.** Never guess artist names, album years, or label names — ask the user.
+- **Process album by album.** Complete one fully before starting the next.
+- **WAV dual-tag rule.** Always write both tag 2 and tag 3 for WAV files.
+- **Verify before moving.** Confirm tags and filenames before moving to final location.
 
 ## Prerequisites
-
-### Required tools
 
 | Tool | Purpose | Install |
 |------|---------|---------|
@@ -51,36 +37,9 @@ What Rekordbox reads on import by format:
 | `reklawdbox` MCP | Discogs/Beatport metadata lookups | This project |
 | `unzip` | Extract zip archives | Pre-installed on macOS |
 
-### Session setup (required)
+`lookup_discogs` and `lookup_beatport` are MCP tool calls, not shell commands.
 
-Set these variables once at the start of the session:
-
-```sh
-export BATCH_PATH="/absolute/path/to/incoming-batch"
-export DEST="/absolute/path/to/final-destination"
-```
-
-Validate before proceeding:
-
-```sh
-[ -d "$BATCH_PATH" ] || { echo "Missing batch path: $BATCH_PATH"; exit 1; }
-mkdir -p "$DEST"
-```
-
-Placeholder meanings used throughout this SOP:
-- `BATCH_PATH`: root folder containing new downloads to process
-- `DEST`: root folder where organized output is written
-- `ALBUM_PATH`: current album directory being processed
-
-### MCP lookup setup (required for `lookup_*` steps)
-
-`lookup_discogs(...)` and `lookup_beatport(...)` are MCP tool calls, not shell commands.
-
-Before running metadata lookup steps:
-- Ensure your MCP host is configured to run this server over stdio with command `./target/release/reklawdbox`.
-- Verify tool wiring with a simple MCP call (for example `read_library`) from your host client.
-
----
+**Shell note:** Claude Code does not persist shell state between tool calls. All shell snippets below use literal paths — substitute the actual path for each invocation.
 
 ## Convention Reference
 
@@ -92,7 +51,6 @@ destination/
 └── Artist Name/
     └── Album Name (Year)/
         ├── 01 Artist Name - Track Title.flac
-        ├── 02 Artist Name - Track Title.flac
         └── cover.jpg
 ```
 
@@ -103,22 +61,19 @@ destination/
     └── Label Name/
         └── Album Name (Year)/
             ├── 01 Artist A - Track Title.flac
-            ├── 02 Artist B - Track Title.flac
             └── cover.jpg
 ```
 
 **Loose tracks (play directories only):**
 ```
 destination/
-├── Artist Name - Track Title.wav    ← at root, no subdirectory
+├── Artist Name - Track Title.wav
 └── cover_Artist Name - Track Title.jpg
 ```
 
 ### File naming
 
-- **Album tracks:** `NN Artist Name - Track Title.ext`
-  - `NN` = zero-padded track number (01, 02, ...)
-  - Space-hyphen-space separator between artist and title
+- **Album tracks:** `NN Artist Name - Track Title.ext` (zero-padded, ` - ` separator)
 - **Loose tracks:** `Artist Name - Track Title.ext` (no track number)
 
 ### Required tags
@@ -156,70 +111,17 @@ destination/
 ### Step 1: List the batch directory
 
 ```sh
-ls -la "$BATCH_PATH/"
+ls -la "/path/to/batch/"
 ```
 
-Categorize contents:
-- **Directories** → likely albums/EPs
-- **Audio files at root** → loose tracks
-- **Zip files** → need extraction first
+Categorize: directories (albums/EPs), audio files at root (loose tracks), zip files (need extraction).
 
 ### Step 2: Handle zip files
 
+Extract all root-level zips. Already-extracted zips (matching directory exists with files) are archived without re-extraction. Failed extractions go to `_failed_zips/`.
+
 ```sh
-# List all zip files
-find "$BATCH_PATH" -maxdepth 1 -type f -name "*.zip" -print
-```
-
-For each zip:
-
-1. Check if already extracted (matching directory exists and has files):
-   ```sh
-   cd "$BATCH_PATH"
-   zip="Artist - Album.zip"
-   dir="${zip%.zip}"
-   if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
-       echo "Already extracted: $zip"
-       # Skip extraction for this zip.
-   fi
-   ```
-
-2. Extract if not yet extracted:
-   ```sh
-   cd "$BATCH_PATH"
-   mkdir -p "_processed_zips" "_failed_zips"
-   zip="Artist - Album.zip"
-   dir="${zip%.zip}"
-   if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
-       mv "$zip" "_processed_zips/$zip"
-       echo "Archived already-extracted zip: $zip"
-   else
-       tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/batch-import-unzip.XXXXXX")"
-       if unzip -o "$zip" -d "$tmp_dir"; then
-           mkdir -p "$dir"
-           find "$tmp_dir" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dir"/ \;
-           if find "$dir" -type f -print -quit | grep -q .; then
-               mv "$zip" "_processed_zips/$zip"
-               echo "Extracted and archived zip: $zip"
-           else
-               mv "$zip" "_failed_zips/$zip"
-               echo "No files extracted: $zip (moved to _failed_zips/)"
-           fi
-       else
-           mv "$zip" "_failed_zips/$zip"
-           echo "Extraction failed: $zip (moved to _failed_zips/)"
-       fi
-       rm -rf "$tmp_dir"
-   fi
-   ```
-
-3. Verify extraction — ensure target directory contains audio files before continuing.
-
-4. Do not hard-delete zip archives during processing. Keep successful archives in `_processed_zips/` and failed ones in `_failed_zips/` until batch completion is confirmed.
-
-**Batch extraction helper** — process all root zip files safely:
-```sh
-cd "$BATCH_PATH"
+cd "/path/to/batch"
 mkdir -p "_processed_zips" "_failed_zips"
 find . -maxdepth 1 -type f -name "*.zip" -print0 | while IFS= read -r -d '' zip; do
     zip="${zip#./}"
@@ -227,7 +129,7 @@ find . -maxdepth 1 -type f -name "*.zip" -print0 | while IFS= read -r -d '' zip;
 
     if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
         mv "$zip" "_processed_zips/$zip"
-        echo "Archived already-extracted zip: $zip"
+        echo "Archived already-extracted: $zip"
         continue
     fi
 
@@ -237,14 +139,14 @@ find . -maxdepth 1 -type f -name "*.zip" -print0 | while IFS= read -r -d '' zip;
         find "$tmp_dir" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dir"/ \;
         if find "$dir" -type f -print -quit | grep -q .; then
             mv "$zip" "_processed_zips/$zip"
-            echo "Extracted and archived zip: $zip"
+            echo "Extracted: $zip"
         else
             mv "$zip" "_failed_zips/$zip"
-            echo "No files extracted: $zip (moved to _failed_zips/)"
+            echo "No files extracted: $zip"
         fi
     else
         mv "$zip" "_failed_zips/$zip"
-        echo "Extraction failed: $zip (moved to _failed_zips/)"
+        echo "Extraction failed: $zip"
     fi
     rm -rf "$tmp_dir"
 done
@@ -252,14 +154,7 @@ done
 
 ### Step 3: Report to user
 
-```
-Found in [batch]:
-- X album directories
-- Y loose tracks
-- Z zip files (extracted/pending)
-
-Proceeding with album processing...
-```
+Summarize what was found: album directories, loose tracks, zip results.
 
 ---
 
@@ -270,19 +165,14 @@ For each album subdirectory, follow these steps in order.
 ### Step 1: Survey current state
 
 ```sh
-# List contents
-ls -la "$BATCH_PATH/Album Directory/"
+ls -la "/path/to/batch/Album Directory/"
 
-# Read existing tags
-cd "$BATCH_PATH/Album Directory"
+cd "/path/to/batch/Album Directory"
 exiftool -j -ext flac -ext wav -ext mp3 \
          -Artist -Title -Album -Year -TrackNumber -Publisher .
 ```
 
-Note:
-- Current filename pattern
-- Which tags are already present
-- Whether cover art exists (`cover.jpg`, `front.jpg`, etc.)
+Note: current filename pattern, which tags are present, whether cover art exists.
 
 ### Step 2: Parse directory name
 
@@ -290,55 +180,39 @@ Common incoming patterns:
 - `Artist Name - Album Name`
 - `Artist Name - Album Name (Year)`
 - `Artist Name - Album Name [FLAC 24-96]`
-- `Various Artists - Album Name`
 
 Extract: artist, album name, year (if present).
 
 ### Step 3: Determine album type
 
-Check if all tracks have the same artist:
-- **Same artist** → Single Artist album
-- **Different artists** → VA Compilation
-- **"Various Artists" or multiple artists in dir name** → VA Compilation
+- **Same artist on all tracks** → Single Artist
+- **Different artists per track** → VA Compilation
+- **"Various Artists" in dir name** → VA Compilation
 
-For VA: a label name is **required**. Check tags (Publisher field), directory name, or look up.
+For VA: label name is **required**. Check Publisher tag, directory name, or look up.
 
-### Step 4: Look up metadata with reklawdbox
-
-Use reklawdbox MCP for metadata lookups instead of shell scripts.
-
-**For album-level metadata (year, label):**
+### Step 4: Look up metadata
 
 ```
 lookup_discogs(artist="Artist Name", title="First Track Title", album="Album Name")
 ```
 
-If Discogs returns no result or low confidence, try Beatport:
-
+If no Discogs result, try Beatport:
 ```
 lookup_beatport(artist="Artist Name", title="First Track Title")
 ```
 
-**Use lookup results for:**
-- Release year (required for directory name)
-- Label name (required for VA albums)
-- Verification of artist/album spelling
+Use results for: release year, label name, artist/album spelling verification.
 
-**When to stop and ask:**
-- Multiple Discogs matches with different years → present options
-- No results from either provider → ask user
-- Ambiguous artist/album name → ask user
+**Stop and ask** on: multiple matches with different years, no results and year/label unknown, ambiguous artist.
 
-**Never use lookup results for:**
-- Genre (leave blank)
+Never use lookup results for genre.
 
 ### Step 5: Write tags
 
-#### Album-wide tags first
-
-**For FLAC/MP3:**
+**Album-wide tags** (FLAC/MP3):
 ```sh
-cd "$BATCH_PATH/Album Directory"
+cd "/path/to/album"
 kid3-cli -c "select all" -c "tag 2" \
          -c "set album 'Album Name'" \
          -c "set date YEAR" \
@@ -347,7 +221,7 @@ kid3-cli -c "select all" -c "tag 2" \
          -c "save" .
 ```
 
-**For WAV (both tag 2 AND tag 3):**
+**Album-wide tags** (WAV — both tag 2 and tag 3):
 ```sh
 kid3-cli -c "select all" \
          -c "tag 2" \
@@ -363,20 +237,16 @@ kid3-cli -c "select all" \
          -c "save" .
 ```
 
-#### Per-track tags
-
-Parse track info from filenames. Common incoming patterns:
+**Per-track tags** — parse from filenames. Common incoming patterns:
 
 | Pattern | Parse as |
 |---------|----------|
 | `Artist - Album - NN Title.wav` | Track N: Artist - Title |
 | `NN Artist - Title.wav` | Track N: Artist - Title |
-| `NN Title.wav` | Track N: [Album Artist] - Title |
-| `NN. Title.wav` | Track N: [Album Artist] - Title |
+| `NN Title.wav` | Track N: [AlbumArtist] - Title |
+| `NN. Title.wav` | Track N: [AlbumArtist] - Title |
 
-For each track:
-
-**FLAC/MP3:**
+For each track (FLAC/MP3):
 ```sh
 kid3-cli -c "select 'original-filename.flac'" -c "tag 2" \
          -c "set artist 'Track Artist'" \
@@ -385,19 +255,7 @@ kid3-cli -c "select 'original-filename.flac'" -c "tag 2" \
          -c "save" .
 ```
 
-**WAV:**
-```sh
-kid3-cli -c "select 'original-filename.wav'" \
-         -c "tag 2" \
-         -c "set artist 'Track Artist'" \
-         -c "set title 'Track Title'" \
-         -c "set track number N" \
-         -c "tag 3" \
-         -c "set artist 'Track Artist'" \
-         -c "set title 'Track Title'" \
-         -c "set track number N" \
-         -c "save" .
-```
+For WAV, write the same fields to both tag 2 and tag 3.
 
 ### Step 6: Verify tags
 
@@ -416,107 +274,65 @@ kid3-cli -c "select all" \
          -c "save" .
 ```
 
-Verify:
-```sh
-ls -la
-```
+Expected result: `01 Artist Name - Track Title.ext`
 
-Expected: `01 Artist Name - Track Title.ext`
-
-**If kid3-cli rename produces unexpected results** (wrong format, missing fields), stop and check tags. The rename depends entirely on tag correctness.
+If rename produces unexpected results, stop and check tags — rename depends entirely on tag correctness.
 
 ### Step 8: Embed cover art
 
 ```sh
-# Check for cover art files
 find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) -print
 ```
 
-**Single obvious cover file** (`cover.jpg`, `front.jpg`, `folder.jpg`):
+**Single obvious cover** (`cover.jpg`, `front.jpg`, `folder.jpg`):
 ```sh
 kid3-cli -c "select all" \
          -c "set picture:'cover.jpg' 'Cover (front)' ''" \
          -c "save" .
 ```
 
-**Multiple images or unclear:** Ask user which is the album cover.
+**Multiple images:** Ask user which is the cover.
 
-**No images:** Try fetching from Discogs. `lookup_discogs` returns a `cover_image` URL when available:
-
-```
-lookup_discogs(artist="Artist Name", title="First Track", album="Album Name")
-```
-
-If the result includes a non-empty `cover_image`:
-
+**No images:** Try `lookup_discogs(...)` — if result includes `cover_image`, download and embed:
 ```sh
-curl -s -o "$ALBUM_PATH/cover.jpg" "COVER_IMAGE_URL"
-
-# Embed into all tracks
-cd "$ALBUM_PATH"
+curl -s -o "cover.jpg" "COVER_IMAGE_URL"
 kid3-cli -c "select all" \
          -c "set picture:'cover.jpg' 'Cover (front)' ''" \
          -c "save" .
 ```
 
-If no cover art from Discogs either, note it in the report for the user to source manually.
+If no cover from Discogs either, note for user to source manually.
 
-### Step 9: Create target directory structure
+### Step 9: Create target directory and move files
 
-**Determine clean directory name:**
-- Strip tech specs: `[FLAC]`, `24-96`, usernames
-- Add year if missing: `Album Name` → `Album Name (2022)`
-- Clean special characters: `/` → `-`, `:` → `-`
-
-**Single Artist:**
-```sh
-mkdir -p "$DEST/Artist Name/Album Name (Year)"
-```
-
-**Various Artists:**
-```sh
-mkdir -p "$DEST/Various Artists/Label Name/Album Name (Year)"
-```
-
-### Step 10: Move files
+Determine clean directory name (strip tech specs, add year, clean special chars).
 
 ```sh
-# Move all audio and cover art
-find "$BATCH_PATH/Old Dir" -maxdepth 1 -type f \
+# Single Artist
+mkdir -p "/path/to/dest/Artist Name/Album Name (Year)"
+
+# Or VA
+mkdir -p "/path/to/dest/Various Artists/Label Name/Album Name (Year)"
+
+# Move audio + cover art
+find "/path/to/batch/Old Dir" -maxdepth 1 -type f \
      \( -iname "*.wav" -o -iname "*.flac" -o -iname "*.mp3" \) \
-     -exec mv -n {} "$DEST/Artist Name/Album Name (Year)/" \;
-find "$BATCH_PATH/Old Dir" -maxdepth 1 -type f -iname "cover.*" \
-     -exec mv -n {} "$DEST/Artist Name/Album Name (Year)/" \;
+     -exec mv -n {} "/path/to/dest/Artist Name/Album Name (Year)/" \;
+find "/path/to/batch/Old Dir" -maxdepth 1 -type f -iname "cover.*" \
+     -exec mv -n {} "/path/to/dest/Artist Name/Album Name (Year)/" \;
 
 # Remove old empty directory
-rmdir "$BATCH_PATH/Old Dir"
+rmdir "/path/to/batch/Old Dir"
 ```
 
-### Step 11: Verify final state
+### Step 10: Verify final state
 
 ```sh
-ls -la "$DEST/Artist Name/Album Name (Year)/"
-sample_file="$(find "$DEST/Artist Name/Album Name (Year)" -maxdepth 1 -type f \
-    \( -iname "*.wav" -o -iname "*.flac" -o -iname "*.mp3" \) | head -1)"
-[ -n "$sample_file" ] && kid3-cli -c "get" "$sample_file"
+ls -la "/path/to/dest/Artist Name/Album Name (Year)/"
+kid3-cli -c "get" "/path/to/dest/Artist Name/Album Name (Year)/01 Artist - Track.ext"
 ```
 
-Confirm:
-- [ ] Files in correct location
-- [ ] Filename format: `NN Artist - Title.ext`
-- [ ] Tags complete (Artist, Title, Track, Album, Year)
-- [ ] VA has label subdirectory
-- [ ] Cover art embedded (if available)
-
-### Report
-
-```
-✓ Album: Artist Name - Album Name (Year)
-  → destination/Artist Name/Album Name (Year)/
-  Tracks: N files
-  Cover: embedded / not available
-  Source: Discogs (release #12345)
-```
+Confirm: files in correct location, `NN Artist - Title.ext` format, all tags present, VA has label subdirectory, cover art embedded.
 
 ---
 
@@ -524,118 +340,43 @@ Confirm:
 
 For audio files at the root of the batch directory.
 
-### Step 1: List loose tracks
+### Step 1: Clean filenames
+
+Remove `(Original Mix)` suffix. Keep other parenthetical info (`(Remix)`, `(Edit)`, etc.):
 
 ```sh
-find "$BATCH_PATH" -maxdepth 1 -type f \
-     \( -name "*.wav" -o -name "*.flac" -o -name "*.mp3" \) -print
-```
-
-### Step 2: Clean filenames
-
-#### Remove "(Original Mix)" suffix
-
-```sh
-cd "$BATCH_PATH"
+cd "/path/to/batch"
 find . -maxdepth 1 -type f -name "* (Original Mix).*" -print0 | while IFS= read -r -d '' f; do
     new_name="${f/ (Original Mix)/}"
     mv "$f" "$new_name"
 done
 ```
 
-Keep other parenthetical info: `(Remix)`, `(Edit)`, `(Artist Remix)`.
+Expected format: `Artist Name - Track Title.ext`. If unparseable, ask user.
 
-#### Verify format
+### Step 2: Read/write tags
 
-Expected: `Artist Name - Track Title.ext`
-
-If incorrectly named, parse what's available and rename. If unparseable, ask user.
-
-### Step 3: Read/write tags
-
-For each loose track:
-
+For each loose track, read existing tags:
 ```sh
-# Read existing tags (both tag types for WAV)
-kid3-cli -c "get" "$BATCH_PATH/Artist - Title.wav"
-kid3-cli -c "tag 3" -c "get" "$BATCH_PATH/Artist - Title.wav"
+kid3-cli -c "get" "/path/to/batch/Artist - Title.wav"
 ```
 
-**If Artist and Title are missing,** look up with reklawdbox:
+If tags are missing, look up with `lookup_discogs(...)` / `lookup_beatport(...)`.
 
-```
-lookup_discogs(artist="Artist Name", title="Track Title")
-lookup_beatport(artist="Artist Name", title="Track Title")
-```
-
-**Write minimum tags:**
-
-**FLAC/MP3:**
+Write minimum tags (FLAC/MP3):
 ```sh
 kid3-cli -c "select 'Artist - Title.flac'" -c "tag 2" \
          -c "set artist 'Artist Name'" \
          -c "set title 'Track Title'" \
          -c "set publisher 'Label Name'" \
-         -c "save" "$BATCH_PATH"
+         -c "save" "/path/to/batch"
 ```
 
-**WAV:**
-```sh
-kid3-cli -c "select 'Artist - Title.wav'" \
-         -c "tag 2" \
-         -c "set artist 'Artist Name'" \
-         -c "set title 'Track Title'" \
-         -c "set publisher 'Label Name'" \
-         -c "tag 3" \
-         -c "set artist 'Artist Name'" \
-         -c "set title 'Track Title'" \
-         -c "set publisher 'Label Name'" \
-         -c "save" "$BATCH_PATH"
-```
+For WAV, write same fields to both tag 2 and tag 3.
 
-### Step 4: Embed cover art (if available)
+### Step 3: Embed cover art (if available)
 
-Check for existing cover files matching the loose track naming convention:
-
-```sh
-find "$BATCH_PATH" -maxdepth 1 -type f -name "cover_*.jpg" -print
-```
-
-For tracks with a matching `cover_Artist Name - Track Title.jpg` file:
-
-```sh
-cd "$BATCH_PATH"
-kid3-cli -c "select 'Artist - Title.wav'" \
-         -c "set picture:'cover_Artist Name - Track Title.jpg' 'Cover (front)' ''" \
-         -c "save" .
-```
-
-**For tracks without a cover file,** try fetching from Discogs:
-
-```
-lookup_discogs(artist="Artist Name", title="Track Title")
-```
-
-If the result includes a non-empty `cover_image`:
-
-```sh
-curl -s -o "$BATCH_PATH/cover_Artist Name - Track Title.jpg" "COVER_IMAGE_URL"
-
-kid3-cli -c "select 'Artist - Title.wav'" \
-         -c "set picture:'cover_Artist Name - Track Title.jpg' 'Cover (front)' ''" \
-         -c "save" "$BATCH_PATH"
-```
-
-If no Discogs match or empty `cover_image`, note it in the report.
-
-### Step 5: Report
-
-```
-✓ Loose tracks processed: N files
-  Named correctly: N
-  Tags written: N
-  Cover art: X embedded, Y not found
-```
+Check for `cover_Artist Name - Track Title.jpg` files. If found, embed. If not, try Discogs `cover_image`. Note any tracks without cover art in the report.
 
 ---
 
@@ -643,34 +384,13 @@ If no Discogs match or empty `cover_image`, note it in the report.
 
 If an album has disc subdirectories (`CD1/`, `CD2/`, `Disc 1/`, etc.):
 
-### Structure
-
-```
-Album Name (Year)/
-├── CD1/
-│   ├── 01 Artist - Track.wav
-│   └── ...
-├── CD2/
-│   ├── 01 Artist - Track.wav
-│   └── ...
-└── cover.jpg
-```
-
-### Rules
-
 - Track numbers restart at 01 per disc
 - Cover art at album root (not in disc folders)
-- Set Disc Number tag for each track:
+- Set Disc Number tag on each track:
   ```sh
-  cd "Album/CD1"
-  # For FLAC/MP3:
+  cd "/path/to/album/CD1"
   kid3-cli -c "select all" -c "tag 2" -c "set disc number 1" -c "save" .
-
-  # For WAV (both tags):
-  kid3-cli -c "select all" \
-           -c "tag 2" -c "set disc number 1" \
-           -c "tag 3" -c "set disc number 1" \
-           -c "save" .
+  # For WAV, also: -c "tag 3" -c "set disc number 1"
   ```
 - Album-wide tags (album, year, publisher) go on all tracks across all discs
 
@@ -678,57 +398,7 @@ Album Name (Year)/
 
 ## Phase 5: Final Verification
 
-### Directory structure check
-
-```sh
-# List organized structure
-find "$DEST" -type d | head -30
-
-# Count audio files
-find "$DEST" -type f \( -name "*.flac" -o -name "*.wav" -o -name "*.mp3" \) | wc -l
-```
-
-### Summary report
-
-```
-═══════════════════════════════════════════════
-Batch Import Preparation Complete
-═══════════════════════════════════════════════
-
-Albums processed: X
-├── Single Artist: N
-└── Various Artists: M
-
-Loose tracks processed: Y
-
-Directory structure:
-├── Artist A/
-│   └── Album (Year)/ [N tracks]
-├── Artist B/
-│   └── Album (Year)/ [N tracks]
-├── Various Artists/
-│   └── Label/
-│       └── Album (Year)/ [N tracks]
-└── [Y loose tracks at root]
-
-Issues/Notes:
-- [any unresolved items]
-- [any items needing user attention]
-
-WAV cover art (manual Rekordbox step):
-  N WAV files have embedded cover art in tag 2 but
-  Rekordbox will not display it. After importing,
-  set cover art for these tracks manually in Rekordbox:
-  - Artist / Album (Year) — N WAV tracks
-  - [etc.]
-
-Next steps:
-1. Import into Rekordbox (drag directory into collection)
-2. Set cover art for listed WAV tracks in Rekordbox
-3. Run collection audit SOP to verify import
-4. Run genre classification SOP for genre tagging
-═══════════════════════════════════════════════
-```
+Summarize: albums processed (single artist vs VA), loose tracks processed, any unresolved items, WAV tracks needing manual cover art in Rekordbox, and next steps (import, cover art, collection audit SOP, genre classification SOP).
 
 ---
 
@@ -739,23 +409,21 @@ Next steps:
 - Artist clearly identified in tags, filename, or directory name
 - Year present in tags, directory name, or single clear Discogs match
 - Label present in tags or Discogs (for VA)
-- Filename pattern is parseable
 - Single artist with consistent tags across album
 
 ### Stop and ask when
 
-- Multiple Discogs/Beatport matches with different years
-- No results from either provider and year/label unknown
+- Multiple matches with different years
+- No results and year/label unknown
 - VA album but label unknown
 - Ambiguous: collaboration vs VA vs single artist
 - Multiple images — which is album cover?
 - Conflicting metadata between tags and filenames
 - Unparseable filenames
-- Large file size differences suggesting different versions/qualities
 
 ---
 
-## Common Filename Patterns (Incoming)
+## Common Incoming Filename Patterns
 
 ### Album tracks
 
@@ -778,26 +446,3 @@ Next steps:
 | `Artist, Artist B - Title.wav` | Correct |
 | `Artist - Title (Original Mix).wav` | Remove "(Original Mix)" |
 | `Title.wav` | Missing artist — ask user |
-
----
-
-## Quality Checklist
-
-### Albums
-- [ ] Directory: `Artist/Album (Year)/` — no tech specs, year present
-- [ ] Files: `NN Artist - Title.ext` — zero-padded track numbers
-- [ ] Tags: Artist, Title, Track, Album, Year — all present
-- [ ] WAV files: Tags in both tag 2 (ID3v2) AND tag 3 (RIFF INFO)
-- [ ] Genre: NOT set
-- [ ] VA albums: Label subdirectory, each track has correct per-track Artist
-- [ ] Cover art: Embedded if available
-- [ ] Old source directory removed
-
-### Loose Tracks
-- [ ] Named: `Artist Name - Track Title.ext`
-- [ ] No "(Original Mix)" suffix
-- [ ] Tags: Artist, Title minimum
-- [ ] WAV files: Tags in both tag 2 AND tag 3
-- [ ] Genre: NOT set
-- [ ] Cover art: Embedded if available
-- [ ] Location: Root of batch directory
