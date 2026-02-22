@@ -20,6 +20,24 @@ cargo build --release
 
 The binary is at `./target/release/reklawdbox` (~12 MB, arm64).
 
+## Development
+
+Common local development and validation commands:
+
+```bash
+cargo build --release
+cargo test
+cargo test -- --ignored
+bash docs/rekordbox/validate-corpus.sh
+python3 docs/rekordbox/verify-phase-b.py
+```
+
+Host-specific workflow notes:
+
+- Codex: [`CODEX.md`](CODEX.md)
+- Claude Code: [`CLAUDE.md`](CLAUDE.md)
+- Repo docs index: [`docs/README.md`](docs/README.md)
+
 ## MCP Host Setup
 
 - Configure your MCP host to run this server over stdio with command `./target/release/reklawdbox`.
@@ -141,8 +159,11 @@ Synth-pop, Tech House, Techno, Trance, UK Bass
 ## Documentation
 
 - [reklawdbox.com](https://reklawdbox.com) — Astro Starlight docs site
+- [`docs/README.md`](docs/README.md) — Documentation index by area
+- [`docs/rekordbox/README.md`](docs/rekordbox/README.md) — Rekordbox corpus map and manifest-first usage
 - [`docs/reference/rekordbox-internals.md`](docs/reference/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
 - [`docs/operations/runbooks/backup-and-restore.md`](docs/operations/runbooks/backup-and-restore.md) — Backup usage and restore procedures
 - [`docs/integrations/discogs/auth.md`](docs/integrations/discogs/auth.md) — Discogs broker setup, first-run auth, and re-auth/reset guidance
+- [`docs/integrations/discogs/auth-plan.md`](docs/integrations/discogs/auth-plan.md) — Discogs broker architecture decisions and phased implementation plan
 - [`CODEX.md`](CODEX.md) — Codex-specific operator/developer workflow notes
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code-specific operator/developer workflow notes

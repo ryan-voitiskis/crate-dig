@@ -13,6 +13,7 @@ Compatibility note: `docs/rekordbox-internals.md` is retained as a legacy path b
 
 ## Quick Links
 
+- `rekordbox/README.md` — corpus map, manifest-first retrieval, and consultation order
 - `reference/rekordbox-internals.md`
 - `operations/runbooks/backup-and-restore.md`
 - `operations/sops/batch-import.md`
@@ -20,3 +21,4 @@ Compatibility note: `docs/rekordbox-internals.md` is retained as a legacy path b
 - `operations/sops/genre-classification.md`
 - `operations/sops/set-builder.md`
 - `integrations/discogs/auth.md`
+- `integrations/discogs/auth-plan.md` — broker decisions, scope checklist, and PR cut plan

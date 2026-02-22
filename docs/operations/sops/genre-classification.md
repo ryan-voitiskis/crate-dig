@@ -6,7 +6,7 @@ Standard operating procedure for evidence-based genre tagging in Rekordbox colle
 
 This SOP uses existing MCP tools to classify genres across a Rekordbox collection. The agent's role is to gather cached evidence, apply a concrete decision tree, present recommendations in a consistent format, and stage only human-approved changes.
 
-**One new tool is needed:** `cache_coverage` (spec below). Everything else exists.
+`cache_coverage` is implemented and should be used at the start of every classification session.
 
 ## Constraints
 
@@ -460,7 +460,9 @@ Present key mismatches in a separate section of the conflict report (Step 4), no
 
 ---
 
-## New Tool Spec: `cache_coverage`
+## Tool Contract: `cache_coverage`
+
+Implementation reference: `src/tools.rs` (`cache_coverage` tool + coverage tests).
 
 ### Purpose
 
@@ -519,7 +521,7 @@ added_after, added_before
 
 Phase 1 is complete when:
 
-- [ ] `cache_coverage` tool implemented and functional.
+- [x] `cache_coverage` tool implemented and functional.
 - [ ] 468 ungenred tracks classified or explicitly marked manual-decision.
 - [ ] Alias map reviewed with user; session overrides applied where needed.
 - [ ] Key mismatches surfaced for user awareness.
