@@ -132,6 +132,84 @@ if hasattr(spectral_centroid, "__len__") and len(spectral_centroid) > 0:
 else:
     features["spectral_centroid_mean"] = None
 
+# --- Frame-based features (shared loop) ---
+frame_size = 2048
+hop_size = 1024
+windowing = es.Windowing(type='hann')
+spectrum_algo = es.Spectrum()
+mfcc_algo = es.MFCC(numberCoefficients=13)
+contrast_algo = es.SpectralContrast()
+peaks_algo = es.SpectralPeaks()
+dissonance_algo = es.Dissonance()
+
+try:
+    intensity_algo = es.Intensity()
+    has_intensity = True
+except Exception:
+    has_intensity = False
+
+mfcc_accum = []
+contrast_accum = []
+dissonance_accum = []
+intensity_values = []
+
+for frame in es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size):
+    windowed = windowing(frame)
+    spec = spectrum_algo(windowed)
+
+    _, mfcc_coeffs = mfcc_algo(spec)
+    mfcc_accum.append(mfcc_coeffs)
+
+    sc = contrast_algo(spec)
+    if isinstance(sc, (tuple, list)) and len(sc) >= 1:
+        coeffs = sc[0]
+        if hasattr(coeffs, '__len__') and len(coeffs) > 0:
+            contrast_accum.append([float(x) for x in coeffs])
+
+    freqs, mags = peaks_algo(spec)
+    if len(freqs) > 1:
+        diss = dissonance_algo(freqs, mags)
+        diss_val = first_scalar_or_none(diss)
+        if diss_val is not None:
+            dissonance_accum.append(diss_val)
+
+    if has_intensity:
+        try:
+            power_spec = [x**2 for x in spec]
+            try:
+                val = intensity_algo(power_spec)
+            except TypeError:
+                val = intensity_algo(frame)
+            int_val = first_scalar_or_none(val)
+            if int_val is not None:
+                intensity_values.append(int_val)
+        except Exception:
+            pass
+
+if mfcc_accum:
+    features["mfcc_mean"] = [float(sum(c[i] for c in mfcc_accum) / len(mfcc_accum)) for i in range(13)]
+else:
+    features["mfcc_mean"] = None
+
+if contrast_accum:
+    n_bands = len(contrast_accum[0])
+    features["spectral_contrast_mean"] = [sum(c[i] for c in contrast_accum) / len(contrast_accum) for i in range(n_bands)]
+else:
+    features["spectral_contrast_mean"] = None
+
+if dissonance_accum:
+    features["dissonance_mean"] = sum(dissonance_accum) / len(dissonance_accum)
+else:
+    features["dissonance_mean"] = None
+
+if intensity_values:
+    features["intensity_mean"] = sum(intensity_values) / len(intensity_values)
+    mean = features["intensity_mean"]
+    features["intensity_var"] = sum((v - mean)**2 for v in intensity_values) / len(intensity_values)
+else:
+    features["intensity_mean"] = None
+    features["intensity_var"] = None
+
 features["analyzer_version"] = essentia.__version__
 
 json.dump(features, sys.stdout)
@@ -573,6 +651,47 @@ class BeatsLoudness:
 class SpectralCentroidTime:
     def __call__(self, audio):
         return [100.0, 200.0]
+
+class FrameGenerator:
+    def __init__(self, audio, frameSize=2048, hopSize=1024):
+        pass
+    def __iter__(self):
+        yield [0.1, 0.2, 0.3]
+        yield [0.4, 0.5, 0.6]
+
+class Windowing:
+    def __init__(self, type='hann'):
+        pass
+    def __call__(self, frame):
+        return frame
+
+class Spectrum:
+    def __call__(self, frame):
+        return [abs(x) for x in frame]
+
+class MFCC:
+    def __init__(self, numberCoefficients=13):
+        self.n = numberCoefficients
+    def __call__(self, spec):
+        bands = [0.5] * 40
+        coeffs = [float(i * 0.1) for i in range(self.n)]
+        return (bands, coeffs)
+
+class SpectralContrast:
+    def __call__(self, spec):
+        return ([1.0, 2.0, 3.0, 4.0, 5.0, 6.0], [0.1, 0.2, 0.3, 0.4, 0.5, 0.6])
+
+class SpectralPeaks:
+    def __call__(self, spec):
+        return ([100.0, 200.0, 300.0], [0.5, 0.3, 0.1])
+
+class Dissonance:
+    def __call__(self, freqs, mags):
+        return 0.35
+
+class Intensity:
+    def __call__(self, spec):
+        return 0.65
 "#,
         )
         .expect("fake essentia.standard should be written");
@@ -642,6 +761,38 @@ def column_stack(cols):
         assert!(
             result["rhythm_regularity"].as_f64().unwrap() > 0.0,
             "rhythm_regularity should be computed from beat loudness ratios"
+        );
+
+        // Frame-based features
+        let mfcc = result["mfcc_mean"]
+            .as_array()
+            .expect("mfcc_mean should be an array");
+        assert_eq!(mfcc.len(), 13, "mfcc_mean should have 13 coefficients");
+
+        let contrast = result["spectral_contrast_mean"]
+            .as_array()
+            .expect("spectral_contrast_mean should be an array");
+        assert_eq!(
+            contrast.len(),
+            6,
+            "spectral_contrast_mean should have 6 bands"
+        );
+
+        let dissonance = result["dissonance_mean"]
+            .as_f64()
+            .expect("dissonance_mean should be a float");
+        assert!(
+            dissonance > 0.0 && dissonance < 1.0,
+            "dissonance should be in (0, 1), got {dissonance}"
+        );
+
+        let intensity = result["intensity_mean"]
+            .as_f64()
+            .expect("intensity_mean should be a float");
+        assert!(intensity > 0.0, "intensity_mean should be positive");
+        assert!(
+            result["intensity_var"].as_f64().is_some(),
+            "intensity_var should be present"
         );
     }
 
