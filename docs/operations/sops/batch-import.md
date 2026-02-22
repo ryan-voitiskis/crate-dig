@@ -51,6 +51,35 @@ What Rekordbox reads on import by format:
 | `reklawdbox` MCP | Discogs/Beatport metadata lookups | This project |
 | `unzip` | Extract zip archives | Pre-installed on macOS |
 
+### Session setup (required)
+
+Set these variables once at the start of the session:
+
+```sh
+export BATCH_PATH="/absolute/path/to/incoming-batch"
+export DEST="/absolute/path/to/final-destination"
+```
+
+Validate before proceeding:
+
+```sh
+[ -d "$BATCH_PATH" ] || { echo "Missing batch path: $BATCH_PATH"; exit 1; }
+mkdir -p "$DEST"
+```
+
+Placeholder meanings used throughout this SOP:
+- `BATCH_PATH`: root folder containing new downloads to process
+- `DEST`: root folder where organized output is written
+- `ALBUM_PATH`: current album directory being processed
+
+### MCP lookup setup (required for `lookup_*` steps)
+
+`lookup_discogs(...)` and `lookup_beatport(...)` are MCP tool calls, not shell commands.
+
+Before running metadata lookup steps:
+- Ensure your MCP host is configured to run this server over stdio with command `./target/release/reklawdbox`.
+- Verify tool wiring with a simple MCP call (for example `read_library`) from your host client.
+
 ---
 
 ## Convention Reference
@@ -127,7 +156,7 @@ destination/
 ### Step 1: List the batch directory
 
 ```sh
-ls -la "BATCH_PATH/"
+ls -la "$BATCH_PATH/"
 ```
 
 Categorize contents:
@@ -139,33 +168,85 @@ Categorize contents:
 
 ```sh
 # List all zip files
-ls "BATCH_PATH/"*.zip 2>/dev/null
+find "$BATCH_PATH" -maxdepth 1 -type f -name "*.zip" -print
 ```
 
 For each zip:
 
-1. Check if already extracted (matching directory exists):
+1. Check if already extracted (matching directory exists and has files):
    ```sh
-   # If dir exists, delete the zip
-   rm "BATCH_PATH/Artist - Album.zip"
+   cd "$BATCH_PATH"
+   zip="Artist - Album.zip"
+   dir="${zip%.zip}"
+   if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
+       echo "Already extracted: $zip"
+       # Skip extraction for this zip.
+   fi
    ```
 
 2. Extract if not yet extracted:
    ```sh
-   cd "BATCH_PATH"
-   unzip -o "Artist - Album.zip"
+   cd "$BATCH_PATH"
+   mkdir -p "_processed_zips" "_failed_zips"
+   zip="Artist - Album.zip"
+   dir="${zip%.zip}"
+   if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
+       mv "$zip" "_processed_zips/$zip"
+       echo "Archived already-extracted zip: $zip"
+   else
+       tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/batch-import-unzip.XXXXXX")"
+       if unzip -o "$zip" -d "$tmp_dir"; then
+           mkdir -p "$dir"
+           find "$tmp_dir" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dir"/ \;
+           if find "$dir" -type f -print -quit | grep -q .; then
+               mv "$zip" "_processed_zips/$zip"
+               echo "Extracted and archived zip: $zip"
+           else
+               mv "$zip" "_failed_zips/$zip"
+               echo "No files extracted: $zip (moved to _failed_zips/)"
+           fi
+       else
+           mv "$zip" "_failed_zips/$zip"
+           echo "Extraction failed: $zip (moved to _failed_zips/)"
+       fi
+       rm -rf "$tmp_dir"
+   fi
    ```
 
-3. Verify extraction — some zips extract flat instead of into a subdirectory. If files appeared at root, create a directory and move them in.
+3. Verify extraction — ensure target directory contains audio files before continuing.
 
-4. Delete zip after successful extraction.
+4. Do not hard-delete zip archives during processing. Keep successful archives in `_processed_zips/` and failed ones in `_failed_zips/` until batch completion is confirmed.
 
-**Quick cleanup** — delete all zips that have matching directories:
+**Batch extraction helper** — process all root zip files safely:
 ```sh
-cd "BATCH_PATH"
-for zip in *.zip; do
+cd "$BATCH_PATH"
+mkdir -p "_processed_zips" "_failed_zips"
+find . -maxdepth 1 -type f -name "*.zip" -print0 | while IFS= read -r -d '' zip; do
+    zip="${zip#./}"
     dir="${zip%.zip}"
-    [ -d "$dir" ] && rm "$zip" && echo "Deleted $zip (already extracted)"
+
+    if [ -d "$dir" ] && find "$dir" -type f -print -quit | grep -q .; then
+        mv "$zip" "_processed_zips/$zip"
+        echo "Archived already-extracted zip: $zip"
+        continue
+    fi
+
+    tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/batch-import-unzip.XXXXXX")"
+    if unzip -o "$zip" -d "$tmp_dir"; then
+        mkdir -p "$dir"
+        find "$tmp_dir" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dir"/ \;
+        if find "$dir" -type f -print -quit | grep -q .; then
+            mv "$zip" "_processed_zips/$zip"
+            echo "Extracted and archived zip: $zip"
+        else
+            mv "$zip" "_failed_zips/$zip"
+            echo "No files extracted: $zip (moved to _failed_zips/)"
+        fi
+    else
+        mv "$zip" "_failed_zips/$zip"
+        echo "Extraction failed: $zip (moved to _failed_zips/)"
+    fi
+    rm -rf "$tmp_dir"
 done
 ```
 
@@ -190,11 +271,12 @@ For each album subdirectory, follow these steps in order.
 
 ```sh
 # List contents
-ls -la "BATCH_PATH/Album Directory/"
+ls -la "$BATCH_PATH/Album Directory/"
 
 # Read existing tags
-cd "BATCH_PATH/Album Directory"
-exiftool -j -Artist -Title -Album -Year -TrackNumber -Publisher *.flac *.wav *.mp3 2>/dev/null
+cd "$BATCH_PATH/Album Directory"
+exiftool -j -ext flac -ext wav -ext mp3 \
+         -Artist -Title -Album -Year -TrackNumber -Publisher .
 ```
 
 Note:
@@ -256,7 +338,7 @@ lookup_beatport(artist="Artist Name", title="First Track Title")
 
 **For FLAC/MP3:**
 ```sh
-cd "BATCH_PATH/Album Directory"
+cd "$BATCH_PATH/Album Directory"
 kid3-cli -c "select all" -c "tag 2" \
          -c "set album 'Album Name'" \
          -c "set date YEAR" \
@@ -320,7 +402,8 @@ kid3-cli -c "select 'original-filename.wav'" \
 ### Step 6: Verify tags
 
 ```sh
-exiftool -j -Artist -Title -Album -Year -TrackNumber *.flac *.wav *.mp3 2>/dev/null
+exiftool -j -ext flac -ext wav -ext mp3 \
+         -Artist -Title -Album -Year -TrackNumber .
 ```
 
 Confirm every file has: Artist, Title, Track, Album, Year.
@@ -346,7 +429,7 @@ Expected: `01 Artist Name - Track Title.ext`
 
 ```sh
 # Check for cover art files
-ls *.{jpg,jpeg,png,JPG,PNG} 2>/dev/null
+find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) -print
 ```
 
 **Single obvious cover file** (`cover.jpg`, `front.jpg`, `folder.jpg`):
@@ -367,10 +450,10 @@ lookup_discogs(artist="Artist Name", title="First Track", album="Album Name")
 If the result includes a non-empty `cover_image`:
 
 ```sh
-curl -s -o "ALBUM_PATH/cover.jpg" "COVER_IMAGE_URL"
+curl -s -o "$ALBUM_PATH/cover.jpg" "COVER_IMAGE_URL"
 
 # Embed into all tracks
-cd "ALBUM_PATH"
+cd "$ALBUM_PATH"
 kid3-cli -c "select all" \
          -c "set picture:'cover.jpg' 'Cover (front)' ''" \
          -c "save" .
@@ -387,30 +470,35 @@ If no cover art from Discogs either, note it in the report for the user to sourc
 
 **Single Artist:**
 ```sh
-mkdir -p "DEST/Artist Name/Album Name (Year)"
+mkdir -p "$DEST/Artist Name/Album Name (Year)"
 ```
 
 **Various Artists:**
 ```sh
-mkdir -p "DEST/Various Artists/Label Name/Album Name (Year)"
+mkdir -p "$DEST/Various Artists/Label Name/Album Name (Year)"
 ```
 
 ### Step 10: Move files
 
 ```sh
 # Move all audio and cover art
-mv "BATCH_PATH/Old Dir/"*.{wav,flac,mp3} "DEST/Artist Name/Album Name (Year)/" 2>/dev/null
-mv "BATCH_PATH/Old Dir/"cover.* "DEST/Artist Name/Album Name (Year)/" 2>/dev/null
+find "$BATCH_PATH/Old Dir" -maxdepth 1 -type f \
+     \( -iname "*.wav" -o -iname "*.flac" -o -iname "*.mp3" \) \
+     -exec mv -n {} "$DEST/Artist Name/Album Name (Year)/" \;
+find "$BATCH_PATH/Old Dir" -maxdepth 1 -type f -iname "cover.*" \
+     -exec mv -n {} "$DEST/Artist Name/Album Name (Year)/" \;
 
 # Remove old empty directory
-rmdir "BATCH_PATH/Old Dir"
+rmdir "$BATCH_PATH/Old Dir"
 ```
 
 ### Step 11: Verify final state
 
 ```sh
-ls -la "DEST/Artist Name/Album Name (Year)/"
-kid3-cli -c "get" "DEST/Artist Name/Album Name (Year)/01"*
+ls -la "$DEST/Artist Name/Album Name (Year)/"
+sample_file="$(find "$DEST/Artist Name/Album Name (Year)" -maxdepth 1 -type f \
+    \( -iname "*.wav" -o -iname "*.flac" -o -iname "*.mp3" \) | head -1)"
+[ -n "$sample_file" ] && kid3-cli -c "get" "$sample_file"
 ```
 
 Confirm:
@@ -439,7 +527,8 @@ For audio files at the root of the batch directory.
 ### Step 1: List loose tracks
 
 ```sh
-ls "BATCH_PATH/"*.wav "BATCH_PATH/"*.flac "BATCH_PATH/"*.mp3 2>/dev/null
+find "$BATCH_PATH" -maxdepth 1 -type f \
+     \( -name "*.wav" -o -name "*.flac" -o -name "*.mp3" \) -print
 ```
 
 ### Step 2: Clean filenames
@@ -447,9 +536,10 @@ ls "BATCH_PATH/"*.wav "BATCH_PATH/"*.flac "BATCH_PATH/"*.mp3 2>/dev/null
 #### Remove "(Original Mix)" suffix
 
 ```sh
-cd "BATCH_PATH"
-for f in *" (Original Mix)".*; do
-    [ -e "$f" ] && mv "$f" "${f/ (Original Mix)/}"
+cd "$BATCH_PATH"
+find . -maxdepth 1 -type f -name "* (Original Mix).*" -print0 | while IFS= read -r -d '' f; do
+    new_name="${f/ (Original Mix)/}"
+    mv "$f" "$new_name"
 done
 ```
 
@@ -467,8 +557,8 @@ For each loose track:
 
 ```sh
 # Read existing tags (both tag types for WAV)
-kid3-cli -c "get" "BATCH_PATH/Artist - Title.wav"
-kid3-cli -c "tag 3" -c "get" "BATCH_PATH/Artist - Title.wav"
+kid3-cli -c "get" "$BATCH_PATH/Artist - Title.wav"
+kid3-cli -c "tag 3" -c "get" "$BATCH_PATH/Artist - Title.wav"
 ```
 
 **If Artist and Title are missing,** look up with reklawdbox:
@@ -486,7 +576,7 @@ kid3-cli -c "select 'Artist - Title.flac'" -c "tag 2" \
          -c "set artist 'Artist Name'" \
          -c "set title 'Track Title'" \
          -c "set publisher 'Label Name'" \
-         -c "save" "BATCH_PATH"
+         -c "save" "$BATCH_PATH"
 ```
 
 **WAV:**
@@ -500,7 +590,7 @@ kid3-cli -c "select 'Artist - Title.wav'" \
          -c "set artist 'Artist Name'" \
          -c "set title 'Track Title'" \
          -c "set publisher 'Label Name'" \
-         -c "save" "BATCH_PATH"
+         -c "save" "$BATCH_PATH"
 ```
 
 ### Step 4: Embed cover art (if available)
@@ -508,13 +598,13 @@ kid3-cli -c "select 'Artist - Title.wav'" \
 Check for existing cover files matching the loose track naming convention:
 
 ```sh
-ls "BATCH_PATH/"cover_*.jpg 2>/dev/null
+find "$BATCH_PATH" -maxdepth 1 -type f -name "cover_*.jpg" -print
 ```
 
 For tracks with a matching `cover_Artist Name - Track Title.jpg` file:
 
 ```sh
-cd "BATCH_PATH"
+cd "$BATCH_PATH"
 kid3-cli -c "select 'Artist - Title.wav'" \
          -c "set picture:'cover_Artist Name - Track Title.jpg' 'Cover (front)' ''" \
          -c "save" .
@@ -529,11 +619,11 @@ lookup_discogs(artist="Artist Name", title="Track Title")
 If the result includes a non-empty `cover_image`:
 
 ```sh
-curl -s -o "BATCH_PATH/cover_Artist Name - Track Title.jpg" "COVER_IMAGE_URL"
+curl -s -o "$BATCH_PATH/cover_Artist Name - Track Title.jpg" "COVER_IMAGE_URL"
 
 kid3-cli -c "select 'Artist - Title.wav'" \
          -c "set picture:'cover_Artist Name - Track Title.jpg' 'Cover (front)' ''" \
-         -c "save" "BATCH_PATH"
+         -c "save" "$BATCH_PATH"
 ```
 
 If no Discogs match or empty `cover_image`, note it in the report.
@@ -592,10 +682,10 @@ Album Name (Year)/
 
 ```sh
 # List organized structure
-find "DEST" -type d | head -30
+find "$DEST" -type d | head -30
 
 # Count audio files
-find "DEST" -type f \( -name "*.flac" -o -name "*.wav" -o -name "*.mp3" \) | wc -l
+find "$DEST" -type f \( -name "*.flac" -o -name "*.wav" -o -name "*.mp3" \) | wc -l
 ```
 
 ### Summary report
