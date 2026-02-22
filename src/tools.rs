@@ -1267,11 +1267,13 @@ impl ReklawdboxServer {
             return Ok(CallToolResult::success(vec![Content::text(json)]));
         }
 
-        let backup_script = std::path::Path::new("backup.sh");
-        if backup_script.exists() {
+        let backup_script = ["scripts/backup.sh", "backup.sh"]
+            .iter()
+            .find(|path| std::path::Path::new(path).exists());
+        if let Some(script_path) = backup_script {
             eprintln!("[reklawdbox] Running pre-op backup...");
             let output = std::process::Command::new("bash")
-                .arg("backup.sh")
+                .arg(script_path)
                 .arg("--pre-op")
                 .output();
             match output {

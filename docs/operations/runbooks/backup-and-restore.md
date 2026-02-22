@@ -15,19 +15,19 @@ modifications. This document covers usage, restore procedures, and what's protec
 
 ```bash
 # Full backup (~1GB compressed) — databases + analysis + artwork
-./backup.sh
+./scripts/backup.sh
 
 # Database only (~92MB compressed) — just the critical metadata files
-./backup.sh --db-only
+./scripts/backup.sh --db-only
 
 # Pre-operation snapshot (called automatically by reklawdbox tools)
-./backup.sh --pre-op
+./scripts/backup.sh --pre-op
 
 # List all backups
-./backup.sh --list
+./scripts/backup.sh --list
 
 # Restore from a backup
-./backup.sh --restore <path-to-backup.tar.gz>
+./scripts/backup.sh --restore <path-to-backup.tar.gz>
 ```
 
 ## What Gets Backed Up
@@ -87,10 +87,10 @@ osascript -e 'quit app "rekordbox"'
 
 ```bash
 # List available backups
-./backup.sh --list
+./scripts/backup.sh --list
 
 # Restore a specific backup
-./backup.sh --restore ~/Library/Pioneer/rekordbox-backups/db_20260215_233936.tar.gz
+./scripts/backup.sh --restore ~/Library/Pioneer/rekordbox-backups/db_20260215_233936.tar.gz
 ```
 
 The script will:

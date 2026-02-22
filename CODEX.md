@@ -30,7 +30,7 @@ python3 docs/rekordbox/verify-phase-b.py
 - Use `mcp-config.example.json` as the safe template for local host config.
 - Required local data access:
   - Rekordbox DB path (`REKORDBOX_DB_PATH`, optional if default path exists)
-  - Rekordbox backup script/runtime shell access for `write_xml` pre-op backup (`backup.sh`)
+  - Rekordbox backup script/runtime shell access for `write_xml` pre-op backup (`scripts/backup.sh`)
 - Optional external integrations:
   - Discogs broker env vars (`REKLAWDBOX_DISCOGS_BROKER_URL`, `REKLAWDBOX_DISCOGS_BROKER_TOKEN`)
   - Deprecated Discogs legacy env vars (`REKLAWDBOX_DISCOGS_*`)

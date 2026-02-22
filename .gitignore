@@ -1,6 +1,8 @@
 .DS_Store
 .env
 .mcp.json
+.tmp/
+.venvs/
 *.log
 *.db
 

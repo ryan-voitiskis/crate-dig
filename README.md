@@ -165,5 +165,7 @@ Synth-pop, Tech House, Techno, Trance, UK Bass
 - [`docs/operations/runbooks/backup-and-restore.md`](docs/operations/runbooks/backup-and-restore.md) — Backup usage and restore procedures
 - [`docs/integrations/discogs/auth.md`](docs/integrations/discogs/auth.md) — Discogs broker setup, first-run auth, and re-auth/reset guidance
 - [`docs/integrations/discogs/auth-plan.md`](docs/integrations/discogs/auth-plan.md) — Discogs broker architecture decisions and phased implementation plan
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — Development workflow, testing expectations, and pull request checklist
+- [`SECURITY.md`](SECURITY.md) — Supported versions and vulnerability reporting process
 - [`CODEX.md`](CODEX.md) — Codex-specific operator/developer workflow notes
 - [`CLAUDE.md`](CLAUDE.md) — Claude Code-specific operator/developer workflow notes

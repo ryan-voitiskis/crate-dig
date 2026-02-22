@@ -3,11 +3,11 @@
 # Snapshots the full Rekordbox library state to timestamped archives.
 #
 # Usage:
-#   ./backup.sh                  # Full backup
-#   ./backup.sh --db-only        # Database files only (fast, ~50MB)
-#   ./backup.sh --pre-op         # Pre-operation snapshot (db-only, auto-called by tools)
-#   ./backup.sh --list           # List existing backups
-#   ./backup.sh --restore <path> # Restore from a backup archive
+#   ./scripts/backup.sh                  # Full backup
+#   ./scripts/backup.sh --db-only        # Database files only (fast, ~50MB)
+#   ./scripts/backup.sh --pre-op         # Pre-operation snapshot (db-only, auto-called by tools)
+#   ./scripts/backup.sh --list           # List existing backups
+#   ./scripts/backup.sh --restore <path> # Restore from a backup archive
 #
 # Backup location: ~/Library/Pioneer/rekordbox-backups/
 
@@ -128,7 +128,7 @@ backup_full() {
 
 list_backups() {
     if [[ ! -d "$BACKUP_DIR" ]]; then
-        warn "No backups found. Run ./backup.sh to create one."
+        warn "No backups found. Run ./scripts/backup.sh to create one."
         return
     fi
 
@@ -274,7 +274,7 @@ case "${1:-}" in
         ;;
     --restore)
         if [[ -z "${2:-}" ]]; then
-            err "Usage: ./backup.sh --restore <path-to-backup.tar.gz>"
+            err "Usage: ./scripts/backup.sh --restore <path-to-backup.tar.gz>"
             echo ""
             list_backups
             exit 1
@@ -285,12 +285,12 @@ case "${1:-}" in
         echo "reklawdbox: Rekordbox library backup tool"
         echo ""
         echo "Usage:"
-        echo "  ./backup.sh                  Full backup (~1GB compressed)"
-        echo "  ./backup.sh --db-only        Database files only (~50MB)"
-        echo "  ./backup.sh --pre-op         Pre-operation snapshot (silent)"
-        echo "  ./backup.sh --list           List existing backups"
-        echo "  ./backup.sh --restore <path> Restore from backup"
-        echo "  ./backup.sh --help           Show this help"
+        echo "  ./scripts/backup.sh                  Full backup (~1GB compressed)"
+        echo "  ./scripts/backup.sh --db-only        Database files only (~50MB)"
+        echo "  ./scripts/backup.sh --pre-op         Pre-operation snapshot (silent)"
+        echo "  ./scripts/backup.sh --list           List existing backups"
+        echo "  ./scripts/backup.sh --restore <path> Restore from backup"
+        echo "  ./scripts/backup.sh --help           Show this help"
         echo ""
         echo "Backups stored in: $BACKUP_DIR"
         ;;
@@ -301,7 +301,7 @@ case "${1:-}" in
         ;;
     *)
         err "Unknown option: $1"
-        err "Run ./backup.sh --help for usage."
+        err "Run ./scripts/backup.sh --help for usage."
         exit 1
         ;;
 esac
