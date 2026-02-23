@@ -3,6 +3,7 @@
 .mcp.json
 .tmp/
 .venvs/
+.claude/worktrees/
 *.log
 *.db
 
