@@ -176,6 +176,9 @@ curl -sS -X POST "${BROKER_URL}/v1/discogs/proxy/search" \
 ```
 
 Expected proxy response includes `result`, `match_quality`, and `cache_hit`.
+`POST /v1/device/session/finalize` is idempotent for the original
+`device_id` + `pending_token` pair and returns the same `session_token` on retries;
+the pending token is still invalidated immediately after the first success.
 
 ## Failure Triage
 

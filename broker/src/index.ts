@@ -191,15 +191,35 @@ async function handleDeviceSessionStatus(
     )
   }
 
-  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
+  let row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
-    return json(
-      {
-        error: 'not_found',
-        message: 'device session not found',
-      },
-      404,
+    const latest = await getSessionByDevice(env, deviceId,)
+    if (!latest) {
+      return json(
+        {
+          error: 'not_found',
+          message: 'device session not found',
+        },
+        404,
+      )
+    }
+
+    const replay = await finalizedReplayForPending(
+      latest,
+      deviceId,
+      pendingToken,
     )
+    if (!replay) {
+      return json(
+        {
+          error: 'not_found',
+          message: 'device session not found',
+        },
+        404,
+      )
+    }
+
+    row = latest
   }
 
   const now = nowSeconds()
@@ -241,6 +261,29 @@ async function handleDeviceSessionFinalize(
 
   const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
+    const latest = await getSessionByDevice(env, deviceId,)
+    if (!latest) {
+      return json(
+        {
+          error: 'not_found',
+          message: 'device session not found',
+        },
+        404,
+      )
+    }
+
+    const replay = await finalizedReplayForPending(
+      latest,
+      deviceId,
+      pendingToken,
+    )
+    if (replay) {
+      return json({
+        session_token: replay.sessionToken,
+        expires_at: replay.sessionExpiresAt,
+      },)
+    }
+
     return json(
       {
         error: 'not_found',
@@ -262,7 +305,25 @@ async function handleDeviceSessionFinalize(
     )
   }
 
-  if (row.status !== 'authorized' && row.status !== 'finalized') {
+  if (row.status === 'finalized') {
+    const replay = await finalizedReplayForPending(row, deviceId, pendingToken,)
+    if (replay) {
+      return json({
+        session_token: replay.sessionToken,
+        expires_at: replay.sessionExpiresAt,
+      },)
+    }
+
+    return json(
+      {
+        error: 'already_finalized',
+        message: 'device session has already been finalized',
+      },
+      409,
+    )
+  }
+
+  if (row.status !== 'authorized') {
     return json(
       {
         error: 'not_ready',
@@ -283,25 +344,102 @@ async function handleDeviceSessionFinalize(
     )
   }
 
-  const sessionToken = randomToken(48,)
+  const sessionToken = await deriveFinalizeSessionToken(row, deviceId, pendingToken,)
+  if (!sessionToken) {
+    return json(
+      {
+        error: 'not_ready',
+        message: 'discogs token exchange has not completed',
+      },
+      409,
+    )
+  }
   const sessionTokenHash = await sha256Hex(sessionToken,)
   const sessionTtl = envInt(
     env.SESSION_TOKEN_TTL_SECONDS,
     DEFAULT_BROKER_SESSION_TTL_SECONDS,
   )
   const sessionExpiresAt = now + sessionTtl
+  const nextPendingToken = randomToken(24,)
 
-  await env.DB.prepare(
+  const finalizeResult = await env.DB.prepare(
     `UPDATE device_sessions
      SET status = 'finalized',
          session_token_hash = ?1,
          session_expires_at = ?2,
          finalized_at = ?3,
+         pending_token = ?4,
          updated_at = ?3
-     WHERE device_id = ?4 AND pending_token = ?5`,
+     WHERE device_id = ?5 AND pending_token = ?6 AND status = 'authorized'`,
   )
-    .bind(sessionTokenHash, sessionExpiresAt, now, deviceId, pendingToken,)
+    .bind(
+      sessionTokenHash,
+      sessionExpiresAt,
+      now,
+      nextPendingToken,
+      deviceId,
+      pendingToken,
+    )
     .run()
+
+  const updated = Number(finalizeResult.meta.changes ?? 0,)
+  if (updated !== 1) {
+    const latest = await getSessionByDevice(env, deviceId,)
+    if (!latest) {
+      return json(
+        {
+          error: 'not_found',
+          message: 'device session not found',
+        },
+        404,
+      )
+    }
+
+    const currentNow = nowSeconds()
+    if (latest.status === 'expired' || currentNow >= latest.expires_at) {
+      if (latest.status !== 'expired') {
+        await markSessionStatus(env, latest.device_id, 'expired', currentNow,)
+      }
+      return json(
+        {
+          error: 'expired',
+          message: 'device session expired; restart auth',
+        },
+        410,
+      )
+    }
+
+    if (latest.status === 'finalized') {
+      const replay = await finalizedReplayForPending(
+        latest,
+        deviceId,
+        pendingToken,
+      )
+      if (replay) {
+        return json({
+          session_token: replay.sessionToken,
+          expires_at: replay.sessionExpiresAt,
+        },)
+      }
+
+      return json(
+        {
+          error: 'already_finalized',
+          message: 'device session has already been finalized',
+        },
+        409,
+      )
+    }
+
+    return json(
+      {
+        error: 'not_ready',
+        message: 'device session is not authorized yet',
+        status: latest.status,
+      },
+      409,
+    )
+  }
 
   return json({
     session_token: sessionToken,
@@ -318,9 +456,23 @@ async function handleDiscogsOauthLink(env: Env, url: URL,): Promise<Response> {
     return text('Missing device_id or pending_token', 400,)
   }
 
-  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
+  let row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
-    return text('Device session not found', 404,)
+    const latest = await getSessionByDevice(env, deviceId,)
+    if (!latest) {
+      return text('Device session not found', 404,)
+    }
+
+    const replay = await finalizedReplayForPending(
+      latest,
+      deviceId,
+      pendingToken,
+    )
+    if (!replay) {
+      return text('Device session not found', 404,)
+    }
+
+    row = latest
   }
 
   const now = nowSeconds()
@@ -790,6 +942,35 @@ async function requestDiscogsAccessToken(
   }
 }
 
+async function finalizedReplayForPending(
+  row: DeviceSessionRow,
+  deviceId: string,
+  pendingToken: string,
+): Promise<{ sessionToken: string; sessionExpiresAt: number } | null> {
+  if (
+    row.status !== 'finalized'
+    || !row.session_token_hash
+    || !row.session_expires_at
+  ) {
+    return null
+  }
+
+  const sessionToken = await deriveFinalizeSessionToken(row, deviceId, pendingToken,)
+  if (!sessionToken) {
+    return null
+  }
+
+  const tokenHash = await sha256Hex(sessionToken,)
+  if (tokenHash !== row.session_token_hash) {
+    return null
+  }
+
+  return {
+    sessionToken,
+    sessionExpiresAt: row.session_expires_at,
+  }
+}
+
 async function getSessionByDeviceAndPending(
   env: Env,
   deviceId: string,
@@ -802,6 +983,20 @@ async function getSessionByDeviceAndPending(
      LIMIT 1`,
   )
     .bind(deviceId, pendingToken,)
+    .first<DeviceSessionRow>()
+}
+
+async function getSessionByDevice(
+  env: Env,
+  deviceId: string,
+): Promise<DeviceSessionRow | null> {
+  return env.DB.prepare(
+    `SELECT *
+     FROM device_sessions
+     WHERE device_id = ?1
+     LIMIT 1`,
+  )
+    .bind(deviceId,)
     .first<DeviceSessionRow>()
 }
 
@@ -914,6 +1109,27 @@ function normalize(input: string,): string {
     .trim()
 }
 
+async function deriveFinalizeSessionToken(
+  row: Pick<DeviceSessionRow, 'oauth_access_token' | 'oauth_access_token_secret'>,
+  deviceId: string,
+  pendingToken: string,
+): Promise<string | null> {
+  if (!row.oauth_access_token || !row.oauth_access_token_secret) {
+    return null
+  }
+
+  const message = `${deviceId}:${pendingToken}:${row.oauth_access_token}`
+  const partA = await hmacSha256Hex(
+    row.oauth_access_token_secret,
+    `broker-session:v1:${message}`,
+  )
+  const partB = await hmacSha256Hex(
+    row.oauth_access_token_secret,
+    `broker-session:v1:extra:${message}`,
+  )
+  return `${partA}${partB.slice(0, 32)}`
+}
+
 function randomToken(bytes: number,): string {
   const arr = new Uint8Array(bytes,)
   crypto.getRandomValues(arr,)
@@ -925,6 +1141,20 @@ function randomToken(bytes: number,): string {
 async function sha256Hex(input: string,): Promise<string> {
   const encoded = new TextEncoder().encode(input,)
   const digest = await crypto.subtle.digest('SHA-256', encoded,)
+  const arr = Array.from(new Uint8Array(digest,),)
+  return arr.map((b,) => b.toString(16,).padStart(2, '0',)).join('',)
+}
+
+async function hmacSha256Hex(key: string, input: string,): Promise<string> {
+  const encoder = new TextEncoder()
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(key,),
+    { name: 'HMAC', hash: 'SHA-256', },
+    false,
+    ['sign'],
+  )
+  const digest = await crypto.subtle.sign('HMAC', cryptoKey, encoder.encode(input,),)
   const arr = Array.from(new Uint8Array(digest,),)
   return arr.map((b,) => b.toString(16,).padStart(2, '0',)).join('',)
 }
