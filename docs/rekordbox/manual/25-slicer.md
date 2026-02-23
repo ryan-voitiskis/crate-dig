@@ -43,7 +43,7 @@ During the loop play of the pad, the normal playback with the original rhythm co
    **Sliced sections 1 through 8**
 
    | Section 1 | Section 2 | Section 3 | Section 4 |
-   |-----------|-----------|-----------|-----------|
+   | --------- | --------- | --------- | --------- |
    | Section 5 | Section 6 | Section 7 | Section 8 |
 
 5. Click to [play icon] in the JOG panel.

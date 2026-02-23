@@ -9,6 +9,7 @@ Security fixes are applied to the latest `main` branch state.
 Please report vulnerabilities privately.
 
 Preferred method:
+
 1. Open a GitHub Security Advisory draft (repository "Security" tab -> "Report a vulnerability").
 2. Include reproduction details, impact, and any proof-of-concept.
 

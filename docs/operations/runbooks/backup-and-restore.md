@@ -36,6 +36,7 @@ modifications. This document covers usage, restore procedures, and what's protec
 
 These are the critical files that contain your library metadata:
 
+<!-- dprint-ignore -->
 | File | What It Contains |
 |------|-----------------|
 | `master.db` + `-shm` + `-wal` | Entire library: tracks, playlists, cue points, tags, ratings, everything |
@@ -55,11 +56,13 @@ These are the critical files that contain your library metadata:
 ### Full Backup
 
 Everything above **plus**:
+
 - **USBANLZ/** (~827 MB) — waveforms, beat grids, phrase analysis, cue points in binary format
 - **Artwork/** (~209 MB) — album art in three sizes (full, medium, small)
 
 ## When to Use Each
 
+<!-- dprint-ignore -->
 | Scenario | Backup Type |
 |----------|-------------|
 | Before running reklawdbox write operations | `--db-only` (automatic via `--pre-op`) |
@@ -94,6 +97,7 @@ osascript -e 'quit app "rekordbox"'
 ```
 
 The script will:
+
 1. Show you the archive contents
 2. Tell you whether it's a full or db-only restore
 3. Ask for explicit confirmation (type `YES`)
@@ -125,11 +129,13 @@ tar -xzf ~/Library/Pioneer/rekordbox-backups/full_YYYYMMDD_HHMMSS.tar.gz
 ## Backup Rotation
 
 The script automatically manages backup count:
+
 - **Full backups**: Keeps the 5 most recent, deletes older ones
 - **DB/pre-op backups**: Keeps the 20 most recent
 
 ## Storage Estimates
 
+<!-- dprint-ignore -->
 | Library Size | DB Backup | Full Backup |
 |-------------|-----------|-------------|
 | ~2,800 tracks | ~92 MB | ~800 MB |

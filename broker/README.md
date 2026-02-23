@@ -179,6 +179,7 @@ Expected proxy response includes `result`, `match_quality`, and `cache_hit`.
 
 ## Failure Triage
 
+<!-- dprint-ignore -->
 | Surface | Signal | Meaning | Action |
 |---|---|---|---|
 | `start/status/finalize` | `401 invalid broker client token` | `BROKER_CLIENT_TOKEN` mismatch | Fix token in broker env and MCP env/header. |

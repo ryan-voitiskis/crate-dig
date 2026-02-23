@@ -18,7 +18,7 @@ verified_by: agent
 
 If you didn't receive the AlphaTheta account confirmation e-mail, there's a possibility that you entered a wrong e-mail address or the confirmation e-mail ended up in the "spam folder", etc.
 
-* When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
+- When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
 
 ---
 
@@ -51,12 +51,12 @@ Example:
 Here explains about the operation method referencing the procedure for assigning the button of MIX POINT LINK to the hardware on MIDI LEARN and mixing track A of Deck 1 to track B of Deck 2.
 
 1. Set Hot Cues or Memory Cues to the position of MIX POINT preliminarily. To use SYNC function, set BEAT SYNC to ON.
-In MIX POINT LINK tab of MIDI LEARN, assign [MixPointLink CueSelectBack/Next] button and [MixPointLink Set] button to the hardware on MIDI LEARN.
+   In MIX POINT LINK tab of MIDI LEARN, assign [MixPointLink CueSelectBack/Next] button and [MixPointLink Set] button to the hardware on MIDI LEARN.
 2. Load track A to Deck 1 to replay it. Load track B to Deck 2.
 3. Press [MemoryCueCall] button of Deck 2 or the button / pad for which Hot Cues are set and call the starting MIX POINT from the cue point of track B or Hot Cues.
 4. Press [MixPointLink CueSelectBack/Next] button of Deck 2 and select the ending MIX POINT from track A that is currently replayed.
 5. Press [MixPointLink Set] button and set MIX POINT LINK.
-If the replay bar of Deck 1 reaches the beginning of Deck 2, the automatic playing starts.
+   If the replay bar of Deck 1 reaches the beginning of Deck 2, the automatic playing starts.
 
 ---
 

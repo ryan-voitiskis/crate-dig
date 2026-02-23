@@ -26,6 +26,7 @@ type(scope): short summary
 Recommended types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
 
 Examples:
+
 - `docs(rekordbox): orchestrate phase b verification`
 - `fix(xml): preserve rekordbox URI encoding`
 

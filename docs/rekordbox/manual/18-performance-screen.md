@@ -287,6 +287,7 @@ For details on how to operate, see "Loading a sequence to a deck (SEQUENCE LOAD)
 #### [ACT. CENSR] (ACTIVE CENSOR) mode
 
 You can apply an effect to specified sections of a track. When the playback position reaches a specified section, the effect is automatically applied.
+
 - You can specify multiple sections of a track.
 - During reverse playback, the effect is not applied.
 

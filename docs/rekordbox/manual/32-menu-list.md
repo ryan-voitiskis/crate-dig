@@ -16,6 +16,7 @@ verified_by: agent
 
 ## [Others] (continued)
 
+<!-- dprint-ignore -->
 | Setting | Description |
 |---------|-------------|
 | [Spotify] | Select the audio format for the downloading file from Spotify. |
@@ -39,6 +40,7 @@ Please refer to "rekordbox DVS setup guide" on the rekordbox website.
 Click the [Enable the STEMS Function] checkbox to enable the STEMS function.
 -> See Using the STEMS function (page 207)
 
+<!-- dprint-ignore -->
 | Setting | Description |
 |---------|-------------|
 | [STEMS Mode] | You can choose to divide the track into either 3 Stems or 4 Stems. [3 Stems(VOCAL, INST, DRUMS)]: A track can be divided into the VOCAL, INST, and DRUMS Stems, to be played. [4 Stems(VOCAL, INST, BASS, DRUMS)]: A track can be divided into the VOCAL, INST, BASS, and DRUMS Stems, to be played. |
@@ -53,6 +55,7 @@ Click the [Enable the STEMS Function] checkbox to enable the STEMS function.
 Click the checkboxes of both [Enable the STEMS Function] and [Enable the GROOVE CIRCUIT Function] to enable the GROOVE CIRCUIT function.
 -> See Using the GROOVE CIRCUIT function (page 210)
 
+<!-- dprint-ignore -->
 | Setting | Description |
 |---------|-------------|
 | [DRUM SWAP] | [Eject/Load Lock] When [Lock] is set, you cannot load into a DRUM SWAP SLOT that is currently playing. When [Display track titles on DRUM SWAP SLOT] is turned on, the track title is displayed on the DRUM SWAP SLOT. |
@@ -74,6 +77,7 @@ Depending on your rekordbox version and subscription plan, some items may not be
 
 ## [rekordbox] menu (for Mac)
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [About rekordbox] | Display your installed version of rekordbox. |
@@ -88,6 +92,7 @@ Depending on your rekordbox version and subscription plan, some items may not be
 
 ### [Import]
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Import Track] | Add music files to [Collection]. |
@@ -96,6 +101,7 @@ Depending on your rekordbox version and subscription plan, some items may not be
 
 ### [Additional contents] (PERFORMANCE mode)
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Sample Pack] > [Download] | Download a sample pack of sound files that can be used as the sampler. |
@@ -113,6 +119,7 @@ The [Duplicated File Manager] window will be displayed. It displays a list of tr
 
 ### [Library]
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Backup Library] | Save the rekordbox library (databases such as [Collection], [Playlists], etc.), analysis information, and music files as a backup. The backup data file name, appended with the current date, will be displayed. |
@@ -136,6 +143,7 @@ Exit rekordbox.
 
 ## [View] menu
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Full screen] | Display the rekordbox as full screen. |
@@ -160,6 +168,7 @@ Exit rekordbox.
 
 ## [Track] menu
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Import To Collection] | Add the selected track to [Collection]. |
@@ -177,6 +186,7 @@ Exit rekordbox.
 
 ## [Playlist] menu
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [Cloud Library Sync] | Operate the Cloud Library Sync function. |
@@ -196,6 +206,7 @@ Exit rekordbox.
 
 ## [Help] menu
 
+<!-- dprint-ignore -->
 | Menu item | Description |
 |-----------|-------------|
 | [User's Manual] | Display the webpage for downloading this manual. |

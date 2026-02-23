@@ -94,7 +94,8 @@ The file formats used by each streaming service are as follows:
 
 For more details, check the website of each streaming service.
 
-- - [Apple Music](https://www.apple.com/apple-music/)
+-
+  - [Apple Music](https://www.apple.com/apple-music/)
 - [Spotify](https://open.spotify.com/)
 - [Beatport Streaming](https://stream.beatport.com/)
 - [Beatsource Streaming](https://www.beatsource.com/)
@@ -148,14 +149,15 @@ The [Streaming Audio Quality] settings are shared and applied on the devices tha
 Additionally, after updating, BeatGrids and Cue points may be misaligned for Apple Music tracks (analyzed with ver. 7.2.7 or earlier) and SoundCloud tracks (analyzed with ver. 7.2.9 or earlier).
 
 If the BeatGrids and Cue points have shifted, reanalyze the tracks and reset the Cue points.
-* For Spotify tracks, you cannot select the [Analyze Track] option in the context menu. Select [Remove from rekordbox] from the context menu first, then reload the track into the deck to have it reanalyzed. After that, set the CUE points again.
 
-- BeatGrids and phrases
-Analyse the tracks.
-The BeatGrid and phrase positions can also be adjusted and changed manually.
-(For details, see "[GRID/PHRASE EDIT] panel" in the Instruction Manual.)
-- For CUE points such as Hot Cues and Memory Cues
-Delete the CUE points before resetting them.
+- For Spotify tracks, you cannot select the [Analyze Track] option in the context menu. Select [Remove from rekordbox] from the context menu first, then reload the track into the deck to have it reanalyzed. After that, set the CUE points again.
+
+* BeatGrids and phrases
+  Analyse the tracks.
+  The BeatGrid and phrase positions can also be adjusted and changed manually.
+  (For details, see "[GRID/PHRASE EDIT] panel" in the Instruction Manual.)
+* For CUE points such as Hot Cues and Memory Cues
+  Delete the CUE points before resetting them.
 
 Hint: Method used to reanalyze multiple tracks at once
 
@@ -370,8 +372,8 @@ You can automatically log in to TIDAL by connecting a USB storage device or SD m
 Also, with some DJ equipment, you can automatically log in to TIDAL by logging into rekordbox CloudDirectPlay using a mobile device.
 Some DJ equipment allows [NFC login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](http://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
 
-* As of rekordbox ver. 7.0.6, login to TIDAL has been changed to a Single Sign On method.
-With the Single Sign On method, if you log in to TIDAL on rekordbox in advance, you do not need to enter your login account and password for TIDAL on the DJ equipment.
+- As of rekordbox ver. 7.0.6, login to TIDAL has been changed to a Single Sign On method.
+  With the Single Sign On method, if you log in to TIDAL on rekordbox in advance, you do not need to enter your login account and password for TIDAL on the DJ equipment.
 
 ---
 
@@ -398,17 +400,17 @@ No, some TIDAL tracks cannot be stored offline.
 The limitations on the playback of offline tracks for each streaming service are as follows.
 
 - SoundCloud DJ
-Offline playback is available for 30 days from the date of offline storage. (*)
-The playability period of offline tracks will be reset to 30 days (*) by logging into SoundCloud on rekordbox with an Internet connection between the 21st and 30th day counting from the date of offline storage.
-Please note that offline tracks will be removed after the playback period of the offline track has expired.
+  Offline playback is available for 30 days from the date of offline storage. (_)
+  The playability period of offline tracks will be reset to 30 days (_) by logging into SoundCloud on rekordbox with an Internet connection between the 21st and 30th day counting from the date of offline storage.
+  Please note that offline tracks will be removed after the playback period of the offline track has expired.
 - Beatport Streaming
-There are no restrictions.
+  There are no restrictions.
 - Beatsource Streaming
-There are no restrictions.
+  There are no restrictions.
 - TIDAL DJ Extension
-Offline playback is available for 30 days from the date of offline storage. (*)
-The playability period of offline tracks will be reset to 30 days (*) by logging into TIDAL on rekordbox with an Internet connection between the 27st and 30th day counting from the date of offline storage.
-Once the playback period of an offline track has expired, playback is no longer available.
+  Offline playback is available for 30 days from the date of offline storage. (_)
+  The playability period of offline tracks will be reset to 30 days (_) by logging into TIDAL on rekordbox with an Internet connection between the 27st and 30th day counting from the date of offline storage.
+  Once the playback period of an offline track has expired, playback is no longer available.
 
 *The duration of offline playback may vary depending on the track.
 Please start rekordbox and log in to the streaming service periodically to maintain offline playback availability after 30 days.

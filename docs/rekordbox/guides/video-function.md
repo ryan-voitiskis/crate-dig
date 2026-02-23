@@ -60,7 +60,7 @@ This manual explains the Video functions for rekordbox ver.7.
 
 For instructions on rekordbox in general, see the Instruction Manual of rekordbox.
 
-rekordbox Instruction Manual    rekordbox.com
+rekordbox Instruction Manual rekordbox.com
 
 ## 1.2 Overview of Video functions
 
@@ -82,7 +82,7 @@ Supported file formats are as follows:
 
 Extension: mpg, mp4, m4v, mov, avi (Windows)
 
-               mpg, mp4, m4v, mov (Mac)
+    mpg, mp4, m4v, mov (Mac)
 
 - **Video format**
   - Codec: h.264, mpeg-4, mpeg-2
@@ -100,6 +100,7 @@ The functions available are limited for the Free Plan and subscription plans tha
 
 The video functions supported by each subscription plan are as follows.
 
+<!-- dprint-ignore -->
 | Plan | Video function |
 |---|---|
 | Free Plan * | Video output is limited. |
@@ -149,7 +150,7 @@ Imported video files are displayed.
 
 **[1] VIDEO DECK**
 
-DECK1                DECK2
+DECK1 DECK2
 
 [Screenshot: Two video deck preview windows showing loaded video content]
 

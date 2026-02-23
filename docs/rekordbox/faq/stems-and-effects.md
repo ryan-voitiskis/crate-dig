@@ -23,15 +23,15 @@ If the Deck is paused:
 1. Set the Deck [Q] button (Quantize button) to ON.
 2. Move the range you want to capture to the current position of the waveform.
 3. Click the Deck [CUE] button.
-The closest BeatGrid is set to the current position.
+   The closest BeatGrid is set to the current position.
 4. Set the DRUM CAPTURE button to ON.
-The DRUM CAPTURE range is displayed from the current position.
+   The DRUM CAPTURE range is displayed from the current position.
 
 If the Deck is playing:
 
 1. Set the Deck [Q] button (Quantize button) to ON.
 2. Set Auto Beat Loop (32 beats, etc.) to ON at the position you want to capture.
-A Loop from the closest BeatGrid (32 beats, etc.) is created.
+   A Loop from the closest BeatGrid (32 beats, etc.) is created.
 3. The DRUM CAPTURE range is displayed from the Loop IN point.
 
 ---
@@ -118,7 +118,7 @@ GROOVE CIRCUIT can be controlled using the following DJ equipment.
 
 (As of October 2024)
 
-Each function can be used through mapping with the MIDI LEARN function on other DJ equipment.  (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
+Each function can be used through mapping with the MIDI LEARN function on other DJ equipment. (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
 See ["MIDI LEARN Operation Guide"](https://rekordbox.com/en/download/#manual) for mapping methods using the MIDI LEARN function.
 
 ---
@@ -138,7 +138,7 @@ See [here](https://rekordbox.com/en/plan/) for details on plan.
 
 ### Quantize playing decks when playing DRUM SWAP SLOT?
 
-Yes.  Playing DRUM SWAP SLOT quantizes the beginning of audio within DRUM SWAP SLOT to match the deck beat position.
+Yes. Playing DRUM SWAP SLOT quantizes the beginning of audio within DRUM SWAP SLOT to match the deck beat position.
 
 ---
 
@@ -207,20 +207,23 @@ However, it is necessary to subscribe to a supported Plan or connect a HardwareU
 Check the following.
 
 1. Does your computer fulfill the environmental requirements of rekordbox?
-Check the [System Requirements](https://rekordbox.com/en/download/#system).
+   Check the [System Requirements](https://rekordbox.com/en/download/#system).
 2. Is the buffer size properly adjusted?
-The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
-If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
-Set the minimum buffer size that does not cause audio dropout.
-The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
-* If DJ equipment is connected, refer to the content shown in the operation manual.
+   The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
+   If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
+   Set the minimum buffer size that does not cause audio dropout.
+   The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
+
+- If DJ equipment is connected, refer to the content shown in the operation manual.
+
 3. Isn't other application operating?
-Close applications that are not in use including Web browser, Explorer (Windows) or Finder (Mac), screen saver, and resident software once.
+   Close applications that are not in use including Web browser, Explorer (Windows) or Finder (Mac), screen saver, and resident software once.
 4. You may be able to decrease the symptom by changing the setting of multithread.
-Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and deselect [Apply multi-thread to the analysis process].
+   Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and deselect [Apply multi-thread to the analysis process].
 5. You may be able to decrease the symptom by turning OFF the following functions with high processing load.
 
-- - Video function
+-
+  - Video function
 - Lyric function
 - MERGE FX
 
@@ -231,15 +234,17 @@ Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and d
 Check the following.
 
 1. Does your computer fulfill the environmental requirements of rekordbox?
-Check the System Requirements.
+   Check the System Requirements.
 2. Is the buffer size properly adjusted?
-The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
-If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
-Set the minimum buffer size that does not cause audio dropout.
-The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
-* If DJ equipment is connected, refer to the content shown in the operation manual.
+   The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
+   If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
+   Set the minimum buffer size that does not cause audio dropout.
+   The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
+
+- If DJ equipment is connected, refer to the content shown in the operation manual.
+
 3. Isn't an option for increasing the memory usage for analytical processing activated?
-Click [Preferences] > [Extensions] category > [STEMS] tab > [Memory] and deselect [Increase the memory size of the analysis process].
+   Click [Preferences] > [Extensions] category > [STEMS] tab > [Memory] and deselect [Increase the memory size of the analysis process].
 
 In addition, carrying out the following may resolve the insufficient memory space, however, change the setting at your own risk.
 
@@ -259,17 +264,17 @@ You can select either [3 Stems (VOCAL, INST, DRUMS)] or [4 Stems (VOCAL, INST, B
 ACTIVE STEM, STEM ISO, and STEM FX functions are usable.
 
 - ACTIVE STEM
-Each Stem is output by setting each STEM MUTE button displayed at the deck Stem to ON. If it is set to OFF, each Stem is muted.
-Click [Preferences] > [Extensions] category > [STEMS] tab > [ACTIVE STEM Setting]. You can select [MUTE] or [SOLO].
+  Each Stem is output by setting each STEM MUTE button displayed at the deck Stem to ON. If it is set to OFF, each Stem is muted.
+  Click [Preferences] > [Extensions] category > [STEMS] tab > [ACTIVE STEM Setting]. You can select [MUTE] or [SOLO].
 
 With [MUTE] setting, output / mute of each Stem can be controlled.
 With [SOLO] setting, output of all Stems or output of one Stem can be controlled.
 
 - STEM ISO
-If you set STEM ISO mode button that is displayed at mixer Stem to ON, the mode shifts to STEM ISO mode in which you can adjust the sound volume of each Stem.
-When STEM ISO mode is ON, adjust the sound volume of each Stem with each knob.
+  If you set STEM ISO mode button that is displayed at mixer Stem to ON, the mode shifts to STEM ISO mode in which you can adjust the sound volume of each Stem.
+  When STEM ISO mode is ON, adjust the sound volume of each Stem with each knob.
 - STEM FX
-If you set each STEM FX button that is displayed at effect Stem to ON, it is possible to apply an effect to each Stem.
+  If you set each STEM FX button that is displayed at effect Stem to ON, it is possible to apply an effect to each Stem.
 
 ---
 

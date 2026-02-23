@@ -50,6 +50,7 @@ Files that can be loaded and played on rekordbox are listed below.
 
 ## Music files
 
+<!-- dprint-ignore -->
 | Music file | Compatible formats | Encoding method | Bit depth | Bit rate | Sampling frequency | File extension |
 |------------|-------------------|-----------------|-----------|----------|--------------------|----------------|
 | MP3 | MPEG-1 AUDIO LAYER-3 | CBR VBR | 16 bit | 32 kbps to 320 kbps | 32 kHz 44.1 kHz 48 kHz | .mp3 |
@@ -72,6 +73,7 @@ Files that can be loaded and played on rekordbox are listed below.
 
 Note that rekordbox can only write to SD memory cards and USB storage devices (flash memories or hard disks) which use a file system listed in the table below.
 
+<!-- dprint-ignore -->
 | Recording media | FAT16 | FAT32 | NTFS | exFAT | HFS | HFS+ |
 |----------------|-------|-------|------|-------|-----|------|
 | SD memory cards | Yes | Yes | N/A | Yes | N/A | N/A |
@@ -94,7 +96,7 @@ Before making inquiries on rekordbox operating procedures or technical issues, r
   - AlphaTheta Corporation's privacy policy can be viewed on the rekordbox online support site.
 - When making inquiries regarding rekordbox, please be sure to let us know your computer type and specifications (CPU, installed memory and other connected peripherals, etc.), the operating system and version used, as well as concrete information regarding the issue at hand.
   - To inquire about configuration of your computer with non-AlphaTheta Corporation peripheral devices
-  and to obtain the corresponding technical support, contact the manufacturer or retailer.
+    and to obtain the corresponding technical support, contact the manufacturer or retailer.
 - Further version updates are anticipated for improved functionality and performance of rekordbox. Update programs will be available for download on the rekordbox online support site. We strongly recommend you check for the updates to always use the latest version of rekordbox.
 
 # Disclaimer

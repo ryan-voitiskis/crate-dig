@@ -1,7 +1,9 @@
 # Rekordbox Software Orchestration Plan
 
 ## Scope
+
 Production-grade corpus integration for `reklawdbox`:
+
 1. Manifest-first corpus retrieval integrated into MCP tool flows.
 2. Corpus-backed XML and genre-tagging workflows.
 3. CI automation for corpus validation/verification.
@@ -9,6 +11,7 @@ Production-grade corpus integration for `reklawdbox`:
 5. Optional FAQ dedup pass.
 
 ## Baseline Context
+
 - Corpus root: `docs/rekordbox/`
 - Entry points: `docs/rekordbox/manifest.yaml`, `docs/rekordbox/README.md`
 - Reference anchors:
@@ -20,6 +23,7 @@ Production-grade corpus integration for `reklawdbox`:
   - `python3 docs/rekordbox/verify-phase-b.py`
 
 ## CI/Test Command Baseline
+
 - `cargo test`
 - `cargo test -- --ignored`
 - `cargo build --release`
@@ -29,6 +33,8 @@ Production-grade corpus integration for `reklawdbox`:
 No existing GitHub Actions workflow files were found in `.github/workflows/` at orchestration start.
 
 ## Wave Status
+
+<!-- dprint-ignore -->
 | Wave | Name | Status | Gate |
 |---|---|---|---|
 | Wave 0 | Setup (orchestrator) | done | Tracker exists with full wave map + ownership |
@@ -40,6 +46,8 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 | Wave 6 | FAQ Dedup (optional) | pending | No validator regressions + auditable dedup changes |
 
 ## Subagent Assignment Table
+
+<!-- dprint-ignore -->
 | ID | Wave | Type | Owner Scope | Deliverable |
 |---|---|---|---|---|
 | D1 | Wave 1 | explorer | MCP integration map | file-level routing/response integration points |
@@ -63,12 +71,15 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 | F3 | Wave 6 | worker | Post-dedup validation | validation rerun + manifest update if needed |
 
 ## Wave Execution Map
+
 ### Wave 0 - Setup
+
 - Read `AGENTS.md`, host guide (`CODEX.md` or `CLAUDE.md`), corpus README + manifest.
 - Confirm CI/test command baseline.
 - Create this tracker.
 
 ### Wave 1 - Discovery & Design
+
 - Run D1-D4 in parallel.
 - Merge discovery into this tracker with:
   - concrete file edits
@@ -76,13 +87,16 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
   - risk list
 
 ### Wave 1 Design Note (Merged)
+
 #### Discovery Summary
+
 - D1 (`MCP routing`): tool call routing and response construction are centralized in `src/tools.rs` with server bootstrap in `src/main.rs`. Integration should happen at tool-handler layer so all corpus-backed responses are generated in one place.
 - D2 (`XML + genre map`): XML export path is `update_tracks`/`write_xml` in `src/tools.rs` -> `changes.rs` + `db.rs` -> `xml.rs`. Genre path is `suggest_normalizations`, `update_tracks`, and taxonomy helpers in `src/genre.rs`.
 - D3 (`CI map`): no `.github/workflows/` currently exists. CI automation must be added as new workflow files.
 - D4 (`test/eval map`): current tests cover low-level modules but not MCP routing in `src/tools.rs`; evaluation should be added under `tests/` with focused routing/task-success suites.
 
 #### Concrete File Edits (Planned)
+
 - Retrieval core:
   - Add `src/corpus.rs` for manifest loading, filtering (`topic`/`mode`/`type`), scoring/ranking, stable sorting, and memoized index initialization.
   - Update `src/main.rs` and `src/tools.rs` to initialize/use corpus retrieval state.
@@ -105,6 +119,7 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
   - Add fail-fast/log grouping and upload artifacts for corpus check output.
 
 #### Acceptance Criteria By Workstream
+
 - Retrieval (`R*`):
   - Manifest-first retrieval returns deterministic, stable-ranked docs for identical input.
   - Filtering by `topic`/`mode`/`type` is correct and covered by tests.
@@ -122,6 +137,7 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
   - Thresholds are explicit and fail the run when unmet.
 
 #### Risks
+
 - Corpus coupling risk: hardcoded doc-path assumptions can drift if corpus layout changes; mitigate with manifest-driven lookups and tests.
 - Output shape risk: adding provenance fields can break existing consumers if response format changes unexpectedly; mitigate with additive fields only.
 - CI runtime risk: adding full test suite to new workflow may increase execution time; mitigate with staged jobs and fail-fast.
@@ -129,9 +145,11 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 - Integration-test environment risk: ignored real-DB tests depend on external backup availability.
 
 ### Wave 2 - Retrieval Integration
+
 - Run R1-R3 in parallel, then reconcile and test.
 
 #### Wave 2 Progress Notes (R3 - Robustness)
+
 - 2026-02-17: documented expected robustness behavior in `docs/rekordbox/README.md` for manifest index initialization, cache behavior, and unavailable/malformed-manifest fallback behavior.
 - 2026-02-17: clarified fallback expectation to continue best-effort guidance (priority consultation order + XML anchors) instead of request hard-failure.
 - 2026-02-17: orchestrator reconciled unintended out-of-scope Rust edits from worker execution and restored unrelated files to `HEAD`.
@@ -139,21 +157,25 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 - 2026-02-17: Wave 2 marked `done`.
 
 ### Wave 3 - Corpus-Backed Workflows
+
 - Run W1-W3 in parallel, then reconcile and test.
 
 #### Wave 3 Progress Notes (W1/W2/W3)
+
 - 2026-02-17: W1 updated `src/tools.rs` to include provenance on XML no-change path and added task-level tests for XML + genre response provenance.
 - 2026-02-17: W2 updated tracker checkpoints and provisional Wave 3 gate checklist.
 - 2026-02-17: W3 updated `docs/rekordbox/reference/developer-integration.md` with workflow response provenance fields and fallback semantics.
 - 2026-02-17: orchestrator reconciled Wave 3 outputs and validated with `cargo test tools::tests::` and full `cargo test`.
 
 #### Wave 3 Provisional Gate Checks (For Reconciliation)
+
 - [x] XML workflow outputs are corpus-informed for XML operations and include XML-reference-grounded guidance.
 - [x] Genre workflow outputs are corpus-informed for normalization/mapping decisions.
 - [x] Provenance is exposed in workflow responses via additive consulted-document metadata (for example `consulted_documents`).
 - [x] Corpus-informed behavior is manifest-driven (no hardcoded path-only coupling) and preserves existing XML write/export behavior.
 
 #### Wave 3 Assumptions and Open Questions
+
 - Assumption: Wave 2 provenance shape (`consulted_documents`-style additive field) remains the compatibility target for Wave 3 responses.
 - Assumption: Manifest entries for XML and genre reference docs remain stable through Wave 3 reconciliation.
 - Open question (non-blocking): Should genre responses expose only top-ranked consulted docs or the full consulted set when rankings tie closely?
@@ -161,9 +183,11 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 - Critical blockers: none currently identified.
 
 ### Wave 4 - CI Automation
+
 - Run C1-C3 in parallel.
 
 #### Wave 4 Progress Notes (C1/C2/C3)
+
 - 2026-02-17: C1/C2/C3 produced CI workflow drafts for corpus validation and verification.
 - 2026-02-17: orchestrator reconciled to a single consolidated workflow: `.github/workflows/corpus-ci.yml`.
 - 2026-02-17: local dry-run commands passed:
@@ -173,9 +197,11 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 - 2026-02-17: Wave 4 marked `done`.
 
 ### Wave 5 - Evaluation Suite
+
 - Run E1-E3 in parallel.
 
 #### Wave 5 Progress Notes (E1/E2/E3)
+
 - 2026-02-17: E1 added routing eval suite in `src/eval_routing.rs` with prompt-to-expected-doc cases and explicit thresholds.
 - 2026-02-17: E2 added task-success eval suite in `src/eval_tasks.rs` covering UI understanding, XML import/export, library management, USB export, and preferences/settings.
 - 2026-02-17: E3 added eval harness script `scripts/run-rekordbox-evals.sh` and wired modules in `src/main.rs`.
@@ -185,15 +211,18 @@ No existing GitHub Actions workflow files were found in `.github/workflows/` at 
 - 2026-02-17: Wave 5 marked `done`.
 
 ### Wave 6 - FAQ Dedup (optional)
+
 - Run only if time permits or explicitly requested.
 
 ## Blocking Issues and Decisions
+
 - Wave 1 D2 initial subagent prompt failed policy filtering. Decision: retry with narrower technical scope; retry succeeded and no functionality impact.
 - Wave 2 R3 scope was documentation-only. Decision: rely on orchestrator gate testing (`cargo test corpus`, `cargo test`) to close runtime confirmation after R1/R2 integration.
 - Wave 2 worker side effect: unrelated Rust files were modified during worker execution. Decision: audit diffs, preserve only planned Wave 2 files, restore unrelated files to `HEAD`.
 - Wave 4 produced overlapping workflow files. Decision: keep one consolidated workflow (`.github/workflows/corpus-ci.yml`) and remove redundant per-job duplicates to avoid duplicate CI runs.
 
 ## Deliverables Log
+
 - Added tracker: `docs/rekordbox/SOFTWARE-ORCHESTRATION-PLAN.md`.
 - Wave 1 discovery complete via D1/D2/D3/D4 and merged into this plan.
 - Wave 2 R3 documentation pass complete for robustness behavior and fallback expectations.

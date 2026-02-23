@@ -115,7 +115,7 @@ You can erase a sequence for a sampler slot during playback of a sequence or ove
 
 # Loading a sequence to a deck (SEQUENCE LOAD)
 
-Drag and drop the display of a sequencer panel to a player panel deck. The sequence is loaded to the deck with a track name of "PATTERN *(*)".
+Drag and drop the display of a sequencer panel to a player panel deck. The sequence is loaded to the deck with a track name of "PATTERN _(_)".
 
 [Screenshot: Sequencer panel showing SAVE button, PATTERN selector, sequence length selector (1Bar), and MUTE/ERASE buttons with waveform display]
 

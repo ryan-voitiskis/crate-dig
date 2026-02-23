@@ -56,7 +56,7 @@ You can control rekordbox virtual decks using turntables. Playback direction, te
 The following equipment is necessary for DVS.
 
 - **Computer**
-  See *1.4 System Requirements* for system requirements.
+  See _1.4 System Requirements_ for system requirements.
 
 - **Turntables (or CDJ/XDJ)**
   Recommended turntable:
@@ -150,7 +150,7 @@ Install rekordbox and start TRIAL. You can use all features of rekordbox includi
 - Input selector of the mixer (controller) channel connected to the turntables (or CDJs/XDJs) must be set to [USB-A], [USB-B], [USB], [PC], [computer icon], [DECK 1-4], etc. to the position of the computer to which rekordbox is connected.
 - Use AlphaTheta Control Vinyl (RB-VS1-K) for DVS.
 
-For CDJ/XDJ users, download rekordbox Control Signal.wav\* file and burn it on CD-R or save it in USB memory, etc. and insert the media device to the CDJ/XDJ (\*see details to *1.3 Required equipment*).
+For CDJ/XDJ users, download rekordbox Control Signal.wav\* file and burn it on CD-R or save it in USB memory, etc. and insert the media device to the CDJ/XDJ (\*see details to _1.3 Required equipment_).
 
 ## 3.2 Connecting to a stand-alone audio interface
 
@@ -168,7 +168,7 @@ For CDJ/XDJ users, download rekordbox Control Signal.wav\* file and burn it on C
 - Connect output terminals of the audio interface to CD/LINE terminals of a DJ mixer using RCA audio cables.
 - Use AlphaTheta Control Vinyl (RB-VS1-K) for DVS.
 
-For CDJ/XDJ users, download rekordbox Control Signal.wav file\* and burn it on CD-R or save it in USB memory, etc. and insert the media device to the CDJ/XDJ (\*see details to *1.3 Required equipment*).
+For CDJ/XDJ users, download rekordbox Control Signal.wav file\* and burn it on CD-R or save it in USB memory, etc. and insert the media device to the CDJ/XDJ (\*see details to _1.3 Required equipment_).
 
 # 4 DVS setup
 
@@ -197,23 +197,27 @@ Select one of the DVS modes by clicking the DECK number.
 Click [REL] and select the mode from the drop-down menu.
 
 [ABS]: ABSOLUTE mode
+
 - Location of the needle on the vinyl is linked with the playback position of rekordbox DECK.
 - Direction, tempo, scratch and other performances on the vinyl are linked to the DECK.
 - Digital features such as Hot Cue and Needle Search do not work in this mode.
 
-Note: See *Restricted features in the ABSOLUTE and RELATIVE mode* in page 11 for details.
+Note: See _Restricted features in the ABSOLUTE and RELATIVE mode_ in page 11 for details.
 
 [REL]: RELATIVE mode
+
 - Location of the needle on the vinyl is not linked with the playback position of rekordbox deck.
 - Direction, tempo, scratch and other performances on the vinyl are linked to the deck.
 
-Note: See *Restricted features in the ABSOLUTE and RELATIVE mode* in page 17 for details.
+Note: See _Restricted features in the ABSOLUTE and RELATIVE mode_ in page 17 for details.
 
 [INT]: INTERNAL mode
+
 - Location of the needle, direction, tempo, scratch and other performances on the vinyl are not linked to the deck.
 - You can use all features on the deck.
 
 [THR]: THROUGH mode (This appears only when using a stand-alone audio interface)
+
 - Audio from a turntable is sent through an audio interface to an output terminal as is.
 - The deck will pause.
 
@@ -223,6 +227,7 @@ Use this feature in the ABSOLUTE mode when you temporally switch to the INTERNAL
 
 **Restricted features in the ABSOLUTE and RELATIVE mode**
 
+<!-- dprint-ignore -->
 | Features on the deck | ABSOLUTE mode | RELATIVE mode |
 |---|---|---|
 | PLAY/PAUSE | N/A | N/A |
@@ -240,6 +245,7 @@ Use this feature in the ABSOLUTE mode when you temporally switch to the INTERNAL
 \*1...Tempo Control is available by using Tempo Slider or Tempo Range on the turntable (or CDJ/XDJ).
 
 \*2...BPM Sync on the deck in the Relative mode works as follows:
+
 - Click [BPM SYNC] you wish to synchronize.
   -> The deck is synchronized to the master deck (not grid).
 - When you change the master deck tempo using the tempo slider,
@@ -257,6 +263,7 @@ This audio routing setting procedure is available on DJ units supporting DVS(\*1
 (\*1)...DJ units supporting DVS (rekordbox.com/en/support/link)
 
 To use the DVS function, open [Preferences] > [Audio] category > [Input/Output] tab and complete the following settings.
+
 1. [Input Channel]
 2. Output setting at [MIXER OUTPUT] in the [Setting Utility] of the hardware. (Depending on the DJ unit used, this may not be necessary.)
 3. [Output Channel]
@@ -270,6 +277,7 @@ Please note that this audio routing setting is only for the configuration using 
 [Screenshot: Control Hardware radio button group showing three options: Turntables (selected), CDJs, and Customized Setting]
 
 Click one of three options above to select the DJ player.
+
 - To use 2 turntables, click [Turntables].
   -> The input to your computer is set to [Control tone PHONO].
 - To use 2 CDJs/XDJs, click [CDJs].

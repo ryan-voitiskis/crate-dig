@@ -30,6 +30,7 @@ rekordbox.com/en/download/#manual
 
 ## Contents
 
+<!-- dprint-ignore -->
 | Section | Page |
 |---|---|
 | About this manual | 2 |

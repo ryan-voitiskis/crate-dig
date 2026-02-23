@@ -40,7 +40,7 @@ Recordings are created as WAV files.
    Start playback of some tracks on the connected hardware, check the recording level indicator, and adjust the recording level accordingly.
    - If the level is too low, recorded files will contain noise and the volume will be low.
    - If the level is too high, clipping will occur and the sound will be distorted.
-   The best recording quality can be obtained by increasing the maximum recording level to the point where not all the indicators hit the red zone.
+     The best recording quality can be obtained by increasing the maximum recording level to the point where not all the indicators hit the red zone.
 
 4. Click [Screenshot: record button].
    [Screenshot: record button] flashes and rekordbox is in the recording standby mode.

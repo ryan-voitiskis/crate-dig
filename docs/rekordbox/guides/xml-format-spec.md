@@ -16,6 +16,7 @@ verified_by: agent
 
 # XML file format for playlists sharing (includes all playlists information)
 
+<!-- dprint-ignore -->
 | Name of element/attribute | Description | Expected data type and format |
 |---|---|---|
 | DJ_PLAYLISTS | | |

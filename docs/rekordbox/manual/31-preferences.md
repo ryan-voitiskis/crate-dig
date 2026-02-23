@@ -21,6 +21,7 @@ Depending on your rekordbox version and subscription plan, some items may not be
 
 ## [PLAN]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Current Plan] | [Activate this computer] | Activate the computer. |
@@ -34,6 +35,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [LIBRARY SYNC]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Cloud Library Sync] | [Sync library to another device] | Synchronize the library to another device. |
@@ -51,6 +53,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [DJ equipment linkage]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Cloud function to use DJ equipment] | [Cloud Analysis / rekordbox CloudDirectPlay] | [Using device authentication] |
@@ -67,6 +70,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Display Type]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Language] | Select a language. | |
@@ -85,6 +89,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Layout]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Layout] | [Media Browser] | Display [Related Tracks], [Hot Cue Bank List] (EXPORT mode), [iTunes], [Inflyte], [SoundCloud] (PERFORMANCE mode), [Beatport] (PERFORMANCE mode), [Beatsource] (PERFORMANCE mode), [TIDAL] (PERFORMANCE mode), [Apple Music], [Track Suggestion], [rekordbox xml], [Explorer], and [SEARCH MOBILE button] in the [Media Browser] window. |
@@ -98,6 +103,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Color]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Skin] | Set the base color of the display. [Dark]: The conventional black tone design. [Light]: White tone design for outdoor use. |
@@ -110,6 +116,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Configuration]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Audio] | Set the audio device to output sound. |
@@ -121,6 +128,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Input/Output]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Mixer Mode] (PERFORMANCE mode) | [Internal]: Use the mixer function on rekordbox. [External]: Use an external DJ mixer/DJ controller. This gives a six-way output: track decks 1 through 4, sampler deck, and preview. |
@@ -134,6 +142,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [Track Analysis]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Track Analysis] | [Use high precision BeatGrid analysis] | Higher accuracy analysis results can be obtained compared to conventional analysis. |
@@ -147,6 +156,7 @@ The user account name is displayed in the upper-right corner of the screen. You 
 
 ### [CUE Analysis]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [Intelligent Cue Creation] | [Set CUE during analysis] | Set CUE analysis when analyzing tracks. Select [Auto] or [Manual] as the CUE analysis mode. |
@@ -184,6 +194,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Device]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Delete Tracks] | When a playlist is deleted from the USB storage device or SD card, tracks in the playlist are deleted. Tracks can be deleted only if they are not contained on another playlist. |
@@ -191,6 +202,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Others]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Hot Cue Auto Load] | [Prepare Hot Cue Auto Load setting for CDJ/XDJ use (on import)]: When adding a music file to [Collection], the [Allow to auto load HotCue on CDJ/XDJ] checkbox on the [Info] screen has a check mark automatically. When music files with this setting are loaded into the DJ player, the Hot Cue points saved on the DJ player are replaced with points saved in the loaded music files. |
@@ -200,6 +212,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Deck]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Eject/Load Lock] | Select [Lock] to prevent music files from being loaded to the deck while a track is playing. |
@@ -216,6 +229,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Mixer]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Auto Gain] | Select [Enable] to automatically adjust the audio volume of the track loaded to a deck. You can also adjust it manually using the [Auto Gain] knob on the [GRID EDIT]. |
@@ -226,6 +240,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Effect]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [RELEASE FX] | Set the number of units for Release FX. When [Audio] category > [Input/Output] tab > [Mixer Mode] is set to [Internal], Release FX is applied to the Master output if [Unit Number] is set to [1]. To set this to turn off [SOUND COLOR FX] at the same time when turning on Release FX, select [Apply RELEASE FX on CFX]. |
@@ -233,6 +248,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Sampler]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [SLOT] | Select the number of samplers. Also, you can set not to be overwritten. |
@@ -243,6 +259,7 @@ Select the settings to be used on the DJ player. These settings can be made for 
 
 ### [Recordings]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Location of Files] | Set the location for saving recorded files. |
@@ -260,6 +277,7 @@ Click the [Enable MIX POINT LINK Function] checkbox to enable the MIX POINT LINK
 
 -> See "Using the MIX POINT LINK function" (page 216)
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [MIX IN/MIX OUT] | [Default MIX POINT Setting] | When [MIX IN] is selected, you can select MIX POINT of [MIX IN]. When [MIX OUT] is selected, you can select MIX POINT of [MIX OUT]. |
@@ -274,6 +292,7 @@ Click the [Enable MIX POINT LINK Function] checkbox to enable the MIX POINT LINK
 
 Make settings for the quantize and Ableton Link.
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Mode] | If [Type] > [QUANTIZE] > [HOT CUE] and [LOOP SAMPLE(LOOP)] are set to [Enable], you can set how to adjust the beat when calling Hot Cue, Loop, or Sampler Loop during playback. When this is checked, these functions are called immediately. (The playback position after being called is adjusted so that the beat is not shifted.) When this is unchecked, these functions are called after playing to the next beat. \* This function is enabled only when [Q] on the deck is turned on. |
@@ -290,6 +309,7 @@ Assign keyboard shortcuts to each button. Refer to "Default keyboard shortcut re
 
 ### [Database]
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [iTunes] | [iTunes Library File] | Specify the xml file of the iTunes library to browse in [iTunes]. |
@@ -302,6 +322,7 @@ Assign keyboard shortcuts to each button. Refer to "Default keyboard shortcut re
 
 ### [Browse]
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [My Tag] | When adding My Tag information to the track, it is also added to the comment column in the track list. |
@@ -315,6 +336,7 @@ Assign keyboard shortcuts to each button. Refer to "Default keyboard shortcut re
 
 ### [Recordings] (EXPORT mode)
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Location of Files] | Specify the location for the recorded files. |
@@ -328,6 +350,7 @@ Assign keyboard shortcuts to each button. Refer to "Default keyboard shortcut re
 
 ### [Others] (EXPORT mode)
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Computer Name] | Set the name of the computer to be displayed on the DJ player. |
@@ -345,6 +368,7 @@ Assign keyboard shortcuts to each button. Refer to "Default keyboard shortcut re
 
 ### [Others] (PERFORMANCE mode)
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [Tribe XR] | Set up the XML file for use with Tribe XR. |
@@ -371,6 +395,7 @@ Click the [Enable the STEMS Function] checkbox to enable the STEMS function.
 
 -> See "Using the STEMS function" (page 207)
 
+<!-- dprint-ignore -->
 | | |
 |---|---|
 | [STEMS Mode] | You can choose to divide the track into either 3 Stems or 4 Stems. [3 Stems(VOCAL, INST, DRUMS)]: A track can be divided into the VOCAL, INST, and DRUMS Stems, to be played. [4 Stems(VOCAL, INST, BASS, DRUMS)]: A track can be divided into the VOCAL, INST, BASS, and DRUMS Stems, to be played. |

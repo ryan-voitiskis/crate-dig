@@ -10,6 +10,7 @@ Comprehensive rekordbox 7.x corpus for reklawdbox agent workflows (library manag
 ## Agent Usage Pattern
 
 Use a manifest-first discovery flow:
+
 1. Read `docs/rekordbox/manifest.yaml` to find candidate docs by `topics`, `modes`, and `type`.
 2. Resolve a narrow reading set, then open those markdown files directly.
 3. Prefer `reference/` docs first for synthesis tasks, then drop to source transcriptions (`manual/`, `guides/`, `faq/`).
@@ -56,6 +57,7 @@ Use a manifest-first discovery flow:
 
 ## Topic Cross-Reference
 
+<!-- dprint-ignore -->
 | Topic | Documents |
 |---|---|
 | analysis | `faq/cloud-and-sync.md`, `faq/library-and-collection.md`, `faq/troubleshooting.md`, `guides/phrase-edit.md`, `manual/03-adding-tracks.md`, `manual/08-intelligent-cue.md`, `manual/14-export-playing.md`, `manual/17-export-recording.md`, `manual/20-performance-playing.md`, `manual/31-preferences.md` |
@@ -117,6 +119,7 @@ Use a manifest-first discovery flow:
 
 ## Mode Cross-Reference
 
+<!-- dprint-ignore -->
 | Mode | Documents |
 |---|---|
 | common | `faq/cloud-and-sync.md`, `faq/hardware-compatibility.md`, `faq/library-and-collection.md`, `faq/plans-and-billing.md`, `faq/stems-and-effects.md`, `faq/streaming.md`, `faq/troubleshooting.md`, `faq/usb-and-devices.md`, `features/cloud-setup-guide.md`, `features/overview.md`, `features/whats-new-v7.md`, `guides/cloud-direct-play.md`, `guides/cloud-library-sync.md`, `guides/device-library-backup.md`, `guides/introduction.md`, `guides/keyboard-shortcuts.md`, `guides/phrase-edit.md`, `guides/pro-dj-link-setup.md`, `guides/streaming-services.md`, `guides/xml-format-spec.md`, `manual/01-introduction.md`, `manual/02-collection-window.md`, `manual/03-adding-tracks.md`, `manual/04-management.md`, `manual/05-editing-track-info.md`, `manual/06-searching.md`, `manual/07-playlists.md`, `manual/08-intelligent-cue.md`, `manual/09-collaborative-playlists.md`, `manual/10-mobile-devices.md`, `reference/developer-integration.md`, `reference/glossary.md`, `reference/xml-import-export.md` |
@@ -127,6 +130,7 @@ Use a manifest-first discovery flow:
 
 ## Source Material Summary
 
+<!-- dprint-ignore -->
 | Type | Count | Notes |
 |---|---:|---|
 | Manual docs | 33 | rekordbox 7.2.8 instruction manual sections |

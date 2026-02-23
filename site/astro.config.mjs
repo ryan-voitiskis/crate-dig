@@ -1,6 +1,6 @@
 // @ts-check
-import { defineConfig, passthroughImageService } from 'astro/config';
-import starlight from '@astrojs/starlight';
+import starlight from '@astrojs/starlight'
+import { defineConfig, passthroughImageService, } from 'astro/config'
 
 export default defineConfig({
   site: 'https://reklawdbox.com',
@@ -10,29 +10,33 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'reklawdbox Docs',
-      social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/ryan-voitiskis/reklawdbox' }],
+      social: [{
+        icon: 'github',
+        label: 'GitHub',
+        href: 'https://github.com/ryan-voitiskis/reklawdbox',
+      },],
       sidebar: [
         {
           label: 'Getting Started',
-          items: [{ label: 'Overview', slug: 'getting-started' }],
+          items: [{ label: 'Overview', slug: 'getting-started', },],
         },
         {
           label: 'Concepts',
-          autogenerate: { directory: 'concepts' },
+          autogenerate: { directory: 'concepts', },
         },
         {
           label: 'Workflows',
-          autogenerate: { directory: 'workflows' },
+          autogenerate: { directory: 'workflows', },
         },
         {
           label: 'Reference',
-          autogenerate: { directory: 'reference' },
+          autogenerate: { directory: 'reference', },
         },
         {
           label: 'Troubleshooting',
-          autogenerate: { directory: 'troubleshooting' },
+          autogenerate: { directory: 'troubleshooting', },
         },
       ],
-    }),
+    },),
   ],
-});
+},)

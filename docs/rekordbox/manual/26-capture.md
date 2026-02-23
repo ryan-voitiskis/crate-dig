@@ -102,11 +102,11 @@ Load the track in the sampler slot to the deck.
   Set the followings from the [MIDI settings] window > [PAD] tab > [SampleScratch].
   - [SampleScratchMode]
   - [SampleScratch Pad1-8]
-  Set the followings from the [Preferences] window > [Keyboard] category > [Deck 1] through [Deck 4].
+    Set the followings from the [Preferences] window > [Keyboard] category > [Deck 1] through [Deck 4].
   - [Pad mode - Sample Scratch]
   - [Pad A] through [Pad H]
-  For details on how to operate MIDI Learn, refer to "MIDI LEARN Operation Guide" on the rekordbox website.
-  For details on how to operate keyboard shortcuts, refer to "Default Keyboard shortcut references" on the rekordbox website.
+    For details on how to operate MIDI Learn, refer to "MIDI LEARN Operation Guide" on the rekordbox website.
+    For details on how to operate keyboard shortcuts, refer to "Default Keyboard shortcut references" on the rekordbox website.
 
 ## Using SAMPLE SCRATCH on DJ controller
 

@@ -509,6 +509,7 @@ Insert the USB storage device into your computer, and then click the device icon
 
 You can make settings for USB storage devices to use on a DJ player. Refer also to the Instruction Manual for the DJ player.
 
+<!-- dprint-ignore -->
 | | | |
 |---|---|---|
 | [General] | [Device Name] | Set the name to display. |

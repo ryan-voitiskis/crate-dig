@@ -43,6 +43,7 @@ struct PendingMove {
 ```
 
 MCP tools:
+
 - `stage_move(old_path, new_path)` — stages a file move, auto-checks Rekordbox import status
 - `preview_moves()` — shows all staged moves with Rekordbox impact
 - `execute_moves()` — performs the file moves

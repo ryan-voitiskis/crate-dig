@@ -227,7 +227,7 @@ It's not possible to join the Professional DJ team and Cloud Option DJ team in a
 
 If either of the above applies to you, you'll need to create a new Dropbox personal account. If you're already using Cloud Library Sync, move your music files to the new Dropbox account. Find details [here](https://rekordbox.com/en/cloud-setup-guide/).
 
-If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website.  Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
+If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website. Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
 
 ---
 
@@ -249,8 +249,8 @@ Note:
 
 - If you switch between 2 Dropbox Business team accounts on the Dropbox Desktop app, each time you log in to an account, all the files saved on the account are downloaded.
 - Your current Dropbox account type can be viewed on the following page.
-[https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
-If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
+  [https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
+  If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
 
 ---
 
@@ -311,6 +311,7 @@ Please also configure the settings in either of the following ways to avoid copy
 [https://help.dropbox.com/en-en/sync/make-files-online-only](https://help.dropbox.com/en-en/sync/make-files-online-only)
 
 - Set Dropbox to selective sync so that rekordbox folders are not synchronized (*)
+
 * Do not apply this setting while [Synchronize all music files] is selected. (Since a file conflict occurs and it becomes a missing file)
 
 [https://help.dropbox.com/en-en/sync/selective-sync-overview](https://help.dropbox.com/en-en/sync/selective-sync-overview)
@@ -322,17 +323,17 @@ Please also configure the settings in either of the following ways to avoid copy
 There are possible causes as follows.
 
 - **Cloud Sync is incomplete**
-If the Cloud Library Sync between rekordbox and the library in the cloud hasn't finished, the track won't be displayed on the browse screen. Wait for the sync to finish, then the track should display.
+  If the Cloud Library Sync between rekordbox and the library in the cloud hasn't finished, the track won't be displayed on the browse screen. Wait for the sync to finish, then the track should display.
 - **The music file has not been uploaded to cloud storage (Dropbox or Google Drive)**
-Only music files that you have uploaded to cloud storage will be displayed on the Browse screen.
-If the upload is not complete, the music file cannot be loaded.
-Upload the music files you want to use to cloud storage beforehand, then use them once the upload is complete.
-You can upload with rekordbox.
+  Only music files that you have uploaded to cloud storage will be displayed on the Browse screen.
+  If the upload is not complete, the music file cannot be loaded.
+  Upload the music files you want to use to cloud storage beforehand, then use them once the upload is complete.
+  You can upload with rekordbox.
 - **Impact of cloud storage maintenance or failure**
-When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded. Try again when the cloud storage is back online.
-You can check the status of these issues on the cloud storage service websites below.
-[Dropbox](https://status.dropbox.com/)
-[Google Drive](https://www.google.co.jp/appsstatus/dashboard/)
+  When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded. Try again when the cloud storage is back online.
+  You can check the status of these issues on the cloud storage service websites below.
+  [Dropbox](https://status.dropbox.com/)
+  [Google Drive](https://www.google.co.jp/appsstatus/dashboard/)
 
 ---
 
@@ -395,23 +396,25 @@ When a track title is grayed out, it means the file hasn't been transferred from
 
 - File transfer using Mobile Library Sync
 
-1. 1. Connect rekordbox (Mac/Windows) and rekordbox (iOS) to the same Wi-Fi network.
+1.
+   1. Connect rekordbox (Mac/Windows) and rekordbox (iOS) to the same Wi-Fi network.
 2. In rekordbox (iOS), tap [Settings] > [Connect to rekordbox (Mac/Win)].
 3. In rekordbox (Mac/Windows), click [SEARCH MOBILE].
 4. Select the track from a track list in rekordbox (Mac/Windows) and right-click to show the context menu. Select [Mobile Library Sync] > [Transfer to this computer].
 
 - Using Cloud Library Sync
 
-1. 1. Open the information window and check which device contains the track with the grayed-out title.
+1.
+   1. Open the information window and check which device contains the track with the grayed-out title.
 2. Upload the track from the device that contains it.
 
-rekordbox (Mac/Windows):   Select the track from a track list, right-click and select [Cloud Library Sync] > [Upload] from the context menu.
+rekordbox (Mac/Windows): Select the track from a track list, right-click and select [Cloud Library Sync] > [Upload] from the context menu.
 
-rekordbox (iOS):  Swipe a track to the left, tap [...], and select [Upload to Cloud].
+rekordbox (iOS): Swipe a track to the left, tap [...], and select [Upload to Cloud].
 
 3. Once the track has been uploaded, it will be downloaded automatically by the Dropbox desktop application installed on your computer.
 
-1.
+4.
 
 ---
 

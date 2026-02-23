@@ -33,19 +33,21 @@ pub fn xml_escape(s: &str) -> String {
 pub fn path_to_location(file_path: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
-    let (uri_path, is_file_uri_input) = if let Some(path) = file_path.strip_prefix("file://localhost")
-    {
-        (path, true)
-    } else if let Some(path) = file_path.strip_prefix("file://") {
-        (path, true)
-    } else {
-        (file_path, false)
-    };
+    let (uri_path, is_file_uri_input) =
+        if let Some(path) = file_path.strip_prefix("file://localhost") {
+            (path, true)
+        } else if let Some(path) = file_path.strip_prefix("file://") {
+            (path, true)
+        } else {
+            (file_path, false)
+        };
 
     // Only URI inputs are percent-decoded first to avoid double-encoding URI segments.
     // Raw filesystem paths should keep literal '%' so it can be encoded as '%25'.
     let normalized_source = if is_file_uri_input {
-        percent_decode_str(uri_path).decode_utf8_lossy().into_owned()
+        percent_decode_str(uri_path)
+            .decode_utf8_lossy()
+            .into_owned()
     } else {
         uri_path.to_string()
     };

@@ -43,6 +43,7 @@ For WAV files, `tag_types` controls which tag layers to write. Default: both (ma
 
 ### Crate candidates
 
+<!-- dprint-ignore -->
 | Crate       | Read | Write | WAV tag 2/3 | Formats           | Notes                              |
 | ----------- | ---- | ----- | ----------- | ----------------- | ---------------------------------- |
 | `lofty`     | Yes  | Yes   | Yes         | FLAC/WAV/MP3/M4A  | Distinguishes ID3v2 vs RIFF INFO   |

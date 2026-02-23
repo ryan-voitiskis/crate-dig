@@ -119,6 +119,7 @@ Select a detailed item depending on the function.
 
 ## Pad modes list
 
+<!-- dprint-ignore -->
 | Pad mode | Description |
 |---|---|
 | HOT CUE | When using a Hot Cue, you can instantly call up the specific playback position. |
@@ -138,6 +139,7 @@ Select a detailed item depending on the function.
 
 ## List of templates for pad customizing
 
+<!-- dprint-ignore -->
 | Template name | Description |
 |---|---|
 | HOT CUE | Assigns the Hot Cue A to P. |
@@ -158,6 +160,7 @@ Select a detailed item depending on the function.
 
 ## List of assigned Pad functions for customizing
 
+<!-- dprint-ignore -->
 | Pad category | Pad function | Description |
 |---|---|---|
 | HOT CUE | HOT CUE/LOOP A to P | KEY NON, KEY -12 to +12 |

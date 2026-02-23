@@ -74,8 +74,8 @@ Shortcuts can be created for a folder or playlist in the tree view. Click a shor
 
 [Screenshot: Dragging a genre folder (e.g., "Genre-House") from the Collection tree view to the shortcut window. The tree view shows Genre expanded with sub-items like All, Drum'n Bass, Electro, House, Jazz, Pop, R&B, Reggae, Rock, Techno, Trance, and World Music.]
 
-   The shortcut for the folder, playlist, etc. is created.
-   If you drag and drop the folder, playlist, etc. to an existing shortcut, the shortcut is overwritten.
+The shortcut for the folder, playlist, etc. is created.
+If you drag and drop the folder, playlist, etc. to an existing shortcut, the shortcut is overwritten.
 
 3. Click the shortcut you have just created.
    The folder, playlist, etc. registered as the shortcut is selected and highlighted.

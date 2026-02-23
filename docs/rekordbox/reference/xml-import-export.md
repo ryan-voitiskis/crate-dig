@@ -40,6 +40,7 @@ This document consolidates XML workflow behavior from official rekordbox docs an
 ## Importing XML via Bridge
 
 From developer guidance:
+
 - Build a UTF-8 XML file in rekordbox-supported schema (header starts with `<?xml version="1.0" encoding="UTF-8" ?>`).
 - Configure the file location at `[File] > [Preferences] > [Bridge] > [Imported Library]`.
 - rekordbox then exposes the imported playlist structure in the [Bridge] pane.
@@ -48,6 +49,7 @@ From developer guidance:
 ## XML Format Specification Summary
 
 Based on `guides/xml-format-spec.md` (XML format list PDF):
+
 - Root tree: `DJ_PLAYLISTS > PRODUCT / COLLECTION / PLAYLISTS`.
 - `COLLECTION` contains track metadata fields like `TrackID`, `Name`, `Artist`, `Genre`, `AverageBpm`, `Location`, and others.
 - `TRACK > TEMPO` stores beatgrid timing (`Inizio`, `Bpm`, `Metro`, `Battito`).
@@ -65,6 +67,7 @@ Based on `guides/xml-format-spec.md` (XML format list PDF):
 ## Source Evidence Highlights
 
 From `manual/31-preferences.md`:
+
 - [rekordbox xml], [Explorer], and [SEARCH MOBILE button] in the [Media Browser] window. |
 - [Imported Library] | Specify the playlist library (the location of the xml file) to browse on [rekordbox xml]. |
 - [Tribe XR] | Set up the XML file for use with Tribe XR. |
@@ -72,6 +75,7 @@ From `manual/31-preferences.md`:
 - [Export BeatGrid information] | When exporting music file information as an xml file, beatgrid information can be output to the xml file. |
 
 From `faq/library-and-collection.md`:
+
 - **Can I automatically export XML format collections?**: By performing settings with the following procedures, you can automatically export collections when closing rekordbox. 1. Open [Preferences] > [Advanced] category > [Others] tab. 2. Enable [XML Auto Export] in [Tribe XR]. 3. Specify a saving destination on [Location of the xml file on dropbox].
 - **Can the rekordbox library be used on Tribe XR?**: Yes you can. It can be used by exporting collection in XML format. Export collection in XML format with the following procedures. 1. Select [File] menu > [Export Collection in xml format]. 2. Copy the exported XML file on to Dropbox. 3. Connect to Dropbox from Tribe XR and load the exported XML.
 

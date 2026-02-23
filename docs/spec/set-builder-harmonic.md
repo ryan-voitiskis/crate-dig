@@ -15,6 +15,7 @@ The original plan proposed adopting MIREX-style relation labels. The existing im
 
 **Current scores vs. proposed recalibration:**
 
+<!-- dprint-ignore -->
 | Relation                           | Current | Proposed | Rationale                                                       |
 | ---------------------------------- | ------- | -------- | --------------------------------------------------------------- |
 | Same key (8A → 8A)                 | 1.0     | 1.0      | No change                                                       |
@@ -101,6 +102,7 @@ pub enum HarmonicStyle {
 
 Phase × Style interaction matrix (minimum key score to avoid penalty):
 
+<!-- dprint-ignore -->
 | Phase   | Conservative                  | Balanced          | Adventurous         |
 | ------- | ----------------------------- | ----------------- | ------------------- |
 | Warmup  | 0.8 (same/adjacent/mood only) | 0.45 (no clashes) | 0.45 (no clashes)   |
@@ -332,6 +334,7 @@ This can be a `#[test]` in `tools.rs` using in-memory profiles (no DB needed).
 
 ## Implementation Sequencing
 
+<!-- dprint-ignore -->
 | Step | Phase                                     | Effort | Dependency |
 | ---- | ----------------------------------------- | ------ | ---------- |
 | 1    | 1.1 Key recalibration                     | Small  | None       |
@@ -361,6 +364,7 @@ Steps 1, 2, 5, 8 can run in parallel. Steps 3 and 4 can run in parallel after 1.
 
 ## Open questions resolved
 
+<!-- dprint-ignore -->
 | #  | Question                            | Resolution                                                                        |
 | -- | ----------------------------------- | --------------------------------------------------------------------------------- |
 | Q1 | BPM penalty curve shape             | Percentage-based piecewise with comfort zone at ≤3% (see D2)                      |

@@ -30,6 +30,7 @@
 ~/Library/Pioneer/rekordbox/
 ```
 
+<!-- dprint-ignore -->
 | File | Size (typical) | Description |
 |------|---------------|-------------|
 | `master.db` | 25 MB | **Main library database** (SQLCipher encrypted) |
@@ -120,6 +121,7 @@ The key is a 64-character hex string. It was originally extractable from the Ele
 (`.jsc` files), so the key is no longer in plaintext.
 
 pyrekordbox hardcodes an obfuscated blob and decodes it via:
+
 1. Base85 decode
 2. XOR with 16-byte key (`657f48f84c437cc1`)
 3. zlib decompress
@@ -180,6 +182,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### Common Columns (present on all `djmd*` tables)
 
+<!-- dprint-ignore -->
 | Column | Type | Description |
 |--------|------|-------------|
 | `ID` | VARCHAR(255) PK | Primary key |
@@ -195,6 +198,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### DjmdContent (Track Metadata) — Key Columns
 
+<!-- dprint-ignore -->
 | Column | Type | Notes |
 |--------|------|-------|
 | `Title` | VARCHAR(255) | Track title |
@@ -227,6 +231,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### Metadata Lookup Tables
 
+<!-- dprint-ignore -->
 | Table | Key Columns |
 |-------|-------------|
 | `djmdArtist` | ID, Name, SearchStr |
@@ -238,6 +243,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### Playlist Tables
 
+<!-- dprint-ignore -->
 | Table | Key Columns |
 |-------|-------------|
 | `djmdPlaylist` | ID, Seq, Name, Attribute (0=playlist, 1=folder, 4=smart), ParentID |
@@ -245,6 +251,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### Cue Points (DjmdCue)
 
+<!-- dprint-ignore -->
 | Column | Type | Notes |
 |--------|------|-------|
 | `ContentID` | VARCHAR(255) FK | Track reference |
@@ -256,6 +263,7 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ### Other Tables
 
+<!-- dprint-ignore -->
 | Table | Purpose |
 |-------|---------|
 | `djmdMyTag` / `djmdSongMyTag` | Custom tag organization |
@@ -321,6 +329,7 @@ Developer page: https://rekordbox.com/en/support/developer/
 
 ### TRACK Attributes (Complete)
 
+<!-- dprint-ignore -->
 | Attribute | Type | Description | Notes |
 |-----------|------|-------------|-------|
 | `TrackID` | string | Track identifier | Unique within XML |
@@ -354,6 +363,7 @@ Developer page: https://rekordbox.com/en/support/developer/
 
 ### TEMPO Sub-element (Beat Grid)
 
+<!-- dprint-ignore -->
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `Inizio` | float | Start position in seconds |
@@ -365,6 +375,7 @@ Multiple TEMPO elements per track are valid (for tracks with BPM changes).
 
 ### POSITION_MARK Sub-element (Cue Points)
 
+<!-- dprint-ignore -->
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `Name` | string | Cue point label |
@@ -378,6 +389,7 @@ Multiple TEMPO elements per track are valid (for tracks with BPM changes).
 
 ### Playlist NODE Attributes
 
+<!-- dprint-ignore -->
 | Attribute | Type | Description |
 |-----------|------|-------------|
 | `Type` | int | 0=Folder, 1=Playlist |
@@ -388,6 +400,7 @@ Multiple TEMPO elements per track are valid (for tracks with BPM changes).
 
 ### Track Colors (Colour attribute)
 
+<!-- dprint-ignore -->
 | Name | Hex | RGB |
 |------|-----|-----|
 | Rose | `0xFF007F` | 255, 0, 127 |
@@ -403,6 +416,7 @@ Multiple TEMPO elements per track are valid (for tracks with BPM changes).
 
 Rekordbox uses classic notation. The Camelot wheel mapping:
 
+<!-- dprint-ignore -->
 | Classic | Camelot | Classic | Camelot |
 |---------|---------|---------|---------|
 | G#m | 1A | B | 1B |
@@ -422,6 +436,7 @@ Display format selectable in Preferences > View > Key display format: Classic or
 
 ### Rating Values
 
+<!-- dprint-ignore -->
 | Stars | XML Value |
 |-------|-----------|
 | 0 | 0 |
@@ -458,6 +473,7 @@ Display format selectable in Preferences > View > Key display format: Classic or
 ### What Survives a Round-Trip (Export → Modify → Import)
 
 **Preserved on reimport:**
+
 - Genre, Comments, Rating, Colour — **these are the primary targets for reklawdbox**
 - Track title, artist, album, composer, remixer, label
 - Tonality (key), BPM
@@ -467,6 +483,7 @@ Display format selectable in Preferences > View > Key display format: Classic or
 - Play count, dates
 
 **NOT preserved / limitations:**
+
 - My Tags — not represented in XML format
 - Hot Cue Banks — not in XML
 - Phrase analysis (PSSI) — not in XML
@@ -477,6 +494,7 @@ Display format selectable in Preferences > View > Key display format: Classic or
 - Active censors — not in XML
 
 **Matching behavior on import:**
+
 - Rekordbox matches tracks by `Location` (file path)
 - If the path doesn't match any existing track, a new entry is created
 - **BUG**: If a track with the same path already exists, metadata is **NOT updated** via standard import (RB 5.6.1+). You must use the two-step workaround: import playlist first, then select all tracks and import again to force overwrite.
@@ -497,6 +515,7 @@ Display format selectable in Preferences > View > Key display format: Classic or
 
 ### File Types
 
+<!-- dprint-ignore -->
 | Extension | Contents |
 |-----------|----------|
 | `.DAT` | Core: beat grid, monochrome waveform, cue points, file path |
@@ -513,6 +532,7 @@ All values are **big-endian**.
 
 ### Tag Types
 
+<!-- dprint-ignore -->
 | Code | Name | File | Description |
 |------|------|------|-------------|
 | `PPTH` | Path | .DAT | UTF-16-BE file path |
@@ -544,6 +564,7 @@ each byte from offset 18 with `(XOR_MASK[i % 19] + len_entries) & 0xFF`.
 
 ### Fields Most Useful for DJ Workflow
 
+<!-- dprint-ignore -->
 | Field | XML Attribute | DB Column | Editable via XML | Notes |
 |-------|--------------|-----------|-----------------|-------|
 | **Genre** | `Genre` | `GenreID` (FK) | Yes | Free text — our primary target |
@@ -626,6 +647,7 @@ We will **not** build on pyrekordbox directly (it's Python), but we learn from i
 
 ### Libraries & Frameworks
 
+<!-- dprint-ignore -->
 | Tool | Language | What It Does | URL |
 |------|----------|-------------|-----|
 | **pyrekordbox** | Python | Full RB data access (DB, XML, ANLZ) | [GitHub](https://github.com/dylanljones/pyrekordbox) |
@@ -642,6 +664,7 @@ We will **not** build on pyrekordbox directly (it's Python), but we learn from i
 
 ### MCP Servers
 
+<!-- dprint-ignore -->
 | Tool | Language | What It Does | URL |
 |------|----------|-------------|-----|
 | **rekordbox-mcp** | Python | MCP server for RB database (read-only, uses pyrekordbox) | [GitHub](https://github.com/davehenke/rekordbox-mcp) |
@@ -652,6 +675,7 @@ We will **not** build on pyrekordbox directly (it's Python), but we learn from i
 
 ### Commercial Tools
 
+<!-- dprint-ignore -->
 | Tool | What It Does | Price |
 |------|-------------|-------|
 | **Lexicon DJ** | Library management, format conversion, batch editing | $12/mo or $120/yr |
@@ -661,6 +685,7 @@ We will **not** build on pyrekordbox directly (it's Python), but we learn from i
 
 ### Audio Analysis Tools
 
+<!-- dprint-ignore -->
 | Tool | What It Does | URL |
 |------|-------------|-----|
 | **Chromaprint / AcoustID** | Audio fingerprinting | [acoustid.org](https://acoustid.org/) |
@@ -752,10 +777,12 @@ these risks.
 ## References
 
 ### Official
+
 - [Rekordbox Developer Page](https://rekordbox.com/en/support/developer/)
 - [Rekordbox XML Format Specification (PDF)](https://cdn.rekordbox.com/files/20200410160904/xml_format_list.pdf)
 
 ### Format Documentation
+
 - [pyrekordbox GitHub](https://github.com/dylanljones/pyrekordbox)
 - [pyrekordbox DB6 Format Docs](https://pyrekordbox.readthedocs.io/en/latest/formats/db6.html)
 - [pyrekordbox XML Format Docs](https://pyrekordbox.readthedocs.io/en/latest/formats/xml.html)
@@ -764,6 +791,7 @@ these risks.
 - [Pioneer DB Encryption Research](https://github.com/liamcottle/pioneer-rekordbox-database-encryption)
 
 ### Community
+
 - [Pioneer DJ Community Forums](https://community.pioneerdj.com/)
 - [DJ-Tools Tagging Guide](https://a-rich.github.io/DJ-Tools-dev-docs/conceptual_guides/tagging_guide/) — Genre tagging workflow reference
 - [rekordbox-mcp](https://github.com/davehenke/rekordbox-mcp) — Existing MCP server for Rekordbox

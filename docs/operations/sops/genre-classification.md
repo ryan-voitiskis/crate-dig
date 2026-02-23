@@ -31,6 +31,7 @@ cache_coverage(playlist_id="...")         # specific playlist
 
 ### Evaluate result
 
+<!-- dprint-ignore -->
 | Condition | Action |
 |-----------|--------|
 | stratum_dsp > 90% and discogs > 70% | Proceed to Step 2. |
@@ -376,18 +377,19 @@ Apply this for every track during classification. This is the concrete logic, no
    → `suggested_genre` = null. Confidence = **insufficient**. Present both options to user. Do not pick one.
 
 9b. **Discogs/Beatport disagree + audio features available:** If Step 9 is true and Essentia features are present, compare both candidates against audio expectations and pick the better fit.
-   Use these discriminators:
-   - `spectral_centroid_mean`: lower favors darker genres, higher favors brighter genres.
-   - `rhythm_regularity`: higher favors straighter grooves, lower favors broken/syncopated grooves.
-   - `dynamic_complexity`: higher favors more dynamic genres.
-   - BPM plausibility versus each genre's typical range.
-   Common tie-breaks:
-   - Deep House vs Tech House: Deep House tends darker/sparser; Tech House tends brighter/busier.
-   - Techno vs Trance: Trance usually sits higher BPM and often higher danceability.
-   - House vs Garage: Garage tends lower rhythm regularity and higher dynamic complexity.
-   - Techno vs Electro: Electro often has lower regularity and sparser onset patterns.
-   If audio clearly favors one option, set `suggested_genre` to that option with **low** confidence and note "audio-assisted tie-break."
-   If audio remains ambiguous, keep **insufficient** and present both options.
+Use these discriminators:
+
+- `spectral_centroid_mean`: lower favors darker genres, higher favors brighter genres.
+- `rhythm_regularity`: higher favors straighter grooves, lower favors broken/syncopated grooves.
+- `dynamic_complexity`: higher favors more dynamic genres.
+- BPM plausibility versus each genre's typical range.
+  Common tie-breaks:
+- Deep House vs Tech House: Deep House tends darker/sparser; Tech House tends brighter/busier.
+- Techno vs Trance: Trance usually sits higher BPM and often higher danceability.
+- House vs Garage: Garage tends lower rhythm regularity and higher dynamic complexity.
+- Techno vs Electro: Electro often has lower regularity and sparser onset patterns.
+  If audio clearly favors one option, set `suggested_genre` to that option with **low** confidence and note "audio-assisted tie-break."
+  If audio remains ambiguous, keep **insufficient** and present both options.
 
 10. **No enrichment data at all:** Both `discogs_genres` and `beatport_genre` are empty/null.
     → Fall through to Step C (audio-only).
@@ -398,6 +400,7 @@ Only reached when no enrichment data maps to a canonical genre.
 
 Use BPM + Essentia features to suggest a likely family. Danceability uses Essentia's native ~0-3 scale.
 
+<!-- dprint-ignore -->
 | BPM | Rhythm Reg | Danceability | Spectral Centroid | Dynamic Comp | Likely genre |
 |-----------|-------------------|--------------|-------------------|--------------|---------------|
 | 160-180 | any | > 1.5 | any | any | Drum & Bass |
@@ -415,6 +418,7 @@ Use BPM + Essentia features to suggest a likely family. Danceability uses Essent
 | 128-145 | > 0.85 | > 1.0 | Mid-High | High | Hard Techno |
 
 Centroid guidelines for table matching:
+
 - Very Low: `< 600 Hz`
 - Low: `600-1200 Hz`
 - Mid: `1200-2500 Hz`
@@ -450,6 +454,7 @@ From `audio_analysis` for each track:
 - `stratum_key` = `audio_analysis.stratum_dsp.key` (if present)
 - `key_agreement` = `audio_analysis.key_agreement`
 
+<!-- dprint-ignore -->
 | Condition | Priority | Note |
 |-----------|----------|------|
 | `key_agreement` = false and Essentia rhythmic features strongly consistent with stratum key | High | Both analyzers suggest Rekordbox is wrong. |
@@ -533,6 +538,7 @@ Phase 1 is complete when:
 Deferred until Phase 1 complete and cache coverage > 80% across all providers. Spec will live in a separate document.
 
 Dependencies from Phase 1:
+
 - Warm cache across audio + enrichment providers.
 - Clean genre data (no ungenred tracks remaining without explicit reason).
 - Key mismatches addressed or acknowledged.

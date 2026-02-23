@@ -141,12 +141,12 @@ Update your mac OS, or if you have reinstalled your interface, the driver may al
 To use an ENTTEC DMX interface, first connect to rekordbox and confirm the following.
 
 1. Ensure that your DMX interface is one of the following models.
-ENTTEC Open DMX
-ENTTEC DMX USB Pro
-ENTTEC DMX USB Pro Mk2
+   ENTTEC Open DMX
+   ENTTEC DMX USB Pro
+   ENTTEC DMX USB Pro Mk2
 2. Are you subscribed to the Creative plan or Professional plan?
 3. For Mac, the FTDI d2xx driver needs to be installed separately.
-For details, see [here](https://rekordbox.com/en/support/faq/lighting-7/#faq-q700022).
+   For details, see [here](https://rekordbox.com/en/support/faq/lighting-7/#faq-q700022).
 
 ---
 
@@ -266,7 +266,7 @@ Yes. Internet connection is required to download/upload Fixture Library and pres
 
 ### How can I find if the lighting fixtures are supported in LIGHTING mode?
 
-See LIGHTING mode > FIXTURE LIBRARY  screen and check them.
+See LIGHTING mode > FIXTURE LIBRARY screen and check them.
 
 If not, check [here](https://cdn.rekordbox.com/files/20260210150320/rekordbox-lighting-available-fixtures.pdf).
 

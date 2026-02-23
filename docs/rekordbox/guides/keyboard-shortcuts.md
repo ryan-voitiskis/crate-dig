@@ -52,6 +52,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Browse
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | | Load track to Deck 1 | shift + ← |
@@ -67,6 +68,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Deck
 
+<!-- dprint-ignore -->
 | Section | Function | Deck 1 | Deck 2 |
 |---------|----------|--------|--------|
 | Deck | Play/Pause | Z | N |
@@ -117,6 +119,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## All Decks
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | | Zoom In | = or shift + - |
@@ -125,6 +128,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Sampler
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | | Playback slot 1 | X |
@@ -149,24 +153,28 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Recordings
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | Recordings | Start/Pause REC | ctrl/command + return |
 
 ## General
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | General | Search in the collection | Windows: alt + F  Mac: control + F |
 
 ## View
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | View | Toggle the layout (decks and browse screen) | space bar |
 
 ## Playlist
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | Playlist | Create New Playlist | ctrl/command + N |
@@ -175,6 +183,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Browse
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | | Load track to Left Deck | shift + ← |
@@ -189,6 +198,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Deck
 
+<!-- dprint-ignore -->
 | Section | Function | Deck 1 | Deck 2 |
 |---------|----------|--------|--------|
 | Deck | Play/Pause | W | S |
@@ -230,6 +240,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## All Decks
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | All Decks | Zoom In | shift + - |
@@ -237,6 +248,7 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Sampler
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | | Playback slot 1 | Z |
@@ -254,30 +266,35 @@ The [alt/option] key described below indicates [alt] key on a Windows keyboard a
 
 ## Recordings
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | Recordings | Start/Pause REC | ctrl/command + N |
 
 ## General
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | General | Search in the collection | Windows: alt + F  Mac: control + F |
 
 ## File
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | File | Exit | escape |
 
 ## View
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | View | Toggle the layout (decks and browse screen) | space bar |
 
 ## Track
 
+<!-- dprint-ignore -->
 | Section | Function | Default Key |
 |---------|----------|-------------|
 | Track | Show in Explorer/Finder | ctrl/command + R |

@@ -35,12 +35,13 @@ verified_by: agent
 This Operation Guide explains how to edit phrases, created from Phrase Analysis in rekordbox.
 For instructions on rekordbox in general, please see the rekordbox Operating Instructions.
 
-rekordbox Instruction Manual    rekordbox.com/en/download/#manual
+rekordbox Instruction Manual rekordbox.com/en/download/#manual
 
 ## 1.2 Phrase Analysis
 
 In rekordbox, you can analyze the structure of a track through Phrase Analysis. After Phrase Analysis, each part of the structure is defined as a phrase. and the track structure is expressed as a set of the following phrases.
 
+<!-- dprint-ignore -->
 | Phrase | Description |
 |---|---|
 | INTRO | an opening phrase of a track |
@@ -53,7 +54,7 @@ In rekordbox, you can analyze the structure of a track through Phrase Analysis. 
 
 For Phrase Analysis, please see the rekordbox Operating Instructions.
 
-rekordbox Instruction Manual    rekordbox.com/en/download/#manual
+rekordbox Instruction Manual rekordbox.com/en/download/#manual
 
 ## 1.3 Display results of Phrase Analsys
 
@@ -102,7 +103,7 @@ You can adjust the position of a phrase or combine phrases.
 
 ## 2.2 Cut a phrase
 
-You can cut a phrase and divide it into two phrases. If a phrase is divided, two phrases of the same type will be created. You can change the type of the phrase later. (To change the type, see 2.3 *Change phrase type*.)
+You can cut a phrase and divide it into two phrases. If a phrase is divided, two phrases of the same type will be created. You can change the type of the phrase later. (To change the type, see 2.3 _Change phrase type_.)
 
 [Screenshot: Deck view showing track "Serenade (Ki Creighton & Makanan Remix...)" by Sirus Hood with PHRASE EDIT panel. The CUT button is highlighted in blue, indicating cut mode is active. CLEAR button shown at bottom.]
 
@@ -127,18 +128,18 @@ You can change types of phrases detected in phrase analysis.
 
 1. Click a phrase on the bar (CHORUS) and then click [CHORUS 1] dropdown button under [CUT] button to show the drop-down menu below.
 
-   | Drop-down menu |
-   |---|
-   | INTRO 1 |
-   | INTRO 2 |
-   | UP 1 |
-   | UP 2 |
-   | UP 3 |
+   | Drop-down menu      |
+   | ------------------- |
+   | INTRO 1             |
+   | INTRO 2             |
+   | UP 1                |
+   | UP 2                |
+   | UP 3                |
    | CHORUS 1 (selected) |
-   | CHORUS 2 |
-   | DOWN |
-   | OUTRO 1 |
-   | OUTRO 2 |
+   | CHORUS 2            |
+   | DOWN                |
+   | OUTRO 1             |
+   | OUTRO 2             |
 
 2. Select a type from the drop-down menu to change the type.
 

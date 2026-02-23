@@ -100,7 +100,7 @@ We recommend you to upgrade the firmware for your CDJ/XDJ/DJM/Audio Interface to
 >
 > When they are already connected, disconnect them.
 >
-> > Note: The driver is common for DJ players (CDJ/XDJ).
+>> Note: The driver is common for DJ players (CDJ/XDJ).
 >
 > Download the driver and manual for your DJ equipment **from "Software & Firmware Updates" at** Pioneer DJ website (pioneerdj.com/en/support/software/).
 >
@@ -305,6 +305,7 @@ The completes settings for the all-in-one DJ system.
 
 ## 1.7 Troubleshooting
 
+<!-- dprint-ignore -->
 | Troubles | Check this | Solution |
 |---|---|---|
 | No sound output. | Open [Preferences] > [Audio]. Check the [Audio] setting. | When you use CDJ/XDJs as audio devices, select the following: **For Windows** "Pioneer CDJ/XDJ ASIO" **For Mac** "Pioneer CDJ/XDJ" When you use a DJM as an audio device, select the following: **For Windows** "Pioneer DJM (unit name) ASIO" **For Mac** "DJM (unit name)" When you use a stand-alone audio interface, select the following: **For Windows** "INTERFACE 2 ASIO" **For Mac** "INTERFACE 2" |
@@ -312,6 +313,7 @@ The completes settings for the all-in-one DJ system.
 
 [Screenshot: Output channels setting showing Output Deck1 with L: Front Left selected, and a drop-down menu showing Front Left (checked), Front Right, Front Left, Front Right options]
 
+<!-- dprint-ignore -->
 | Troubles | Check this | Solution |
 |---|---|---|
 | | | When you use a DJM as an audio device, set the DJM channels to Output Deck L/R. Click each drop-down menu of the Output Deck and select the channel you wish to use. |
@@ -320,6 +322,7 @@ The completes settings for the all-in-one DJ system.
 
 [Screenshot: Output channels setting showing Output Deck1 with L: Front Left selected, and a drop-down menu showing Front Left (checked), Front Right, Front Left, Front Right options, with the second set of Front Left/Front Right highlighted in red]
 
+<!-- dprint-ignore -->
 | Troubles | Check this | Solution |
 |---|---|---|
 | | | If the Output Deck is adversely selected, click the drop-down menu and change the setting. |
@@ -327,6 +330,7 @@ The completes settings for the all-in-one DJ system.
 
 [Screenshot: Output channels setting showing Output Deck1 with L: Front Left selected, and a drop-down menu showing Front Left (checked), Front Right, Front Left, Front Right options, with the second set of Front Left/Front Right highlighted in red]
 
+<!-- dprint-ignore -->
 | Troubles | Check this | Solution |
 |---|---|---|
 | | | Select the L/R of each Output Deck you wish to direct audio output to the CDJ/XDJ from the drop-down menu. |

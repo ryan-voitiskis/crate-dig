@@ -48,7 +48,7 @@ The color of the waveform that can be displayed depends on the model.
 - XDJ-700
 - XDJ-RX
 
-*1  For this DDJ/DJM series, the color of the waveform can be changed in the [Preferences]  of  rekordbox.When set to 3Band, the color of the waveform is displayed in BLUE.
+*1 For this DDJ/DJM series, the color of the waveform can be changed in the [Preferences] of rekordbox.When set to 3Band, the color of the waveform is displayed in BLUE.
 
 (List correct as of January 2026)
 
@@ -60,6 +60,7 @@ Supported music file formats vary depending on DJ equipment.
 
 Please check the table below and use music file formats supported by your DJ equipment.
 
+<!-- dprint-ignore -->
 |                                                                 | **88.2/96KHz** | **44.1/48KHz**     |         |          |         |          |                    |         |          |         |         |
 | --------------------------------------------------------------- | -------------- | ------------------ | ------- | -------- | ------- | -------- | ------------------ | ------- | -------- | ------- | ------- |
 |                                                                 | **FLAC**       | **Apple Lossless** | **WAV** | **AIFF** | **AAC** | **FLAC** | **Apple Lossless** | **WAV** | **AIFF** | **mp3** | **AAC** |
@@ -188,15 +189,16 @@ Refer to the "rekordbox CloudDirectPlay Operation Guide" on the [Manuals](http:/
 ### Is there a way to confirm what can be browsed on the CDJ-3000X for a USB storage device exported with rekordbox ver. 7?
 
 You can confirm the contents on the rekordbox ver. 7 screen.
-* You can confirm in the same way when using the XDJ-AZ, OPUS-QUAD, or OMNIS-DUO.
+
+- You can confirm in the same way when using the XDJ-AZ, OPUS-QUAD, or OMNIS-DUO.
 
 Procedure for checking USB storage device content browseable on the CDJ-3000X
 
 1. Update rekordbox ver. 7 to the latest version.
-In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
+   In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
 2. Launch rekordbox and connect a USB storage device into your PC/Mac
 3. From the [Devices] of the Media Browser, select your USB storage device name > [OneLibrary] to check the contents.
-If the displayed tracks or playlists are missing, you must export OneLibrary to the USB storage device again. For details, please refer to the [FAQ](https://rekordbox.com/en/support/faq/onelibrary-7/#faq-q700038).
+   If the displayed tracks or playlists are missing, you must export OneLibrary to the USB storage device again. For details, please refer to the [FAQ](https://rekordbox.com/en/support/faq/onelibrary-7/#faq-q700038).
 
 ---
 
@@ -210,10 +212,10 @@ Note: If you are using XDJ-AZ, OPUS-QUAD, or OMNIS-DUO, export OneLibrary using 
 OneLibrary Export Procedure
 
 1. Update rekordbox ver. 7 to the latest version
-In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
+   In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
 2. Launch rekordbox and connect a USB storage device into your PC/Mac
 3. In the Media Browser, go to [Devices] > your USB storage device name, right-click [OneLibrary], and select [Convert from Device Library].
-![](https://cdn.rekordbox.com/files/20251224094129/Convert-device-library-en.png)
+   ![](https://cdn.rekordbox.com/files/20251224094129/Convert-device-library-en.png)
 
 This operation exports a OneLibrary with the same content as the existing Device Library to the USB storage device.
 
@@ -250,9 +252,9 @@ Yes, you can.
 You can convert the traditional Device Library in the USB storage device to the OneLibrary format with rekordbox for Mac/Windows.
 
 - If the following dialog box appears when connecting a USB storage device, select [OK] to convert.
-![](https://cdn.rekordbox.com/files/20251002150123/OneLibrary001_En-300x171.png)
+  ![](https://cdn.rekordbox.com/files/20251002150123/OneLibrary001_En-300x171.png)
 - Select the device from the media browser, click [Convert from Device Library] from the OneLibrary context menu and follow the instructions.
-![](https://cdn.rekordbox.com/files/20251002150426/OneLibrary003_En-300x122.png)
+  ![](https://cdn.rekordbox.com/files/20251002150426/OneLibrary003_En-300x122.png)
 
 See the "[USB Export Guide](https://cdn.rekordbox.com/files/20251021171528/USB_export_guide_en_251007.pdf#page=2)" for more details.
 
@@ -464,7 +466,7 @@ GROOVE CIRCUIT can be controlled using the following DJ equipment.
 
 (As of October 2024)
 
-Each function can be used through mapping with the MIDI LEARN function on other DJ equipment.  (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
+Each function can be used through mapping with the MIDI LEARN function on other DJ equipment. (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
 See ["MIDI LEARN Operation Guide"](https://rekordbox.com/en/download/#manual) for mapping methods using the MIDI LEARN function.
 
 ---

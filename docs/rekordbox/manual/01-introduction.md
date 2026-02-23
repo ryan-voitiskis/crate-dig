@@ -81,6 +81,7 @@ Use the search feature in PDF to see what you want to know.
 
 # Contents
 
+<!-- dprint-ignore -->
 | Section | Page |
 |---|---|
 | About this manual | 2 |

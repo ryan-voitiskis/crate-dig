@@ -101,11 +101,11 @@ When [EXPORT] is selected on the upper-left of the screen, you can use rekordbox
 [Screenshot: Operation panel for DUAL PLAYER layout showing controls for two players with jump buttons (2), beat count selector (3), CUE button (4), play/pause button (5), crossfader (6), A-GAIN controls (7), 3 BAND EQ HIGH/MID/LOW (8), and DUAL CONTROL button (9)]
 
 1. Move to the beginning of the track (track search). ([1 PLAYER] layout)
-   - >>|: Move to the next track.
+   - |: Move to the next track.
    - |<<: Move to the beginning of the track currently playing. Click twice to move to the previous track.
 
 2. Jump to a different playback position. ([1 PLAYER] layout, [DUAL PLAYER] layout)
-   - >: Jump forward from the current playback position.
+   - : Jump forward from the current playback position.
    - <: Jump backward from the current playback position.
 
 3. Set the beat count or bar to jump from the current playback position when < or > is clicked. ([1 PLAYER] layout, [DUAL PLAYER] layout)
@@ -298,7 +298,7 @@ Set and save a Hot Cue, loop, and cue.
 2. Save the cue and loop point which you set. (page 95) (page 97)
 
 3. Move to a cue or loop point.
-   - >: Move to the next cue or loop point.
+   - : Move to the next cue or loop point.
    - <: Move to the previous cue or loop point.
 
 4. Delete a cue or loop position.

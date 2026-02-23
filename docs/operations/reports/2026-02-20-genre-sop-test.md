@@ -9,12 +9,14 @@ End-to-end test of `docs/operations/sops/genre-classification.md` against a live
 Cache was near-empty. Hydrated via audio analysis (Stratum-DSP) and enrichment (Discogs + Beatport).
 
 **Final coverage (ungenred tracks):**
+
 - Stratum-DSP: 422/468 (90.2%)
 - Discogs: 397/468 (84.8%)
 - Beatport: 398/468 (85.0%)
 - Essentia: not installed
 
 **Issues found:**
+
 1. `search_tracks` caps at 200 results with no offset/pagination — workaround: partition by date range, collect IDs, pass explicit `track_ids` in batches of 50.
 2. `max_tracks` defaults to 20 even when `track_ids` is provided — must set explicitly.
 3. `skip_cached` doesn't filter search results, only prevents re-processing — confusing when combined with the 200-result cap.
@@ -26,6 +28,7 @@ Detailed step notes were consolidated into this report.
 Ran `suggest_normalizations`. Reviewed 199 alias tracks, 13 unknown-genre tracks.
 
 **Taxonomy bugs identified (wrong aliases in `genre.rs`):**
+
 - Dub Reggae → Dub (should be canonical)
 - Drone Techno → Deep Techno (should be canonical)
 - Gospel House → House (should be canonical)
@@ -33,7 +36,7 @@ Ran `suggest_normalizations`. Reviewed 199 alias tracks, 13 unknown-genre tracks
 - Highlife → Afro House (should be canonical)
 - Jazz missing from taxonomy entirely (should be canonical)
 
-**SOP feedback:** Taxonomy should be refined through conversation with user *before* presenting mapping recommendations, not after.
+**SOP feedback:** Taxonomy should be refined through conversation with user _before_ presenting mapping recommendations, not after.
 
 Detailed step notes were consolidated into this report.
 
@@ -48,6 +51,7 @@ First batch of 30 ungenred tracks returned 0 high, 1 medium, 5 low, 24 insuffici
 Built a 12-track Deep Techno set from the 38 tracks tagged Deep Techno in the library. Used `build_set` with `warmup_build_peak_release` energy curve and `harmonic` priority.
 
 **Set C (highest scored, 8.64/10):**
+
 1. Donato Dozzy, Nuel — Aqua 7 (116, 4A) [warmup]
 2. Toki Fuko — Astatine (128, 4A) [build]
 3. irini — dreamuniverse pt.ii (128, 4A) [build]
@@ -64,6 +68,7 @@ Built a 12-track Deep Techno set from the 38 tracks tagged Deep Techno in the li
 **Harmonic flow:** 4A → 5A → 6A → 7A ascending walk. Played with master tempo, long blends sounded good throughout.
 
 **DJ feedback after playing:**
+
 - Track 10 (Bismuth, 127 BPM) too energetic for release phase.
 - Track 11 (Aqua 3, 120 BPM) nice but still slightly too energetic for release.
 - Release section needs tracks closer to 116-122 BPM with more spacious character.
@@ -73,6 +78,7 @@ Exported as playlist: `rekordbox-exports/reklawdbox-20260221-213905.xml`
 
 ## Summary of Tool Issues
 
+<!-- dprint-ignore -->
 | Issue | Severity | Status |
 |-------|----------|--------|
 | Search pagination caps at 200 | Blocking | Workaround documented |

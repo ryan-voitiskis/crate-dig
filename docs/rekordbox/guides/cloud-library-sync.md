@@ -57,6 +57,7 @@ Cloud Library Sync can upload music files to the cloud storage service, but uplo
 
 The number of music files and available Dropbox storage size for Cloud Library Sync differs to each plan.
 
+<!-- dprint-ignore -->
 | Plan | The number of music files to synchronize | Available Dropbox storage size |
 |---|---|---|
 | Free Plan *1 | 20 music files in [Trial playlist - Cloud Library Sync] and 1000 music files in [Cloud Export] *2 | - |

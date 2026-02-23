@@ -99,10 +99,12 @@ cp mcp-config.example.json .mcp.json
 ```
 
 5. Edit `.mcp.json` and set:
+
 - `REKORDBOX_DB_PATH` (if you are not using the default Rekordbox path)
 - optional broker Discogs / Essentia env vars
 
 6. Register or load that config in your Codex MCP host so it starts:
+
 - command: `./target/release/reklawdbox`
 - transport: `stdio`
 
@@ -134,6 +136,7 @@ Restart the MCP host/server after updating config.
 
 ## Tools
 
+<!-- dprint-ignore -->
 | Tool | Description |
 |------|-------------|
 | `read_library` | Get library summary: track count, genre distribution, stats |

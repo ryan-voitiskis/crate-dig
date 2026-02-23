@@ -92,15 +92,15 @@ You can select up to 5 recommendations, including [Era], [Mood], [Association], 
 While [Era], [Mood], and [Association] make recommendations based on track meta data, [Collection Radar] and [Streaming Radar] recommend tracks with similar musical characteristics based on unique algorithms developed using AI learning.
 
 - Era
-Prioritizes the display of tracks with similar year, BPM, etc. from [Collections].
+  Prioritizes the display of tracks with similar year, BPM, etc. from [Collections].
 - Mood
-Prioritizes the display of tracks with similar genre, BPM, etc. from [Collections].
+  Prioritizes the display of tracks with similar genre, BPM, etc. from [Collections].
 - Association
-Prioritizes the display of tracks with similar label, composer, etc. information from [Collections].
+  Prioritizes the display of tracks with similar label, composer, etc. information from [Collections].
 - Collection Radar
-Prioritizes the display of tracks with similar musical characteristics from [Collections].
+  Prioritizes the display of tracks with similar musical characteristics from [Collections].
 - Streaming Radar
-Prioritizes the display of tracks with similar musical characteristics from the streaming service.
+  Prioritizes the display of tracks with similar musical characteristics from the streaming service.
 
 Track Suggestion can be displayed using the sub-panel button located in Tree View or on the right side of the browse screen.
 
@@ -184,12 +184,12 @@ Collaborative playlists cannot be used to share track data (music files).
 Please use a different method to receive the tracks from the owner and follow the steps below to locate the missing tracks.
 
 1. Receive the tracks and save the music files in any folder (it is recommended to create a new folder).
-2. Select [Preferences] > [Advanced]category > [Database]tab and add a checkmark to the [Specified user folders] checkbox of  the [Auto Relocate Search Folders].
-Add the folder from Step 1.
-Remove the checkmark from all the items except for [Specified user folders].
+2. Select [Preferences] > [Advanced]category > [Database]tab and add a checkmark to the [Specified user folders] checkbox of the [Auto Relocate Search Folders].
+   Add the folder from Step 1.
+   Remove the checkmark from all the items except for [Specified user folders].
 3. Open the [File] menu and select [Display All Missing Files].
-Check that the collaborative playlist tracks are displayed in the [Missing File Manager] window.
-*If tracks other than the collaborative playlist tracks are displayed, add the folder those tracks are saved in using the points in Step 2.
+   Check that the collaborative playlist tracks are displayed in the [Missing File Manager] window.
+   *If tracks other than the collaborative playlist tracks are displayed, add the folder those tracks are saved in using the points in Step 2.
 4. In the [Missing File Manager] window, click the [Auto Relocate] button.
 
 ---
@@ -217,11 +217,11 @@ Collaborative Playlist can be used by Professional plan users.
 Follow the steps below.
 
 1. Select a playlist you want to share.
-Select [PLaylists] menu > [Collaborative Playlist] > [Share playlist].
+   Select [PLaylists] menu > [Collaborative Playlist] > [Share playlist].
 2. Enter the AlphaTheta account (email address) of the person you want to join as a shared member.
-*A notification and invitation email are sent to the shared member's [NOTIFICATION]tab.
+   *A notification and invitation email are sent to the shared member's [NOTIFICATION]tab.
 3. Have the shared member accept the invitation.
-*Click the [Join the collaborative playlist] link to open the web acceptance window. Add a check to the checkbox for the playlist you wish to join and click the Accept button.
+   *Click the [Join the collaborative playlist] link to open the web acceptance window. Add a check to the checkbox for the playlist you wish to join and click the Accept button.
 
 ---
 
@@ -274,14 +274,14 @@ To improve CUE Analysis precision, perform the following procedures and generate
 This may improve the positioning of HOT CUE and MEMORY CUE to the desired points.
 
 1. Add tracks with CUE point set to them to [CUE Analysis Playlist]
-*Approximately over 30 tracks recommended
-*CUE points set as phrase separators are required
+   *Approximately over 30 tracks recommended
+   *CUE points set as phrase separators are required
 2. Click the [Start] button on the right side of [CUE Analysis Playlist]
-*Analyzes the CUE point and generates personal CUE Tendency information.
-The more similar track CUE point tendencies are, the more closer you can set the CUE points to your CUE points.
-When adding or deleting tracks from your playlist, click the [Start] button and update your personal CUE Tendency information.
+   *Analyzes the CUE point and generates personal CUE Tendency information.
+   The more similar track CUE point tendencies are, the more closer you can set the CUE points to your CUE points.
+   When adding or deleting tracks from your playlist, click the [Start] button and update your personal CUE Tendency information.
 3. Run CUE Analysis (auto) again
-*If [Prohibit overwriting CUEs] is off, the latest analysis results will be reflected when running CUE Analysis again.
+   *If [Prohibit overwriting CUEs] is off, the latest analysis results will be reflected when running CUE Analysis again.
 
 ---
 
@@ -382,7 +382,7 @@ Relocate and Auto Relocate also cannot be used when the music files are listed a
 
 ### Which file formats can I render an audio file in?
 
-You can render audio files in the following formats.  (Version 6.5.1 and later)
+You can render audio files in the following formats. (Version 6.5.1 and later)
 
 Mac: FLAC, AIFF, WAV, M4A(128, 192, 256kbps)
 

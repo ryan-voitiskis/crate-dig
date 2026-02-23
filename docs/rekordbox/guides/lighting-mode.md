@@ -18,6 +18,7 @@ verified_by: agent
 
 ## Contents
 
+<!-- dprint-ignore -->
 | Section | Title | Page |
 |---------|-------|------|
 | 1 | Before Start | 3 |
@@ -111,7 +112,7 @@ You can quickly edit scenes to match the flow of the track.
 
 Please see the overview of LIGHTING mode at rekordbox.com.
 
-\* Select PERFORMANCE mode to perform scenes in sync with tracks. For details, please see *3. Steps to easily control lighting*.
+\* Select PERFORMANCE mode to perform scenes in sync with tracks. For details, please see _3. Steps to easily control lighting_.
 
 [Screenshot: PERFORMANCE mode deck showing "About Time (Original Mix)" by Martin Ikin & Low Step, with phrase bar, hot cue pads, BPM display at 124.00, and key display F#m]
 
@@ -149,6 +150,7 @@ Lighting package:
 
 [Screenshot: Diagram showing lighting package layout with 16 numbered fixtures arranged on a stage setup - Par Lights 1-4 on truss, Bar Lights 1-6 on various positions, Moving Heads 1-4 on truss corners, Strobe, and Mirrorball Spot]
 
+<!-- dprint-ignore -->
 | Number | Fixture | Number | Fixture |
 |--------|---------|--------|---------|
 | 1 | Par Light 1 | 9 | Bar Light 5 |
@@ -716,7 +718,7 @@ The color transition has been set at the selected area.
 
 [Screenshot: Par Light 1 editor showing red-to-cyan color transition gradient on COLOR row]
 
-\*Copying, adjusting length, and deleting are the same as described in color settings. Please refer to *5.10.2 Setting color*.
+\*Copying, adjusting length, and deleting are the same as described in color settings. Please refer to _5.10.2 Setting color_.
 
 - Edit color transition
 
@@ -762,7 +764,7 @@ The strobes are set to the selected area.
 
 [Screenshot: Par Light 1 editor showing strobe pattern (dashed line) on STROBE row]
 
-\* Copying, adjusting length, and deleting are the same as described in color settings. Please refer to *5.10.2 Setting color*.
+\* Copying, adjusting length, and deleting are the same as described in color settings. Please refer to _5.10.2 Setting color_.
 
 - Edit strobes
 
@@ -841,7 +843,7 @@ The moving head pattern has been set at the selected area.
 
 [Screenshot: Moving Head 1 editor showing pattern indicator (dashed line between two circles) on PATTERN row]
 
-\* Copying, adjusting length, and deleting are the same as described in color settings. Please refer to *5.10.2 Setting color*.
+\* Copying, adjusting length, and deleting are the same as described in color settings. Please refer to _5.10.2 Setting color_.
 
 - Edit moving head pattern
 
@@ -877,7 +879,7 @@ The rotation is set to the selected area.
 
 [Screenshot: Effect 1 editor showing rotation indicator (dashed line) on ROTATE row]
 
-\* You can copy, adjust length, and delete the rotation settings in the same way as described in the color settings. Please refer to *5.10.2 Setting color*.
+\* You can copy, adjust length, and delete the rotation settings in the same way as described in the color settings. Please refer to _5.10.2 Setting color_.
 
 - Edit rotation
 
@@ -913,7 +915,7 @@ The Gobo will be set in the selected area.
 
 [Screenshot: Moving Head 1 editor showing Gobo indicator (line between two circles) on GOBO row]
 
-\* You can copy, adjust length, and delete the gobo settings in the same way as described in the color settings. Please refer to *5.10.2 Setting color*.
+\* You can copy, adjust length, and delete the gobo settings in the same way as described in the color settings. Please refer to _5.10.2 Setting color_.
 
 - Editing Gobo
 

@@ -18,6 +18,7 @@ Detect and fix naming/tagging convention violations in a music collection. Follo
 
 ## Prerequisites
 
+<!-- dprint-ignore -->
 | Tool             | Purpose                            | Install                 | Required? |
 | ---------------- | ---------------------------------- | ----------------------- | --------- |
 | `reklawdbox` MCP | DB queries, metadata lookups       | This project            | Yes       |
@@ -80,6 +81,7 @@ For large scopes, page through with `search_tracks` + offset.
 
 Check each track's DB metadata against [conventions](../conventions.md):
 
+<!-- dprint-ignore -->
 | Issue                    | Detection                                           | Auto-fixable?                               |
 | ------------------------ | --------------------------------------------------- | ------------------------------------------- |
 | **Empty artist**         | Artist field empty/missing in DB                    | Yes — parse from filename                   |
@@ -128,6 +130,7 @@ For files not in the Rekordbox DB (new acquisitions, staging area), fall back to
 ### 2c: No-tag file inference
 
 Files with no tags at all (common with 90s-era rips) should not be skipped. The agent should infer metadata from:
+
 - Parent directory name (artist, album, year)
 - Companion files (cover.jpg, .nfo, .cue)
 - Filename patterns
@@ -346,6 +349,7 @@ Summarize: scope, files scanned (DB vs file-level), pass rate, fixes applied by 
 
 ## Appendix A: Issue Detection Quick Reference
 
+<!-- dprint-ignore -->
 | Issue                    | Source | Detection                              | Auto-fixable?                | Fix method                      |
 | ------------------------ | ------ | -------------------------------------- | ---------------------------- | ------------------------------- |
 | Empty artist tag         | DB     | Artist empty in resolve_tracks_data    | Yes (if filename has artist) | Parse from filename             |

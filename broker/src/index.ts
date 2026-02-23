@@ -1,136 +1,146 @@
-import { CALLBACK_LOGO_DATA_URI, BERKELEY_MONO_FONT_DATA_URI } from "./branding";
+import {
+  BERKELEY_MONO_FONT_DATA_URI,
+  CALLBACK_LOGO_DATA_URI,
+} from './branding'
 
 interface Env {
-  DB: D1Database;
-  DISCOGS_CONSUMER_KEY: string;
-  DISCOGS_CONSUMER_SECRET: string;
-  BROKER_PUBLIC_BASE_URL?: string;
-  BROKER_CLIENT_TOKEN?: string;
-  DEVICE_SESSION_TTL_SECONDS?: string;
-  SESSION_TOKEN_TTL_SECONDS?: string;
-  SEARCH_CACHE_TTL_SECONDS?: string;
-  DISCOGS_MIN_INTERVAL_MS?: string;
+  DB: D1Database
+  DISCOGS_CONSUMER_KEY: string
+  DISCOGS_CONSUMER_SECRET: string
+  BROKER_PUBLIC_BASE_URL?: string
+  BROKER_CLIENT_TOKEN?: string
+  DEVICE_SESSION_TTL_SECONDS?: string
+  SESSION_TOKEN_TTL_SECONDS?: string
+  SEARCH_CACHE_TTL_SECONDS?: string
+  DISCOGS_MIN_INTERVAL_MS?: string
 }
 
-type SessionStatus = "pending" | "authorized" | "finalized" | "expired";
+type SessionStatus = 'pending' | 'authorized' | 'finalized' | 'expired'
 
 interface DeviceSessionRow {
-  device_id: string;
-  pending_token: string;
-  status: SessionStatus;
-  poll_interval_seconds: number;
-  created_at: number;
-  updated_at: number;
-  expires_at: number;
-  authorized_at: number | null;
-  oauth_access_token: string | null;
-  oauth_access_token_secret: string | null;
-  oauth_identity: string | null;
-  session_token_hash: string | null;
-  session_expires_at: number | null;
-  finalized_at: number | null;
+  device_id: string
+  pending_token: string
+  status: SessionStatus
+  poll_interval_seconds: number
+  created_at: number
+  updated_at: number
+  expires_at: number
+  authorized_at: number | null
+  oauth_access_token: string | null
+  oauth_access_token_secret: string | null
+  oauth_identity: string | null
+  session_token_hash: string | null
+  session_expires_at: number | null
+  finalized_at: number | null
 }
 
 interface DiscogsSearchBody {
-  artist: string;
-  title: string;
-  album?: string;
+  artist: string
+  title: string
+  album?: string
 }
 
 interface DiscogsApiSearchResponse {
-  results?: DiscogsApiSearchResult[];
+  results?: DiscogsApiSearchResult[]
 }
 
 interface DiscogsApiSearchResult {
-  title?: string;
-  year?: string | number;
-  label?: string[];
-  genre?: string[];
-  style?: string[];
-  uri?: string;
+  title?: string
+  year?: string | number
+  label?: string[]
+  genre?: string[]
+  style?: string[]
+  uri?: string
 }
 
 interface DiscogsResult {
-  title: string;
-  year: string;
-  label: string;
-  genres: string[];
-  styles: string[];
-  url: string;
-  fuzzy_match: boolean;
+  title: string
+  year: string
+  label: string
+  genres: string[]
+  styles: string[]
+  url: string
+  fuzzy_match: boolean
 }
 
 interface NormalizedProxyPayload {
-  result: DiscogsResult | null;
-  match_quality: "exact" | "fuzzy" | "none";
-  cache_hit: boolean;
+  result: DiscogsResult | null
+  match_quality: 'exact' | 'fuzzy' | 'none'
+  cache_hit: boolean
 }
 
-const DEFAULT_POLL_INTERVAL_SECONDS = 5;
-const DEFAULT_DEVICE_SESSION_TTL_SECONDS = 15 * 60;
-const DEFAULT_BROKER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
-const DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60;
-const DEFAULT_DISCOGS_MIN_INTERVAL_MS = 1100;
-const DISCOGS_BASE_URL = "https://api.discogs.com";
+const DEFAULT_POLL_INTERVAL_SECONDS = 5
+const DEFAULT_DEVICE_SESSION_TTL_SECONDS = 15 * 60
+const DEFAULT_BROKER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
+const DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
+const DEFAULT_DISCOGS_MIN_INTERVAL_MS = 1100
+const DISCOGS_BASE_URL = 'https://api.discogs.com'
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env,): Promise<Response> {
     try {
-      const url = new URL(request.url);
-      const method = request.method.toUpperCase();
+      const url = new URL(request.url,)
+      const method = request.method.toUpperCase()
 
-      if (url.pathname === "/v1/device/session/start" && method === "POST") {
-        return handleDeviceSessionStart(request, env, url);
+      if (url.pathname === '/v1/device/session/start' && method === 'POST') {
+        return handleDeviceSessionStart(request, env, url,)
       }
-      if (url.pathname === "/v1/device/session/status" && method === "GET") {
-        return handleDeviceSessionStatus(request, env, url);
+      if (url.pathname === '/v1/device/session/status' && method === 'GET') {
+        return handleDeviceSessionStatus(request, env, url,)
       }
-      if (url.pathname === "/v1/device/session/finalize" && method === "POST") {
-        return handleDeviceSessionFinalize(request, env);
+      if (url.pathname === '/v1/device/session/finalize' && method === 'POST') {
+        return handleDeviceSessionFinalize(request, env,)
       }
-      if (url.pathname === "/v1/discogs/oauth/link" && method === "GET") {
-        return handleDiscogsOauthLink(env, url);
+      if (url.pathname === '/v1/discogs/oauth/link' && method === 'GET') {
+        return handleDiscogsOauthLink(env, url,)
       }
-      if (url.pathname === "/v1/discogs/oauth/callback" && method === "GET") {
-        return handleDiscogsOauthCallback(env, url);
+      if (url.pathname === '/v1/discogs/oauth/callback' && method === 'GET') {
+        return handleDiscogsOauthCallback(env, url,)
       }
-      if (url.pathname === "/v1/discogs/proxy/search" && method === "POST") {
-        return handleDiscogsProxySearch(request, env);
+      if (url.pathname === '/v1/discogs/proxy/search' && method === 'POST') {
+        return handleDiscogsProxySearch(request, env,)
       }
 
       return json(
         {
-          error: "not_found",
+          error: 'not_found',
           message: `No route for ${method} ${url.pathname}`,
         },
         404,
-      );
+      )
     } catch (err) {
       return json(
         {
-          error: "internal_error",
-          message: asErrorMessage(err),
+          error: 'internal_error',
+          message: asErrorMessage(err,),
         },
         500,
-      );
+      )
     }
   },
-};
+}
 
-async function handleDeviceSessionStart(request: Request, env: Env, url: URL): Promise<Response> {
-  if (!isBrokerClientAuthorized(request, env)) {
-    return unauthorizedBrokerClientResponse();
+async function handleDeviceSessionStart(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<Response> {
+  if (!isBrokerClientAuthorized(request, env,)) {
+    return unauthorizedBrokerClientResponse()
   }
 
-  assertDiscogsOAuthEnv(env);
+  assertDiscogsOAuthEnv(env,)
 
-  const now = nowSeconds();
-  const pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS;
-  const ttlSeconds = envInt(env.DEVICE_SESSION_TTL_SECONDS, DEFAULT_DEVICE_SESSION_TTL_SECONDS);
-  const expiresAt = now + ttlSeconds;
+  const now = nowSeconds()
+  const pollIntervalSeconds = DEFAULT_POLL_INTERVAL_SECONDS
+  const ttlSeconds = envInt(
+    env.DEVICE_SESSION_TTL_SECONDS,
+    DEFAULT_DEVICE_SESSION_TTL_SECONDS,
+  )
+  const expiresAt = now + ttlSeconds
 
-  const deviceId = randomToken(20);
-  const pendingToken = randomToken(24);
+  const deviceId = randomToken(20,)
+  const pendingToken = randomToken(24,)
 
   await env.DB.prepare(
     `INSERT INTO device_sessions (
@@ -143,11 +153,13 @@ async function handleDeviceSessionStart(request: Request, env: Env, url: URL): P
       expires_at
     ) VALUES (?1, ?2, 'pending', ?3, ?4, ?5, ?6)`,
   )
-    .bind(deviceId, pendingToken, pollIntervalSeconds, now, now, expiresAt)
-    .run();
+    .bind(deviceId, pendingToken, pollIntervalSeconds, now, now, expiresAt,)
+    .run()
 
-  const authBaseUrl = publicBaseUrl(env, url);
-  const authUrl = `${authBaseUrl}/v1/discogs/oauth/link?device_id=${encodeURIComponent(deviceId)}&pending_token=${encodeURIComponent(pendingToken)}`;
+  const authBaseUrl = publicBaseUrl(env, url,)
+  const authUrl = `${authBaseUrl}/v1/discogs/oauth/link?device_id=${
+    encodeURIComponent(deviceId,)
+  }&pending_token=${encodeURIComponent(pendingToken,)}`
 
   return json({
     device_id: deviceId,
@@ -155,117 +167,129 @@ async function handleDeviceSessionStart(request: Request, env: Env, url: URL): P
     auth_url: authUrl,
     poll_interval_seconds: pollIntervalSeconds,
     expires_at: expiresAt,
-  });
+  },)
 }
 
-async function handleDeviceSessionStatus(request: Request, env: Env, url: URL): Promise<Response> {
-  if (!isBrokerClientAuthorized(request, env)) {
-    return unauthorizedBrokerClientResponse();
+async function handleDeviceSessionStatus(
+  request: Request,
+  env: Env,
+  url: URL,
+): Promise<Response> {
+  if (!isBrokerClientAuthorized(request, env,)) {
+    return unauthorizedBrokerClientResponse()
   }
 
-  const deviceId = url.searchParams.get("device_id")?.trim();
-  const pendingToken = url.searchParams.get("pending_token")?.trim();
+  const deviceId = url.searchParams.get('device_id',)?.trim()
+  const pendingToken = url.searchParams.get('pending_token',)?.trim()
   if (!deviceId || !pendingToken) {
     return json(
       {
-        error: "invalid_params",
-        message: "device_id and pending_token are required",
+        error: 'invalid_params',
+        message: 'device_id and pending_token are required',
       },
       400,
-    );
+    )
   }
 
-  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken);
+  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
     return json(
       {
-        error: "not_found",
-        message: "device session not found",
+        error: 'not_found',
+        message: 'device session not found',
       },
       404,
-    );
+    )
   }
 
-  const now = nowSeconds();
-  let status = row.status;
-  if (now >= row.expires_at && status !== "finalized") {
-    status = "expired";
-    await markSessionStatus(env, row.device_id, "expired", now);
+  const now = nowSeconds()
+  let status = row.status
+  if (now >= row.expires_at && status !== 'finalized') {
+    status = 'expired'
+    await markSessionStatus(env, row.device_id, 'expired', now,)
   }
 
   return json({
     status,
     expires_at: row.expires_at,
-  });
+  },)
 }
 
-async function handleDeviceSessionFinalize(request: Request, env: Env): Promise<Response> {
-  if (!isBrokerClientAuthorized(request, env)) {
-    return unauthorizedBrokerClientResponse();
+async function handleDeviceSessionFinalize(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  if (!isBrokerClientAuthorized(request, env,)) {
+    return unauthorizedBrokerClientResponse()
   }
 
-  const body = await parseJsonBody<{ device_id?: string; pending_token?: string }>(request);
-  const deviceId = body.device_id?.trim();
-  const pendingToken = body.pending_token?.trim();
+  const body = await parseJsonBody<
+    { device_id?: string; pending_token?: string }
+  >(request,)
+  const deviceId = body.device_id?.trim()
+  const pendingToken = body.pending_token?.trim()
 
   if (!deviceId || !pendingToken) {
     return json(
       {
-        error: "invalid_params",
-        message: "device_id and pending_token are required",
+        error: 'invalid_params',
+        message: 'device_id and pending_token are required',
       },
       400,
-    );
+    )
   }
 
-  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken);
+  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
     return json(
       {
-        error: "not_found",
-        message: "device session not found",
+        error: 'not_found',
+        message: 'device session not found',
       },
       404,
-    );
+    )
   }
 
-  const now = nowSeconds();
+  const now = nowSeconds()
   if (now >= row.expires_at) {
-    await markSessionStatus(env, row.device_id, "expired", now);
+    await markSessionStatus(env, row.device_id, 'expired', now,)
     return json(
       {
-        error: "expired",
-        message: "device session expired; restart auth",
+        error: 'expired',
+        message: 'device session expired; restart auth',
       },
       410,
-    );
+    )
   }
 
-  if (row.status !== "authorized" && row.status !== "finalized") {
+  if (row.status !== 'authorized' && row.status !== 'finalized') {
     return json(
       {
-        error: "not_ready",
-        message: "device session is not authorized yet",
+        error: 'not_ready',
+        message: 'device session is not authorized yet',
         status: row.status,
       },
       409,
-    );
+    )
   }
 
   if (!row.oauth_access_token || !row.oauth_access_token_secret) {
     return json(
       {
-        error: "not_ready",
-        message: "discogs token exchange has not completed",
+        error: 'not_ready',
+        message: 'discogs token exchange has not completed',
       },
       409,
-    );
+    )
   }
 
-  const sessionToken = randomToken(48);
-  const sessionTokenHash = await sha256Hex(sessionToken);
-  const sessionTtl = envInt(env.SESSION_TOKEN_TTL_SECONDS, DEFAULT_BROKER_SESSION_TTL_SECONDS);
-  const sessionExpiresAt = now + sessionTtl;
+  const sessionToken = randomToken(48,)
+  const sessionTokenHash = await sha256Hex(sessionToken,)
+  const sessionTtl = envInt(
+    env.SESSION_TOKEN_TTL_SECONDS,
+    DEFAULT_BROKER_SESSION_TTL_SECONDS,
+  )
+  const sessionExpiresAt = now + sessionTtl
 
   await env.DB.prepare(
     `UPDATE device_sessions
@@ -276,49 +300,51 @@ async function handleDeviceSessionFinalize(request: Request, env: Env): Promise<
          updated_at = ?3
      WHERE device_id = ?4 AND pending_token = ?5`,
   )
-    .bind(sessionTokenHash, sessionExpiresAt, now, deviceId, pendingToken)
-    .run();
+    .bind(sessionTokenHash, sessionExpiresAt, now, deviceId, pendingToken,)
+    .run()
 
   return json({
     session_token: sessionToken,
     expires_at: sessionExpiresAt,
-  });
+  },)
 }
 
-async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
-  assertDiscogsOAuthEnv(env);
+async function handleDiscogsOauthLink(env: Env, url: URL,): Promise<Response> {
+  assertDiscogsOAuthEnv(env,)
 
-  const deviceId = url.searchParams.get("device_id")?.trim();
-  const pendingToken = url.searchParams.get("pending_token")?.trim();
+  const deviceId = url.searchParams.get('device_id',)?.trim()
+  const pendingToken = url.searchParams.get('pending_token',)?.trim()
   if (!deviceId || !pendingToken) {
-    return text("Missing device_id or pending_token", 400);
+    return text('Missing device_id or pending_token', 400,)
   }
 
-  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken);
+  const row = await getSessionByDeviceAndPending(env, deviceId, pendingToken,)
   if (!row) {
-    return text("Device session not found", 404);
+    return text('Device session not found', 404,)
   }
 
-  const now = nowSeconds();
+  const now = nowSeconds()
   if (now >= row.expires_at) {
-    await markSessionStatus(env, row.device_id, "expired", now);
-    return text("Device session expired. Restart auth from your client.", 410);
+    await markSessionStatus(env, row.device_id, 'expired', now,)
+    return text('Device session expired. Restart auth from your client.', 410,)
   }
 
-  if (row.status === "finalized") {
+  if (row.status === 'finalized') {
     return html(
       oauthCallbackPage(
-        "Already linked",
-        "This device is already linked. Return to your client.",
+        'Already linked',
+        'This device is already linked. Return to your client.',
       ),
       200,
-    );
+    )
   }
 
-  const callbackBase = publicBaseUrl(env, url);
-  const callbackUrl = `${callbackBase}/v1/discogs/oauth/callback?device_id=${encodeURIComponent(deviceId)}&pending_token=${encodeURIComponent(pendingToken)}`;
+  const callbackBase = publicBaseUrl(env, url,)
+  const callbackUrl = `${callbackBase}/v1/discogs/oauth/callback?device_id=${
+    encodeURIComponent(deviceId,)
+  }&pending_token=${encodeURIComponent(pendingToken,)}`
 
-  const requestToken = await requestDiscogsRequestToken(env, callbackUrl);
+  const requestToken = await requestDiscogsRequestToken(env, callbackUrl,)
   await env.DB.prepare(
     `INSERT INTO oauth_request_tokens (
       oauth_token,
@@ -341,47 +367,63 @@ async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
       deviceId,
       pendingToken,
       now,
-      now + envInt(env.DEVICE_SESSION_TTL_SECONDS, DEFAULT_DEVICE_SESSION_TTL_SECONDS),
+      now
+        + envInt(
+          env.DEVICE_SESSION_TTL_SECONDS,
+          DEFAULT_DEVICE_SESSION_TTL_SECONDS,
+        ),
     )
-    .run();
+    .run()
 
-  const authorizeUrl = `https://www.discogs.com/oauth/authorize?oauth_token=${encodeURIComponent(requestToken.oauthToken)}`;
-  return Response.redirect(authorizeUrl, 302);
+  const authorizeUrl = `https://www.discogs.com/oauth/authorize?oauth_token=${
+    encodeURIComponent(requestToken.oauthToken,)
+  }`
+  return Response.redirect(authorizeUrl, 302,)
 }
 
-async function handleDiscogsOauthCallback(env: Env, url: URL): Promise<Response> {
-  assertDiscogsOAuthEnv(env);
+async function handleDiscogsOauthCallback(
+  env: Env,
+  url: URL,
+): Promise<Response> {
+  assertDiscogsOAuthEnv(env,)
 
-  const deviceId = url.searchParams.get("device_id")?.trim();
-  const pendingToken = url.searchParams.get("pending_token")?.trim();
-  const oauthToken = url.searchParams.get("oauth_token")?.trim();
-  const oauthVerifier = url.searchParams.get("oauth_verifier")?.trim();
+  const deviceId = url.searchParams.get('device_id',)?.trim()
+  const pendingToken = url.searchParams.get('pending_token',)?.trim()
+  const oauthToken = url.searchParams.get('oauth_token',)?.trim()
+  const oauthVerifier = url.searchParams.get('oauth_verifier',)?.trim()
 
   if (!deviceId || !pendingToken || !oauthToken || !oauthVerifier) {
     return html(
       oauthCallbackPage(
-        "Auth failed",
-        "Missing required callback parameters. Restart auth from your client.",
+        'Auth failed',
+        'Missing required callback parameters. Restart auth from your client.',
       ),
       400,
-    );
+    )
   }
 
-  const session = await getSessionByDeviceAndPending(env, deviceId, pendingToken);
+  const session = await getSessionByDeviceAndPending(
+    env,
+    deviceId,
+    pendingToken,
+  )
   if (!session) {
-    return html(oauthCallbackPage("Auth failed", "Device session not found."), 404);
+    return html(
+      oauthCallbackPage('Auth failed', 'Device session not found.',),
+      404,
+    )
   }
 
-  const now = nowSeconds();
+  const now = nowSeconds()
   if (now >= session.expires_at) {
-    await markSessionStatus(env, session.device_id, "expired", now);
+    await markSessionStatus(env, session.device_id, 'expired', now,)
     return html(
       oauthCallbackPage(
-        "Auth expired",
-        "The device session expired. Restart auth from your client.",
+        'Auth expired',
+        'The device session expired. Restart auth from your client.',
       ),
       410,
-    );
+    )
   }
 
   const temp = await env.DB.prepare(
@@ -389,20 +431,25 @@ async function handleDiscogsOauthCallback(env: Env, url: URL): Promise<Response>
      FROM oauth_request_tokens
      WHERE oauth_token = ?1 AND device_id = ?2 AND pending_token = ?3 AND expires_at > ?4`,
   )
-    .bind(oauthToken, deviceId, pendingToken, now)
-    .first<{ oauth_token_secret: string }>();
+    .bind(oauthToken, deviceId, pendingToken, now,)
+    .first<{ oauth_token_secret: string }>()
 
   if (!temp) {
     return html(
       oauthCallbackPage(
-        "Auth failed",
-        "OAuth request token was not found or expired. Restart auth.",
+        'Auth failed',
+        'OAuth request token was not found or expired. Restart auth.',
       ),
       400,
-    );
+    )
   }
 
-  const access = await requestDiscogsAccessToken(env, oauthToken, temp.oauth_token_secret, oauthVerifier);
+  const access = await requestDiscogsAccessToken(
+    env,
+    oauthToken,
+    temp.oauth_token_secret,
+    oauthVerifier,
+  )
 
   await env.DB.prepare(
     `UPDATE device_sessions
@@ -422,37 +469,42 @@ async function handleDiscogsOauthCallback(env: Env, url: URL): Promise<Response>
       deviceId,
       pendingToken,
     )
-    .run();
+    .run()
 
-  await env.DB.prepare("DELETE FROM oauth_request_tokens WHERE oauth_token = ?1")
-    .bind(oauthToken)
-    .run();
+  await env.DB.prepare(
+    'DELETE FROM oauth_request_tokens WHERE oauth_token = ?1',
+  )
+    .bind(oauthToken,)
+    .run()
 
   return html(
     oauthCallbackPage(
-      "Discogs linked",
-      "You can close this tab and return to your client.",
+      'Discogs linked',
+      'You can close this tab and return to your client.',
     ),
     200,
-  );
+  )
 }
 
-async function handleDiscogsProxySearch(request: Request, env: Env): Promise<Response> {
-  assertDiscogsOAuthEnv(env);
+async function handleDiscogsProxySearch(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  assertDiscogsOAuthEnv(env,)
 
-  const sessionToken = bearerToken(request);
+  const sessionToken = bearerToken(request,)
   if (!sessionToken) {
     return json(
       {
-        error: "unauthorized",
-        message: "missing bearer session token",
+        error: 'unauthorized',
+        message: 'missing bearer session token',
       },
       401,
-    );
+    )
   }
 
-  const sessionTokenHash = await sha256Hex(sessionToken);
-  const now = nowSeconds();
+  const sessionTokenHash = await sha256Hex(sessionToken,)
+  const now = nowSeconds()
   const session = await env.DB.prepare(
     `SELECT *
      FROM device_sessions
@@ -461,50 +513,55 @@ async function handleDiscogsProxySearch(request: Request, env: Env): Promise<Res
        AND status = 'finalized'
      LIMIT 1`,
   )
-    .bind(sessionTokenHash, now)
-    .first<DeviceSessionRow>();
+    .bind(sessionTokenHash, now,)
+    .first<DeviceSessionRow>()
 
-  if (!session || !session.oauth_access_token || !session.oauth_access_token_secret) {
+  if (
+    !session || !session.oauth_access_token
+    || !session.oauth_access_token_secret
+  ) {
     return json(
       {
-        error: "unauthorized",
-        message: "invalid or expired broker session",
+        error: 'unauthorized',
+        message: 'invalid or expired broker session',
       },
       401,
-    );
+    )
   }
 
-  const body = await parseJsonBody<DiscogsSearchBody>(request);
-  const artist = body.artist?.trim();
-  const title = body.title?.trim();
-  const album = body.album?.trim();
+  const body = await parseJsonBody<DiscogsSearchBody>(request,)
+  const artist = body.artist?.trim()
+  const title = body.title?.trim()
+  const album = body.album?.trim()
 
   if (!artist || !title) {
     return json(
       {
-        error: "invalid_params",
-        message: "artist and title are required",
+        error: 'invalid_params',
+        message: 'artist and title are required',
       },
       400,
-    );
+    )
   }
 
-  const cacheKey = `${normalize(artist)}|${normalize(title)}|${normalize(album ?? "")}`;
+  const cacheKey = `${normalize(artist,)}|${normalize(title,)}|${
+    normalize(album ?? '',)
+  }`
   const cached = await env.DB.prepare(
     `SELECT response_json
      FROM discogs_search_cache
      WHERE cache_key = ?1 AND expires_at > ?2`,
   )
-    .bind(cacheKey, now)
-    .first<{ response_json: string }>();
+    .bind(cacheKey, now,)
+    .first<{ response_json: string }>()
 
   if (cached?.response_json) {
-    const parsed = safeJsonParse<NormalizedProxyPayload>(cached.response_json);
+    const parsed = safeJsonParse<NormalizedProxyPayload>(cached.response_json,)
     if (parsed) {
       return json({
         ...parsed,
         cache_hit: true,
-      });
+      },)
     }
   }
 
@@ -514,9 +571,12 @@ async function handleDiscogsProxySearch(request: Request, env: Env): Promise<Res
     album,
     oauthToken: session.oauth_access_token,
     oauthTokenSecret: session.oauth_access_token_secret,
-  });
+  },)
 
-  const cacheTtlSeconds = envInt(env.SEARCH_CACHE_TTL_SECONDS, DEFAULT_CACHE_TTL_SECONDS);
+  const cacheTtlSeconds = envInt(
+    env.SEARCH_CACHE_TTL_SECONDS,
+    DEFAULT_CACHE_TTL_SECONDS,
+  )
   await env.DB.prepare(
     `INSERT INTO discogs_search_cache (cache_key, response_json, cached_at, expires_at)
      VALUES (?1, ?2, ?3, ?4)
@@ -525,107 +585,115 @@ async function handleDiscogsProxySearch(request: Request, env: Env): Promise<Res
        cached_at = excluded.cached_at,
        expires_at = excluded.expires_at`,
   )
-    .bind(cacheKey, JSON.stringify(payload), now, now + cacheTtlSeconds)
-    .run();
+    .bind(cacheKey, JSON.stringify(payload,), now, now + cacheTtlSeconds,)
+    .run()
 
-  return json(payload);
+  return json(payload,)
 }
 
 async function lookupDiscogsViaApi(
   env: Env,
   params: {
-    artist: string;
-    title: string;
-    album?: string;
-    oauthToken: string;
-    oauthTokenSecret: string;
+    artist: string
+    title: string
+    album?: string
+    oauthToken: string
+    oauthTokenSecret: string
   },
 ): Promise<NormalizedProxyPayload> {
-  const query = new URLSearchParams();
-  query.set("artist", params.artist);
-  query.set("track", params.title);
-  query.set("type", "release");
-  query.set("per_page", "15");
+  const query = new URLSearchParams()
+  query.set('artist', params.artist,)
+  query.set('track', params.title,)
+  query.set('type', 'release',)
+  query.set('per_page', '15',)
   if (params.album) {
-    query.set("release_title", params.album);
+    query.set('release_title', params.album,)
   }
 
   const doRequest = async (): Promise<Response> => {
-    await enforceDiscogsRateLimit(env);
+    await enforceDiscogsRateLimit(env,)
 
     const oauthParams: Record<string, string> = {
       oauth_consumer_key: env.DISCOGS_CONSUMER_KEY,
-      oauth_nonce: randomToken(16),
-      oauth_signature_method: "PLAINTEXT",
-      oauth_timestamp: `${Math.floor(Date.now() / 1000)}`,
+      oauth_nonce: randomToken(16,),
+      oauth_signature_method: 'PLAINTEXT',
+      oauth_timestamp: `${Math.floor(Date.now() / 1000,)}`,
       oauth_token: params.oauthToken,
-      oauth_version: "1.0",
-      oauth_signature: `${env.DISCOGS_CONSUMER_SECRET}&${params.oauthTokenSecret}`,
-    };
+      oauth_version: '1.0',
+      oauth_signature:
+        `${env.DISCOGS_CONSUMER_SECRET}&${params.oauthTokenSecret}`,
+    }
 
     return fetch(`${DISCOGS_BASE_URL}/database/search?${query.toString()}`, {
-      method: "GET",
+      method: 'GET',
       headers: {
-        Authorization: oauthHeader(oauthParams),
-        "User-Agent": "reklawdbox-broker/0.1",
+        Authorization: oauthHeader(oauthParams,),
+        'User-Agent': 'reklawdbox-broker/0.1',
       },
-    });
-  };
+    },)
+  }
 
-  let response = await doRequest();
+  let response = await doRequest()
   if (response.status === 429) {
-    const retryAfterSeconds = parseRetryAfterSeconds(response.headers.get("Retry-After"));
-    await delay((retryAfterSeconds ?? 30) * 1000);
-    response = await doRequest();
+    const retryAfterSeconds = parseRetryAfterSeconds(
+      response.headers.get('Retry-After',),
+    )
+    await delay((retryAfterSeconds ?? 30) * 1000,)
+    response = await doRequest()
   }
 
   if (!response.ok) {
-    throw new Error(`Discogs search failed: HTTP ${response.status}`);
+    throw new Error(`Discogs search failed: HTTP ${response.status}`,)
   }
 
-  const data = (await response.json()) as DiscogsApiSearchResponse;
-  const results = data.results ?? [];
+  const data = (await response.json()) as DiscogsApiSearchResponse
+  const results = data.results ?? []
   if (results.length === 0) {
     return {
       result: null,
-      match_quality: "none",
+      match_quality: 'none',
       cache_hit: false,
-    };
+    }
   }
 
-  const normArtist = normalize(params.artist);
-  const matched = results.find((entry) => {
-    const resultTitle = (entry.title ?? "").toLowerCase();
-    return resultTitle.includes(normArtist) || normArtist.length < 3;
-  });
+  const normArtist = normalize(params.artist,)
+  const matched = results.find((entry,) => {
+    const resultTitle = (entry.title ?? '').toLowerCase()
+    return resultTitle.includes(normArtist,) || normArtist.length < 3
+  },)
 
   if (matched) {
     return {
-      result: toDiscogsResult(matched, false),
-      match_quality: "exact",
+      result: toDiscogsResult(matched, false,),
+      match_quality: 'exact',
       cache_hit: false,
-    };
+    }
   }
 
   return {
-    result: toDiscogsResult(results[0], true),
-    match_quality: "fuzzy",
+    result: toDiscogsResult(results[0], true,),
+    match_quality: 'fuzzy',
     cache_hit: false,
-  };
+  }
 }
 
-function toDiscogsResult(entry: DiscogsApiSearchResult, fuzzy: boolean): DiscogsResult {
-  const uri = entry.uri ?? "";
-  const url = uri ? `https://www.discogs.com${uri}` : "";
+function toDiscogsResult(
+  entry: DiscogsApiSearchResult,
+  fuzzy: boolean,
+): DiscogsResult {
+  const uri = entry.uri ?? ''
+  const url = uri ? `https://www.discogs.com${uri}` : ''
   return {
-    title: entry.title ?? "",
-    year: `${entry.year ?? ""}`,
-    label: Array.isArray(entry.label) && entry.label.length > 0 ? entry.label[0] : "",
-    genres: Array.isArray(entry.genre) ? entry.genre : [],
-    styles: Array.isArray(entry.style) ? entry.style : [],
+    title: entry.title ?? '',
+    year: `${entry.year ?? ''}`,
+    label: Array.isArray(entry.label,) && entry.label.length > 0
+      ? entry.label[0]
+      : '',
+    genres: Array.isArray(entry.genre,) ? entry.genre : [],
+    styles: Array.isArray(entry.style,) ? entry.style : [],
     url,
     fuzzy_match: fuzzy,
-  };
+  }
 }
 
 async function requestDiscogsRequestToken(
@@ -635,34 +703,36 @@ async function requestDiscogsRequestToken(
   const oauthParams: Record<string, string> = {
     oauth_callback: callbackUrl,
     oauth_consumer_key: env.DISCOGS_CONSUMER_KEY,
-    oauth_nonce: randomToken(16),
-    oauth_signature_method: "PLAINTEXT",
-    oauth_timestamp: `${Math.floor(Date.now() / 1000)}`,
-    oauth_version: "1.0",
+    oauth_nonce: randomToken(16,),
+    oauth_signature_method: 'PLAINTEXT',
+    oauth_timestamp: `${Math.floor(Date.now() / 1000,)}`,
+    oauth_version: '1.0',
     oauth_signature: `${env.DISCOGS_CONSUMER_SECRET}&`,
-  };
+  }
 
   const response = await fetch(`${DISCOGS_BASE_URL}/oauth/request_token`, {
-    method: "POST",
+    method: 'POST',
     headers: {
-      Authorization: oauthHeader(oauthParams),
-      "User-Agent": "reklawdbox-broker/0.1",
+      Authorization: oauthHeader(oauthParams,),
+      'User-Agent': 'reklawdbox-broker/0.1',
     },
-  });
+  },)
 
-  const body = await response.text();
+  const body = await response.text()
   if (!response.ok) {
-    throw new Error(`Discogs request_token failed: HTTP ${response.status}`);
+    throw new Error(`Discogs request_token failed: HTTP ${response.status}`,)
   }
 
-  const params = new URLSearchParams(body);
-  const oauthToken = params.get("oauth_token") ?? "";
-  const oauthTokenSecret = params.get("oauth_token_secret") ?? "";
+  const params = new URLSearchParams(body,)
+  const oauthToken = params.get('oauth_token',) ?? ''
+  const oauthTokenSecret = params.get('oauth_token_secret',) ?? ''
   if (!oauthToken || !oauthTokenSecret) {
-    throw new Error("Discogs request_token response missing oauth_token fields");
+    throw new Error(
+      'Discogs request_token response missing oauth_token fields',
+    )
   }
 
-  return { oauthToken, oauthTokenSecret };
+  return { oauthToken, oauthTokenSecret, }
 }
 
 async function requestDiscogsAccessToken(
@@ -670,39 +740,46 @@ async function requestDiscogsAccessToken(
   oauthToken: string,
   oauthTokenSecret: string,
   oauthVerifier: string,
-): Promise<{ oauthToken: string; oauthTokenSecret: string; username?: string; userId?: string }> {
+): Promise<
+  {
+    oauthToken: string
+    oauthTokenSecret: string
+    username?: string
+    userId?: string
+  }
+> {
   const oauthParams: Record<string, string> = {
     oauth_consumer_key: env.DISCOGS_CONSUMER_KEY,
-    oauth_nonce: randomToken(16),
-    oauth_signature_method: "PLAINTEXT",
-    oauth_timestamp: `${Math.floor(Date.now() / 1000)}`,
+    oauth_nonce: randomToken(16,),
+    oauth_signature_method: 'PLAINTEXT',
+    oauth_timestamp: `${Math.floor(Date.now() / 1000,)}`,
     oauth_token: oauthToken,
     oauth_verifier: oauthVerifier,
-    oauth_version: "1.0",
+    oauth_version: '1.0',
     oauth_signature: `${env.DISCOGS_CONSUMER_SECRET}&${oauthTokenSecret}`,
-  };
-
-  const response = await fetch(`${DISCOGS_BASE_URL}/oauth/access_token`, {
-    method: "POST",
-    headers: {
-      Authorization: oauthHeader(oauthParams),
-      "User-Agent": "reklawdbox-broker/0.1",
-    },
-  });
-
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`Discogs access_token failed: HTTP ${response.status}`);
   }
 
-  const params = new URLSearchParams(body);
-  const accessToken = params.get("oauth_token") ?? "";
-  const accessTokenSecret = params.get("oauth_token_secret") ?? "";
-  const username = params.get("username") ?? undefined;
-  const userId = params.get("user_id") ?? undefined;
+  const response = await fetch(`${DISCOGS_BASE_URL}/oauth/access_token`, {
+    method: 'POST',
+    headers: {
+      Authorization: oauthHeader(oauthParams,),
+      'User-Agent': 'reklawdbox-broker/0.1',
+    },
+  },)
+
+  const body = await response.text()
+  if (!response.ok) {
+    throw new Error(`Discogs access_token failed: HTTP ${response.status}`,)
+  }
+
+  const params = new URLSearchParams(body,)
+  const accessToken = params.get('oauth_token',) ?? ''
+  const accessTokenSecret = params.get('oauth_token_secret',) ?? ''
+  const username = params.get('username',) ?? undefined
+  const userId = params.get('user_id',) ?? undefined
 
   if (!accessToken || !accessTokenSecret) {
-    throw new Error("Discogs access_token response missing oauth_token fields");
+    throw new Error('Discogs access_token response missing oauth_token fields',)
   }
 
   return {
@@ -710,7 +787,7 @@ async function requestDiscogsAccessToken(
     oauthTokenSecret: accessTokenSecret,
     username,
     userId,
-  };
+  }
 }
 
 async function getSessionByDeviceAndPending(
@@ -724,8 +801,8 @@ async function getSessionByDeviceAndPending(
      WHERE device_id = ?1 AND pending_token = ?2
      LIMIT 1`,
   )
-    .bind(deviceId, pendingToken)
-    .first<DeviceSessionRow>();
+    .bind(deviceId, pendingToken,)
+    .first<DeviceSessionRow>()
 }
 
 async function markSessionStatus(
@@ -740,27 +817,30 @@ async function markSessionStatus(
          updated_at = ?2
      WHERE device_id = ?3`,
   )
-    .bind(status, updatedAt, deviceId)
-    .run();
+    .bind(status, updatedAt, deviceId,)
+    .run()
 }
 
-async function enforceDiscogsRateLimit(env: Env): Promise<void> {
-  const bucket = "discogs-api-global";
-  const nowMs = Date.now();
-  const minIntervalMs = envInt(env.DISCOGS_MIN_INTERVAL_MS, DEFAULT_DISCOGS_MIN_INTERVAL_MS);
+async function enforceDiscogsRateLimit(env: Env,): Promise<void> {
+  const bucket = 'discogs-api-global'
+  const nowMs = Date.now()
+  const minIntervalMs = envInt(
+    env.DISCOGS_MIN_INTERVAL_MS,
+    DEFAULT_DISCOGS_MIN_INTERVAL_MS,
+  )
 
   const row = await env.DB.prepare(
     `SELECT last_request_at_ms
      FROM rate_limit_state
      WHERE bucket = ?1`,
   )
-    .bind(bucket)
-    .first<{ last_request_at_ms: number }>();
+    .bind(bucket,)
+    .first<{ last_request_at_ms: number }>()
 
   if (row?.last_request_at_ms) {
-    const elapsed = nowMs - Number(row.last_request_at_ms);
+    const elapsed = nowMs - Number(row.last_request_at_ms,)
     if (elapsed < minIntervalMs) {
-      await delay(minIntervalMs - elapsed);
+      await delay(minIntervalMs - elapsed,)
     }
   }
 
@@ -770,151 +850,156 @@ async function enforceDiscogsRateLimit(env: Env): Promise<void> {
      ON CONFLICT(bucket) DO UPDATE SET
        last_request_at_ms = excluded.last_request_at_ms`,
   )
-    .bind(bucket, Date.now())
-    .run();
+    .bind(bucket, Date.now(),)
+    .run()
 }
 
-function assertDiscogsOAuthEnv(env: Env): void {
+function assertDiscogsOAuthEnv(env: Env,): void {
   if (!env.DISCOGS_CONSUMER_KEY || !env.DISCOGS_CONSUMER_SECRET) {
-    throw new Error("DISCOGS_CONSUMER_KEY and DISCOGS_CONSUMER_SECRET must be set");
+    throw new Error(
+      'DISCOGS_CONSUMER_KEY and DISCOGS_CONSUMER_SECRET must be set',
+    )
   }
 }
 
-function publicBaseUrl(env: Env, requestUrl: URL): string {
-  return (env.BROKER_PUBLIC_BASE_URL ?? `${requestUrl.protocol}//${requestUrl.host}`).replace(/\/$/, "");
+function publicBaseUrl(env: Env, requestUrl: URL,): string {
+  return (env.BROKER_PUBLIC_BASE_URL
+    ?? `${requestUrl.protocol}//${requestUrl.host}`).replace(/\/$/, '',)
 }
 
-function isBrokerClientAuthorized(request: Request, env: Env): boolean {
-  const expected = env.BROKER_CLIENT_TOKEN?.trim();
+function isBrokerClientAuthorized(request: Request, env: Env,): boolean {
+  const expected = env.BROKER_CLIENT_TOKEN?.trim()
   if (!expected) {
-    return true;
+    return true
   }
 
-  const provided = request.headers.get("x-reklawdbox-broker-token")?.trim();
-  return provided === expected;
+  const provided = request.headers.get('x-reklawdbox-broker-token',)?.trim()
+  return provided === expected
 }
 
 function unauthorizedBrokerClientResponse(): Response {
   return json(
     {
-      error: "unauthorized",
-      message: "invalid broker client token",
+      error: 'unauthorized',
+      message: 'invalid broker client token',
     },
     401,
-  );
+  )
 }
 
-function oauthHeader(params: Record<string, string>): string {
-  const pairs = Object.entries(params)
-    .map(([key, value]) => `${percentEncode(key)}="${percentEncode(value)}"`)
-    .join(", ");
-  return `OAuth ${pairs}`;
+function oauthHeader(params: Record<string, string>,): string {
+  const pairs = Object.entries(params,)
+    .map(([key, value,],) =>
+      `${percentEncode(key,)}="${percentEncode(value,)}"`
+    )
+    .join(', ',)
+  return `OAuth ${pairs}`
 }
 
-function percentEncode(value: string): string {
-  return encodeURIComponent(value)
-    .replace(/!/g, "%21")
-    .replace(/\*/g, "%2A")
-    .replace(/\(/g, "%28")
-    .replace(/\)/g, "%29")
-    .replace(/'/g, "%27");
+function percentEncode(value: string,): string {
+  return encodeURIComponent(value,)
+    .replace(/!/g, '%21',)
+    .replace(/\*/g, '%2A',)
+    .replace(/\(/g, '%28',)
+    .replace(/\)/g, '%29',)
+    .replace(/'/g, '%27',)
 }
 
-function normalize(input: string): string {
+function normalize(input: string,): string {
   return input
     .toLowerCase()
-    .split("")
-    .filter((ch) => /[\p{L}\p{N} ]/u.test(ch))
-    .join("")
-    .trim();
+    .split('',)
+    .filter((ch,) => /[\p{L}\p{N} ]/u.test(ch,))
+    .join('',)
+    .trim()
 }
 
-function randomToken(bytes: number): string {
-  const arr = new Uint8Array(bytes);
-  crypto.getRandomValues(arr);
-  return Array.from(arr)
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function randomToken(bytes: number,): string {
+  const arr = new Uint8Array(bytes,)
+  crypto.getRandomValues(arr,)
+  return Array.from(arr,)
+    .map((b,) => b.toString(16,).padStart(2, '0',))
+    .join('',)
 }
 
-async function sha256Hex(input: string): Promise<string> {
-  const encoded = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", encoded);
-  const arr = Array.from(new Uint8Array(digest));
-  return arr.map((b) => b.toString(16).padStart(2, "0")).join("");
+async function sha256Hex(input: string,): Promise<string> {
+  const encoded = new TextEncoder().encode(input,)
+  const digest = await crypto.subtle.digest('SHA-256', encoded,)
+  const arr = Array.from(new Uint8Array(digest,),)
+  return arr.map((b,) => b.toString(16,).padStart(2, '0',)).join('',)
 }
 
-async function parseJsonBody<T>(request: Request): Promise<T> {
+async function parseJsonBody<T,>(request: Request,): Promise<T> {
   try {
-    return (await request.json()) as T;
+    return (await request.json()) as T
   } catch {
-    throw new Error("invalid JSON body");
+    throw new Error('invalid JSON body',)
   }
 }
 
-function bearerToken(request: Request): string | null {
-  const auth = request.headers.get("authorization") ?? "";
-  const [scheme, token] = auth.split(/\s+/, 2);
-  if (!scheme || !token || scheme.toLowerCase() !== "bearer") {
-    return null;
+function bearerToken(request: Request,): string | null {
+  const auth = request.headers.get('authorization',) ?? ''
+  const [scheme, token,] = auth.split(/\s+/, 2,)
+  if (!scheme || !token || scheme.toLowerCase() !== 'bearer') {
+    return null
   }
-  return token.trim();
+  return token.trim()
 }
 
 function nowSeconds(): number {
-  return Math.floor(Date.now() / 1000);
+  return Math.floor(Date.now() / 1000,)
 }
 
-function envInt(input: string | undefined, fallback: number): number {
+function envInt(input: string | undefined, fallback: number,): number {
   if (!input) {
-    return fallback;
+    return fallback
   }
-  const parsed = Number.parseInt(input, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  const parsed = Number.parseInt(input, 10,)
+  return Number.isFinite(parsed,) && parsed > 0 ? parsed : fallback
 }
 
-function parseRetryAfterSeconds(header: string | null): number | null {
+function parseRetryAfterSeconds(header: string | null,): number | null {
   if (!header) {
-    return null;
+    return null
   }
-  const parsed = Number.parseInt(header, 10);
-  if (Number.isFinite(parsed) && parsed > 0) {
-    return parsed;
+  const parsed = Number.parseInt(header, 10,)
+  if (Number.isFinite(parsed,) && parsed > 0) {
+    return parsed
   }
-  return null;
+  return null
 }
 
-function safeJsonParse<T>(input: string): T | null {
+function safeJsonParse<T,>(input: string,): T | null {
   try {
-    return JSON.parse(input) as T;
+    return JSON.parse(input,) as T
   } catch {
-    return null;
+    return null
   }
 }
 
-function asErrorMessage(err: unknown): string {
+function asErrorMessage(err: unknown,): string {
   if (err instanceof Error) {
-    return err.message;
+    return err.message
   }
-  return String(err);
+  return String(err,)
 }
 
-function escapeHtml(input: string): string {
+function escapeHtml(input: string,): string {
   return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+    .replaceAll('&', '&amp;',)
+    .replaceAll('<', '&lt;',)
+    .replaceAll('>', '&gt;',)
+    .replaceAll('"', '&quot;',)
+    .replaceAll("'", '&#39;',)
 }
 
-function oauthCallbackPage(title: string, message: string): string {
+function oauthCallbackPage(title: string, message: string,): string {
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>${escapeHtml(title)} | reklawdbox</title>
+  <title>${escapeHtml(title,)} | reklawdbox</title>
   <style>
     @font-face {
       font-family: 'BerkeleyMono';
@@ -979,47 +1064,47 @@ function oauthCallbackPage(title: string, message: string): string {
 <body>
   <main class="card">
     <img class="logo" src="${CALLBACK_LOGO_DATA_URI}" alt="reklawdbox" />
-    <h1>${escapeHtml(title)}</h1>
-    <p>${message.split(/(?<=\.) /).map(escapeHtml).join('<br />')}</p>
+    <h1>${escapeHtml(title,)}</h1>
+    <p>${message.split(/(?<=\.) /,).map(escapeHtml,).join('<br />',)}</p>
     <div class="brand">reklawdbox</div>
   </main>
 </body>
-</html>`;
+</html>`
 }
 
-function json(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
+function json(payload: unknown, status = 200,): Response {
+  return new Response(JSON.stringify(payload,), {
     status,
     headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
     },
-  });
+  },)
 }
 
-function text(payload: string, status = 200): Response {
+function text(payload: string, status = 200,): Response {
   return new Response(payload, {
     status,
     headers: {
-      "content-type": "text/plain; charset=utf-8",
-      "cache-control": "no-store",
+      'content-type': 'text/plain; charset=utf-8',
+      'cache-control': 'no-store',
     },
-  });
+  },)
 }
 
-function html(payload: string, status = 200): Response {
+function html(payload: string, status = 200,): Response {
   return new Response(payload, {
     status,
     headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store",
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
     },
-  });
+  },)
 }
 
-async function delay(ms: number): Promise<void> {
+async function delay(ms: number,): Promise<void> {
   if (ms <= 0) {
-    return;
+    return
   }
-  await new Promise((resolve) => setTimeout(resolve, ms));
+  await new Promise((resolve,) => setTimeout(resolve, ms,))
 }

@@ -6,6 +6,7 @@ Process newly acquired music (downloaded albums, loose tracks, zips) into an org
 
 ## Rekordbox Import Readiness
 
+<!-- dprint-ignore -->
 | Field | FLAC | WAV | MP3 |
 |-------|------|-----|-----|
 | Artist | Vorbis Comment | RIFF INFO (tag 3) | ID3v2 (tag 2) |
@@ -30,6 +31,7 @@ Process newly acquired music (downloaded albums, loose tracks, zips) into an org
 
 ## Prerequisites
 
+<!-- dprint-ignore -->
 | Tool | Purpose | Install |
 |------|---------|---------|
 | `kid3-cli` | Tag writing, file renaming, cover art embedding | `brew install kid3` |
@@ -46,6 +48,7 @@ Process newly acquired music (downloaded albums, loose tracks, zips) into an org
 ### Target structure
 
 **Single artist albums:**
+
 ```
 destination/
 └── Artist Name/
@@ -55,6 +58,7 @@ destination/
 ```
 
 **Various Artists compilations:**
+
 ```
 destination/
 └── Various Artists/
@@ -65,6 +69,7 @@ destination/
 ```
 
 **Loose tracks (play directories only):**
+
 ```
 destination/
 ├── Artist Name - Track Title.wav
@@ -73,11 +78,12 @@ destination/
 
 ### File naming
 
-- **Album tracks:** `NN Artist Name - Track Title.ext` (zero-padded, ` - ` separator)
+- **Album tracks:** `NN Artist Name - Track Title.ext` (zero-padded, `-` separator)
 - **Loose tracks:** `Artist Name - Track Title.ext` (no track number)
 
 ### Required tags
 
+<!-- dprint-ignore -->
 | Tag | Album tracks | Loose tracks |
 |-----|-------------|-------------|
 | Artist | Required | Required |
@@ -98,6 +104,7 @@ destination/
 
 ### Album type classification
 
+<!-- dprint-ignore -->
 | Pattern | Type | Directory structure |
 |---------|------|-------------------|
 | All tracks same artist | Single Artist | `Artist/Album (Year)/` |
@@ -177,6 +184,7 @@ Note: current filename pattern, which tags are present, whether cover art exists
 ### Step 2: Parse directory name
 
 Common incoming patterns:
+
 - `Artist Name - Album Name`
 - `Artist Name - Album Name (Year)`
 - `Artist Name - Album Name [FLAC 24-96]`
@@ -198,6 +206,7 @@ lookup_discogs(artist="Artist Name", title="First Track Title", album="Album Nam
 ```
 
 If no Discogs result, try Beatport:
+
 ```
 lookup_beatport(artist="Artist Name", title="First Track Title")
 ```
@@ -211,6 +220,7 @@ Never use lookup results for genre.
 ### Step 5: Write tags
 
 **Album-wide tags** (FLAC/MP3):
+
 ```sh
 cd "/path/to/album"
 kid3-cli -c "select all" -c "tag 2" \
@@ -222,6 +232,7 @@ kid3-cli -c "select all" -c "tag 2" \
 ```
 
 **Album-wide tags** (WAV — both tag 2 and tag 3):
+
 ```sh
 kid3-cli -c "select all" \
          -c "tag 2" \
@@ -239,6 +250,7 @@ kid3-cli -c "select all" \
 
 **Per-track tags** — parse from filenames. Common incoming patterns:
 
+<!-- dprint-ignore -->
 | Pattern | Parse as |
 |---------|----------|
 | `Artist - Album - NN Title.wav` | Track N: Artist - Title |
@@ -247,6 +259,7 @@ kid3-cli -c "select all" \
 | `NN. Title.wav` | Track N: [AlbumArtist] - Title |
 
 For each track (FLAC/MP3):
+
 ```sh
 kid3-cli -c "select 'original-filename.flac'" -c "tag 2" \
          -c "set artist 'Track Artist'" \
@@ -285,6 +298,7 @@ find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png
 ```
 
 **Single obvious cover** (`cover.jpg`, `front.jpg`, `folder.jpg`):
+
 ```sh
 kid3-cli -c "select all" \
          -c "set picture:'cover.jpg' 'Cover (front)' ''" \
@@ -294,6 +308,7 @@ kid3-cli -c "select all" \
 **Multiple images:** Ask user which is the cover.
 
 **No images:** Try `lookup_discogs(...)` — if result includes `cover_image`, download and embed:
+
 ```sh
 curl -s -o "cover.jpg" "COVER_IMAGE_URL"
 kid3-cli -c "select all" \
@@ -357,6 +372,7 @@ Expected format: `Artist Name - Track Title.ext`. If unparseable, ask user.
 ### Step 2: Read/write tags
 
 For each loose track, read existing tags:
+
 ```sh
 kid3-cli -c "get" "/path/to/batch/Artist - Title.wav"
 ```
@@ -364,6 +380,7 @@ kid3-cli -c "get" "/path/to/batch/Artist - Title.wav"
 If tags are missing, look up with `lookup_discogs(...)` / `lookup_beatport(...)`.
 
 Write minimum tags (FLAC/MP3):
+
 ```sh
 kid3-cli -c "select 'Artist - Title.flac'" -c "tag 2" \
          -c "set artist 'Artist Name'" \
@@ -427,6 +444,7 @@ Summarize: albums processed (single artist vs VA), loose tracks processed, any u
 
 ### Album tracks
 
+<!-- dprint-ignore -->
 | Pattern | Parse as |
 |---------|----------|
 | `Artist - Album - NN Title.wav` | Track N: Artist - Title |
@@ -439,6 +457,7 @@ Summarize: albums processed (single artist vs VA), loose tracks processed, any u
 
 ### Loose tracks
 
+<!-- dprint-ignore -->
 | Pattern | Status |
 |---------|--------|
 | `Artist - Title.wav` | Correct |

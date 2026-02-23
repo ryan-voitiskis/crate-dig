@@ -8,6 +8,7 @@ Create a comprehensive, agent-traversable knowledge corpus covering everything a
 
 ### PDFs (20 files, 1,696 total pages)
 
+<!-- dprint-ignore -->
 | # | File | Pages | Chunks (20pp max) | Notes |
 |---|------|-------|-------------------|-------|
 | 1 | `rekordbox7.2.8_manual_EN.pdf` | 259 | 13 | Core manual |
@@ -38,6 +39,7 @@ Create a comprehensive, agent-traversable knowledge corpus covering everything a
 
 The complete rekordbox 7 FAQ has been scraped to a single file:
 
+<!-- dprint-ignore -->
 | File | Q&As | Lines | Size |
 |------|------|-------|------|
 | `docs/rekordbox/rekordbox7-faq.md` | 288 | 3,525 | 138KB |
@@ -50,6 +52,7 @@ During Phase A, FAQ agents will split this single file into topic-specific docum
 
 ### Web Pages (4 pages)
 
+<!-- dprint-ignore -->
 | # | URL | Content |
 |---|-----|---------|
 | W1 | `rekordbox.com/en/feature/overview/` | Feature overview |
@@ -226,9 +229,11 @@ documents:
 ## Phase A: Transcription
 
 ### Goal
+
 Convert all source material to clean markdown with YAML frontmatter.
 
 ### Approach
+
 The orchestrator spawns parallel agents, each assigned a specific source document or page range. Each agent:
 
 1. Reads the assigned PDF pages (max 20pp per Read call) or fetches the web page
@@ -299,6 +304,7 @@ Agent F3: Read rekordbox7-faq.md lines 2400-3525, categorize Q&As, write:
 
 Each agent assigns every Q&A to exactly one output file based on topic. The target categories:
 
+<!-- dprint-ignore -->
 | Output File | Topics Covered |
 |---|---|
 | `faq/plans-and-billing.md` | Subscription, trials, hardware unlock, owner registration, accounts |
@@ -334,9 +340,11 @@ Agent W4: reference/developer-integration.md (WebFetch)
 ## Phase B: Verification
 
 ### Goal
+
 Each transcription is verified against its source by a separate agent.
 
 ### Approach
+
 One verification agent per document. Each agent:
 
 1. Reads the original source (PDF pages or web page)
@@ -361,6 +369,7 @@ One agent per output document (~37 agents total — matching Phase A). Can be ba
 ## Phase C: Organization & Mapping
 
 ### Goal
+
 Build the manifest, README, cross-references, glossary, and reference documents.
 
 ### Agents (5 total, sequential)
@@ -476,6 +485,7 @@ Steps:
 
 ## Estimated Effort
 
+<!-- dprint-ignore -->
 | Phase | Agents | Est. Time per Agent | Total Wall Clock (parallelized) |
 |-------|--------|--------------------|---------------------------------|
 | A: Transcription | ~37 | 2-5 min | ~20 min (4 waves) |

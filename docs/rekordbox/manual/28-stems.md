@@ -131,7 +131,7 @@ You can replace or add the DRUMS Stem of a track loaded on the deck with the dru
      - Click the [PLAY/PAUSE] button on the playing deck to pause playback.
      - Click the [CUE] button on the playing deck to perform a Back Cue.
      - The end of the track is reached on the playing deck.
-     Examples when BEAT SYNC to the deck cannot be maintained:
+       Examples when BEAT SYNC to the deck cannot be maintained:
      - Perform a MANUAL LOOP with quantize turned off on the deck.
      - Perform reverse playback on the deck.
 

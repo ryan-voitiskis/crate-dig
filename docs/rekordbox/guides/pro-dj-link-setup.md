@@ -28,17 +28,19 @@ verified_by: agent
 ## Connection Method
 
 - Preparation for Connection — 4
-- Using the Internet (CloudDirectPlay, StreamingDirectPlay) — 5
-  - 1. Connecting DJ Equipment — 5
-    - Wired LAN connection — 5
-    - Wireless LAN (Wi-Fi) connection — 6
-  - 2. Computer (Mac/Windows)/Mobile Device (iOS/Android) Connection — 7
+- ## Using the Internet (CloudDirectPlay, StreamingDirectPlay) — 5
+  1. Connecting DJ Equipment — 5
+  - Wired LAN connection — 5
+  - Wireless LAN (Wi-Fi) connection — 6
+  -
+    2. Computer (Mac/Windows)/Mobile Device (iOS/Android) Connection — 7
     - Wired LAN connection — 7
     - USB Connection — 8
     - Wireless LAN (Wi-Fi) connection — 9
-- PRO DJ LINK Only — 10
-  - 1. Connecting DJ Equipment — 10
-  - 2. Computer (Mac/Windows)/Mobile Device (iOS/Android) Connection — 11
+- ## PRO DJ LINK Only — 10
+  1. Connecting DJ Equipment — 10
+  -
+    2. Computer (Mac/Windows)/Mobile Device (iOS/Android) Connection — 11
     - Wired LAN connection — 11
     - USB Connection — 12
     - Wireless LAN (Wi-Fi) connection — 13

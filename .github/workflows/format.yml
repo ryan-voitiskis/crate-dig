@@ -1,0 +1,30 @@
+name: Format
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rustfmt
+
+      - name: Install dprint
+        run: curl -fsSL https://dprint.dev/install.sh | sh && echo "$HOME/.dprint/bin" >> "$GITHUB_PATH"
+
+      - name: Check formatting
+        run: |
+          dprint check
+          cargo fmt --check

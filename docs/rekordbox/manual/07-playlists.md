@@ -49,7 +49,7 @@ You can save the created playlist in ".txt" or ".m3u8" format, and export it to 
 
 2. Select [Export a playlist to a file].
 
-3. Select [Export a playlist to a file (*.txt)] or [Export a playlist to a file for music apps (*.m3u8)], and then save the playlist.
+3. Select [Export a playlist to a file (_.txt)] or [Export a playlist to a file for music apps (_.m3u8)], and then save the playlist.
 
 ## Importing a playlist file
 

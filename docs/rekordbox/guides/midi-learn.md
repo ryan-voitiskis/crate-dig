@@ -20,7 +20,7 @@ verified_by: agent
 
 This guide explains how to use MIDI LEARN function in rekordbox (Performance mode). For instructions on rekordbox in general, see the Operating Instructions of rekordbox.
 
-rekordbox Operation Instructions    rekordbox.com/en/download/#manual
+rekordbox Operation Instructions rekordbox.com/en/download/#manual
 
 # 2 MIDI LEARN
 
@@ -118,17 +118,17 @@ Value:
 >
 > a) Needle Search:
 >
-> > Set MIDI code by sliding a finger along the ribbon controller of the equipment.
+>> Set MIDI code by sliding a finger along the ribbon controller of the equipment.
 >
 > b) Velocity Sampler:
 >
-> > MIDI for Velocity sampler can only be set to a pad that sends 2 MIDI data (Note On and Control Change (CC)) when they are pressed. The velocity is set by the CC. Enter Status byte (hex) and Data 1 (hex), as the velocity sampler MIDI cannot be assigned by pressing pads.
-> >
-> > Velocity Sampler [MIDI IN] data input: Bnxx
-> >
-> > n: MIDI CH 1-16 (0h-Fh)
-> >
-> > xx: Data 1 (00h-FFh)
+>> MIDI for Velocity sampler can only be set to a pad that sends 2 MIDI data (Note On and Control Change (CC)) when they are pressed. The velocity is set by the CC. Enter Status byte (hex) and Data 1 (hex), as the velocity sampler MIDI cannot be assigned by pressing pads.
+>>
+>> Velocity Sampler [MIDI IN] data input: Bnxx
+>>
+>> n: MIDI CH 1-16 (0h-Fh)
+>>
+>> xx: Data 1 (00h-FFh)
 
 **[MIDI OUT]**: MIDI code sent to the equipment.
 
@@ -201,7 +201,7 @@ When 2 or more units are connected, select the unit you wish to set MIDI as foll
 
 **3 Operate the equipment.**
 
-Operate the control (e.g. button, fader) of the equipment set by the [Type] display. (See p.4. *[4] MIDI setting item list* for details of [Type].)
+Operate the control (e.g. button, fader) of the equipment set by the [Type] display. (See p.4. _[4] MIDI setting item list_ for details of [Type].)
 
 -> When the MIDI code is sent from the equipment, the code will be shown on the [MIDI IN].
 

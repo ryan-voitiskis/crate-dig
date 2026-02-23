@@ -10,6 +10,7 @@ The agent helps the user build ordered tracklists for DJ sets. It uses cached au
 
 **New tools needed:**
 
+<!-- dprint-ignore -->
 | Tool | Purpose |
 |------|---------|
 | `score_transition` | Deterministic Camelot/BPM/energy/genre/brightness/rhythm math for a track pair. |
@@ -18,6 +19,7 @@ The agent helps the user build ordered tracklists for DJ sets. It uses cached au
 
 **Existing tools used:**
 
+<!-- dprint-ignore -->
 | Tool | Purpose |
 |------|---------|
 | `search_tracks` | Find candidate pool by genre, BPM, key, playlist, etc. |
@@ -53,6 +55,7 @@ Set parameters:
 
 ### Defaults (if user doesn't specify)
 
+<!-- dprint-ignore -->
 | Parameter | Default |
 |-----------|---------|
 | Duration | 60 minutes |
@@ -196,6 +199,7 @@ Actions:
 
 ### Available edit operations
 
+<!-- dprint-ignore -->
 | Command | Action |
 |---------|--------|
 | `swap #5 TrackID` | Replace track at position 5 with a specific track from the pool. Agent re-scores adjacent transitions. |
@@ -259,6 +263,7 @@ write_xml(
 ```
 
 The XML writer emits both:
+
 - `<COLLECTION>` with all referenced tracks (metadata from Rekordbox DB).
 - `<PLAYLISTS>` with a `<NODE Type="1">` containing ordered `<TRACK Key="..."/>` references.
 
@@ -283,6 +288,7 @@ This is the deterministic math that `score_transition` and `build_set` implement
 
 Camelot positions are numbered 1-12 with A (minor) and B (major) variants.
 
+<!-- dprint-ignore -->
 | Relationship | Score | Label |
 |-------------|-------|-------|
 | Same key (e.g., 6A → 6A) | 1.0 | Perfect |
@@ -298,6 +304,7 @@ Camelot wraps: 12A → 1A is +1 (adjacent).
 
 ### BPM Compatibility
 
+<!-- dprint-ignore -->
 | Delta | Score | Label |
 |-------|-------|-------|
 | 0-2 BPM | 1.0 | Seamless |
@@ -320,6 +327,7 @@ energy_score = (0.4 * normalized_dance) + (0.3 * normalized_loudness) + (0.3 * o
 ```
 
 Where:
+
 - `danceability`: raw Essentia value (typical range 0 to ~3).
 - `normalized_loudness`: `(loudness_integrated + 30) / 30`, clamped to 0-1 (maps typical -30..0 LUFS range).
 - `onset_rate_normalized`: `onset_rate / 10.0`, clamped to 0-1 (typical range 0-10 onsets/sec).
@@ -334,6 +342,7 @@ This is crude but directionally correct (higher BPM ≈ higher energy for dance 
 
 Energy transition scoring depends on the requested energy curve position:
 
+<!-- dprint-ignore -->
 | Curve phase | Desired direction | Score if met | Score if wrong direction |
 |-------------|-------------------|-------------|------------------------|
 | Warmup | energy stable or slight rise | 1.0 | 0.5 |
@@ -342,11 +351,13 @@ Energy transition scoring depends on the requested energy curve position:
 | Release | energy dropping | 1.0 | 0.3 |
 
 Phase-aware loudness-range bonuses:
+
 - If the set crosses a phase boundary and destination track `loudness_range > 8.0`, add `+0.1` to the energy axis (cap 1.0).
 - If phase stays in Peak and destination track `loudness_range < 4.0`, add `+0.05` (cap 1.0).
 
 ### Genre Compatibility
 
+<!-- dprint-ignore -->
 | Relationship | Score |
 |-------------|-------|
 | Same canonical genre | 1.0 |
@@ -355,6 +366,7 @@ Phase-aware loudness-range bonuses:
 
 Genre families for scoring purposes:
 
+<!-- dprint-ignore -->
 | Family | Genres |
 |--------|--------|
 | House | House, Deep House, Tech House, Afro House, Garage, Speed Garage |
@@ -369,6 +381,7 @@ Tracks within the "Other" family don't get the 0.7 related-genre bonus with each
 
 Brightness uses Essentia `spectral_centroid_mean` (Hz):
 
+<!-- dprint-ignore -->
 | Absolute delta | Score | Label |
 |-------------|-------|-------|
 | < 300 Hz | 1.0 | Similar brightness |
@@ -382,6 +395,7 @@ If either track lacks centroid data, score is reported as `0.5` (neutral unknown
 
 Rhythm uses Essentia `rhythm_regularity`:
 
+<!-- dprint-ignore -->
 | Absolute delta | Score | Label |
 |-------------|-------|-------|
 | < 0.10 | 1.0 | Matching groove |
@@ -402,6 +416,7 @@ For brightness/rhythm specifically: when descriptor data is missing, the axis re
 
 Weights by priority axis:
 
+<!-- dprint-ignore -->
 | Priority | key_weight | bpm_weight | energy_weight | genre_weight | brightness_weight | rhythm_weight |
 |----------|-----------|-----------|---------------|-------------|-------------------|---------------|
 | Balanced | 0.30 | 0.20 | 0.18 | 0.17 | 0.08 | 0.07 |
@@ -417,6 +432,7 @@ Predefined curves that map track position (as fraction of total) to a target ene
 
 ### warmup_build_peak_release (default)
 
+<!-- dprint-ignore -->
 | Position | Phase |
 |----------|-------|
 | 0% – 15% | Warmup |
@@ -430,6 +446,7 @@ All positions = Peak (stable high energy throughout).
 
 ### peak_only
 
+<!-- dprint-ignore -->
 | Position | Phase |
 |----------|-------|
 | 0% – 10% | Build |
@@ -465,14 +482,33 @@ Score a single transition between two tracks.
 
 ```json
 {
-  "from": { "track_id": "...", "title": "...", "artist": "...", "key": "6A", "bpm": 122.0, "energy": 0.45, "genre": "Deep House" },
-  "to": { "track_id": "...", "title": "...", "artist": "...", "key": "7A", "bpm": 123.5, "energy": 0.52, "genre": "Deep House" },
+  "from": {
+    "track_id": "...",
+    "title": "...",
+    "artist": "...",
+    "key": "6A",
+    "bpm": 122.0,
+    "energy": 0.45,
+    "genre": "Deep House"
+  },
+  "to": {
+    "track_id": "...",
+    "title": "...",
+    "artist": "...",
+    "key": "7A",
+    "bpm": 123.5,
+    "energy": 0.52,
+    "genre": "Deep House"
+  },
   "scores": {
     "key": { "value": 0.9, "label": "Energy boost (+1)" },
     "bpm": { "value": 1.0, "label": "Seamless (delta 1.5)" },
     "energy": { "value": 1.0, "label": "Rising (build phase)" },
     "genre": { "value": 1.0, "label": "Same genre" },
-    "brightness": { "value": 0.7, "label": "Noticeable brightness shift (delta 420 Hz)" },
+    "brightness": {
+      "value": 0.7,
+      "label": "Noticeable brightness shift (delta 420 Hz)"
+    },
     "rhythm": { "value": 1.0, "label": "Matching groove (delta 0.06)" },
     "composite": 0.92
   }
@@ -504,7 +540,15 @@ Generate candidate set orderings from a track pool.
     {
       "id": "A",
       "tracks": [
-        { "track_id": "...", "title": "...", "artist": "...", "key": "6A", "bpm": 122.0, "energy": 0.45, "genre": "Deep House" }
+        {
+          "track_id": "...",
+          "title": "...",
+          "artist": "...",
+          "key": "6A",
+          "bpm": 122.0,
+          "energy": 0.45,
+          "genre": "Deep House"
+        }
       ],
       "transitions": [
         {
@@ -515,7 +559,10 @@ Generate candidate set orderings from a track pool.
             "bpm": { "value": 1.0, "label": "Seamless" },
             "energy": { "value": 1.0, "label": "Rising" },
             "genre": { "value": 1.0, "label": "Same genre" },
-            "brightness": { "value": 0.7, "label": "Noticeable brightness shift" },
+            "brightness": {
+              "value": 0.7,
+              "label": "Noticeable brightness shift"
+            },
             "rhythm": { "value": 1.0, "label": "Matching groove" },
             "composite": 0.92
           }

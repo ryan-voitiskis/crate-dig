@@ -286,18 +286,19 @@ You can also use TIDAL in the EXPORT mode.
 
 [Screenshot: Media Browser showing TIDAL selected with Log in button highlighted]
 
-   Your web browser launches and the TIDAL log in window is displayed.
+Your web browser launches and the TIDAL log in window is displayed.
 
 2. Log in to an account with TIDAL.
    When log in is completed, the following message is displayed. (The following screen differs depending on the web browser.)
 
 [Screenshot: TIDAL login successful screen showing "Login successful" message with dialog asking "Do you want to allow this page to open 'rekordbox.app'?" with Cancel and Allow buttons, and text "You may now close this window and return to the TIDAL app."]
 
-   If you click [Allow], the TIDAL library load onto rekordbox.
-   If you click [Cancel], the TIDAL library does not load onto rekordbox.
-   - If you log in to an account without TIDAL, tracks cannot be loaded.
-     The loaded tracks are indicated with (TIDAL icon).
-   Tracks indicated with (unavailable icon) cannot be played on rekordbox.
+If you click [Allow], the TIDAL library load onto rekordbox.
+If you click [Cancel], the TIDAL library does not load onto rekordbox.
+
+- If you log in to an account without TIDAL, tracks cannot be loaded.
+  The loaded tracks are indicated with (TIDAL icon).
+  Tracks indicated with (unavailable icon) cannot be played on rekordbox.
 
 ### To log out
 
@@ -351,7 +352,7 @@ You can also use Apple Music in the EXPORT mode.
 
 [Screenshot: Media Browser showing Apple Music selected with Log in button, and Apple Music promotional screen showing "Get Apple Music for 1 month free" with features listed: "DJ with over 100 million songs, ad-free", "Access your personal library and playlists", "Curated playlists for DJs", "Thousands of DJ Mixes for inspiration", and a "Sign In Now or Start Free Trial" button with "Terms Apply" text]
 
-   Your web browser launches and the Apple Music log in window is displayed.
+Your web browser launches and the Apple Music log in window is displayed.
 
 2. Log in to an account with Apple Music.
    When log in is completed, the Apple Music library load onto rekordbox.
@@ -395,21 +396,22 @@ Log in to Spotify from rekordbox to display music files from Spotify in the trac
 
 [Screenshot: Media Browser showing Spotify selected with Log in button highlighted]
 
-   Your web browser launches and the Spotify log in window is displayed.
+Your web browser launches and the Spotify log in window is displayed.
 
-   For more information about using Spotify, please also refer to the FAQ provided on rekordbox.com.
-   https://rekordbox.com/en/support/faq/streaming-7/
+For more information about using Spotify, please also refer to the FAQ provided on rekordbox.com.
+https://rekordbox.com/en/support/faq/streaming-7/
 
 2. Log in to an account with Spotify.
    When log in is completed, the following message is displayed. (The following screen differs depending on the web browser.)
 
 [Screenshot: Spotify authorization screen showing "Allow Spotify to connect to: rekordbox" from "Rekordbox Dev" with permissions listed: "View your Spotify account data" (Your Spotify subscription, account country, and explicit content filter settings; Your name, username, profile picture, Spotify followers, and public playlists) and "View your activity on Spotify" (What you've saved in Your Library; Playlists you've created and playlists you follow; Your collaborative playlists) with Agree and Cancel buttons, and note about removing access in account settings]
 
-   If you click [Agree], the Spotify library load onto rekordbox.
-   If you click [Cancel], the Spotify library does not load onto rekordbox.
-   - If you log in to an account without Spotify, tracks cannot be loaded.
-   The loaded tracks are indicated with (Spotify icon).
-   Tracks indicated with (unavailable icon) cannot be played on rekordbox.
+If you click [Agree], the Spotify library load onto rekordbox.
+If you click [Cancel], the Spotify library does not load onto rekordbox.
+
+- If you log in to an account without Spotify, tracks cannot be loaded.
+  The loaded tracks are indicated with (Spotify icon).
+  Tracks indicated with (unavailable icon) cannot be played on rekordbox.
 
 ### To log out
 
@@ -486,7 +488,7 @@ When you click the title or artist of the track displayed in [Genre], the previe
 
 [Screenshot: Spotify tree view in Media Browser showing Playlists to mix and Your Library folders]
 
-   When an un-analyzed track is loaded to the deck, the track will be analyzed automatically.
+When an un-analyzed track is loaded to the deck, the track will be analyzed automatically.
 
 **Notes**
 
@@ -594,7 +596,7 @@ You can play SoundCloud tracks from Free DJ Playlists without a SoundCloud subsc
 
 [Screenshot: Media Browser showing SoundCloud with Free and Log in buttons highlighted]
 
-   Free DJ Playlists load onto rekordbox.
+Free DJ Playlists load onto rekordbox.
 
 2. Display tracks of Free Playlists.
 

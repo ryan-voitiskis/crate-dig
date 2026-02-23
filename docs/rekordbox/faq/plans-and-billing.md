@@ -23,6 +23,7 @@ In any of the following cases, we'll refund the balance of the paid annual payme
 
 It usually takes about 3 to 7 days to receive the refund, which comes via the same payment method you used to purchase your subscription.
 
+<!-- dprint-ignore -->
 | Remaining Months | Refund |
 | ---------------- | ------ |
 | 11               | 90%    |
@@ -154,7 +155,7 @@ The following devices are Hardware Unlock devices for rekordbox ver. 7:
 
 **PERFORMANCE mode control, Recording, Sharing mix, MIDI LEARN, MERGE FX*1, SAMPLE SCRATCH
 EXPORT mode: DUAL PLAYER
-Common to all modes:  Collection Filter, Column View**
+Common to all modes: Collection Filter, Column View**
 
 - CDJ-3000X
 - CDJ-3000
@@ -312,8 +313,9 @@ Even if you cancel your subscription, you'll continue to have access to your rek
 
 If you decide to cancel your subscription, please visit the following page, which only opens for subscribers.
 
-- - Core Plan, Creative Plan, Professional Plan, Cloud Option:
-[https://rekordbox.com/en/cancel/](https://rekordbox.com/en/cancel/)
+-
+  - Core Plan, Creative Plan, Professional Plan, Cloud Option:
+    [https://rekordbox.com/en/cancel/](https://rekordbox.com/en/cancel/)
 
 After you cancel your paid plan, you can continue to use it until the date which would have been your next billing date, but you won't be able to sign up for another plan until that date. If you'd like to switch to another plan instead, please select another plan on the plan page.
 
@@ -476,21 +478,21 @@ If you switch to an account that has no subscription plan associated, you can us
 Use of the following features is limited with these plans:
 
 - Video function
-Caution messages are displayed on the external monitor.
+  Caution messages are displayed on the external monitor.
 - Cloud Library Sync
-It's impossible to sync your entire rekordbox library, but you can sync up to 20 tracks that can be added to the [Trial playlist - Cloud Library Sync], which is a playlist for sync.
+  It's impossible to sync your entire rekordbox library, but you can sync up to 20 tracks that can be added to the [Trial playlist - Cloud Library Sync], which is a playlist for sync.
 - rekordbox CloudDirectPlay
-You can use up to 20 tracks that can be added to [Trial playlist - Cloud Library Sync], but not the entire library.
+  You can use up to 20 tracks that can be added to [Trial playlist - Cloud Library Sync], but not the entire library.
 - RMX EFFECTS
-When a MIDI/HID device is connected, the function is locked and unavailable*1.
-Also, RMX EFFECTS FX cannot be turned on/off with keyboard shortcuts.
-*1 Except when a MIDI/HID device other than a Hardware Unlock device is connected under the Free plan
+  When a MIDI/HID device is connected, the function is locked and unavailable*1.
+  Also, RMX EFFECTS FX cannot be turned on/off with keyboard shortcuts.
+  *1 Except when a MIDI/HID device other than a Hardware Unlock device is connected under the Free plan
 - MIX POINT LINK
-When a MIDI/HID device is connected, the function is locked and unavailable*2.
-Also MIX POINT LINK feature cannot be used with keyboard shortcuts.
-*2 Except when a Hardware Unlock device for MIX POINT LINK is connected, or when a MIDI/HID device other than a Hardware Unlock device is connected under the Free Plan.
+  When a MIDI/HID device is connected, the function is locked and unavailable*2.
+  Also MIX POINT LINK feature cannot be used with keyboard shortcuts.
+  *2 Except when a Hardware Unlock device for MIX POINT LINK is connected, or when a MIDI/HID device other than a Hardware Unlock device is connected under the Free Plan.
 - STEMS
-STEMS function cannot be operated with keyboard shortcut.
+  STEMS function cannot be operated with keyboard shortcut.
 
 ---
 
@@ -590,7 +592,8 @@ You can use rekordbox ver. 7 without a subscription.However, the available featu
 Track management, track import to USB devices, LINK Export, recording, and more.
 However, the following are required to use some functions.
 
-- - Subscribing to the subscription plan (paid)
+-
+  - Subscribing to the subscription plan (paid)
 - Connection to a Hardware Unlock device
 - Owner registoration
 
@@ -599,7 +602,8 @@ However, the following are required to use some functions.
 DJ mixing is available on this mode.
 Any of the following is required to control PERFORMANCE mode or record DJ mixes using DJ equipment.
 
-- - Subscribing to the subscription plan (paid)
+-
+  - Subscribing to the subscription plan (paid)
 - Connection to a Hardware Unlock device
 
 Go [here](https://rekordbox.com/en/plan/#plantable) for details concerning functions that are available on each plan and Cloud Option.
@@ -653,7 +657,7 @@ Yes, you can subscribe to the paid plan while in the free trial period.
 
 If you didn't receive the AlphaTheta account confirmation e-mail, there's a possibility that you entered a wrong e-mail address or the confirmation e-mail ended up in the "spam folder", etc.
 
-* When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
+- When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
 
 ---
 
@@ -730,7 +734,7 @@ It's not possible to join the Professional DJ team and Cloud Option DJ team in a
 
 If either of the above applies to you, you'll need to create a new Dropbox personal account. If you're already using Cloud Library Sync, move your music files to the new Dropbox account. Find details [here](https://rekordbox.com/en/cloud-setup-guide/).
 
-If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website.  Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
+If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website. Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
 
 ---
 
@@ -752,8 +756,8 @@ Note:
 
 - If you switch between 2 Dropbox Business team accounts on the Dropbox Desktop app, each time you log in to an account, all the files saved on the account are downloaded.
 - Your current Dropbox account type can be viewed on the following page.
-[https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
-If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
+  [https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
+  If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
 
 ---
 

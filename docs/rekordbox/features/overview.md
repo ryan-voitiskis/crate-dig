@@ -565,6 +565,7 @@ Internet communication fee may be applied, whilst operating Application. To use 
 
 Depends on each rekordbox plan, application can be installed into some computers per license as following list:
 
+<!-- dprint-ignore -->
 | rekordbox plan | numbers of computer |
 |---|---|
 | Core plan | 3 |

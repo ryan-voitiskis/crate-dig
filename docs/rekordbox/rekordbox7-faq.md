@@ -11,6 +11,7 @@ In any of the following cases, we'll refund the balance of the paid annual payme
 
 It usually takes about 3 to 7 days to receive the refund, which comes via the same payment method you used to purchase your subscription.
 
+<!-- dprint-ignore -->
 | Remaining Months | Refund |
 | ---------------- | ------ |
 | 11               | 90%    |
@@ -275,7 +276,7 @@ Yes. Internet connection is required to download/upload Fixture Library and pres
 
 ### How can I find if the lighting fixtures are supported in LIGHTING mode?
 
-See LIGHTING mode > FIXTURE LIBRARY  screen and check them.
+See LIGHTING mode > FIXTURE LIBRARY screen and check them.
 
 If not, check [here](https://cdn.rekordbox.com/files/20260210150320/rekordbox-lighting-available-fixtures.pdf).
 
@@ -428,7 +429,7 @@ The following devices are Hardware Unlock devices for rekordbox ver. 7:
 
 **PERFORMANCE mode control, Recording, Sharing mix, MIDI LEARN, MERGE FX*1, SAMPLE SCRATCH
 EXPORT mode: DUAL PLAYER
-Common to all modes:  Collection Filter, Column View**
+Common to all modes: Collection Filter, Column View**
 
 - CDJ-3000X
 - CDJ-3000
@@ -654,7 +655,7 @@ The color of the waveform that can be displayed depends on the model.
 - XDJ-700
 - XDJ-RX
 
-*1  For this DDJ/DJM series, the color of the waveform can be changed in the [Preferences]  of  rekordbox.When set to 3Band, the color of the waveform is displayed in BLUE.
+*1 For this DDJ/DJM series, the color of the waveform can be changed in the [Preferences] of rekordbox.When set to 3Band, the color of the waveform is displayed in BLUE.
 
 (List correct as of January 2026)
 
@@ -688,7 +689,8 @@ The file formats used by each streaming service are as follows:
 
 For more details, check the website of each streaming service.
 
-- - [Apple Music](https://www.apple.com/apple-music/)
+-
+  - [Apple Music](https://www.apple.com/apple-music/)
 - [Spotify](https://open.spotify.com/)
 - [Beatport Streaming](https://stream.beatport.com/)
 - [Beatsource Streaming](https://www.beatsource.com/)
@@ -742,14 +744,15 @@ The [Streaming Audio Quality] settings are shared and applied on the devices tha
 Additionally, after updating, BeatGrids and Cue points may be misaligned for Apple Music tracks (analyzed with ver. 7.2.7 or earlier) and SoundCloud tracks (analyzed with ver. 7.2.9 or earlier).
 
 If the BeatGrids and Cue points have shifted, reanalyze the tracks and reset the Cue points.
-* For Spotify tracks, you cannot select the [Analyze Track] option in the context menu. Select [Remove from rekordbox] from the context menu first, then reload the track into the deck to have it reanalyzed. After that, set the CUE points again.
 
-- BeatGrids and phrases
-Analyse the tracks.
-The BeatGrid and phrase positions can also be adjusted and changed manually.
-(For details, see "[GRID/PHRASE EDIT] panel" in the Instruction Manual.)
-- For CUE points such as Hot Cues and Memory Cues
-Delete the CUE points before resetting them.
+- For Spotify tracks, you cannot select the [Analyze Track] option in the context menu. Select [Remove from rekordbox] from the context menu first, then reload the track into the deck to have it reanalyzed. After that, set the CUE points again.
+
+* BeatGrids and phrases
+  Analyse the tracks.
+  The BeatGrid and phrase positions can also be adjusted and changed manually.
+  (For details, see "[GRID/PHRASE EDIT] panel" in the Instruction Manual.)
+* For CUE points such as Hot Cues and Memory Cues
+  Delete the CUE points before resetting them.
 
 Hint: Method used to reanalyze multiple tracks at once
 
@@ -840,15 +843,16 @@ XDJ-XZ
 ### Is there a way to confirm what can be browsed on the CDJ-3000X for a USB storage device exported with rekordbox ver. 7?
 
 You can confirm the contents on the rekordbox ver. 7 screen.
-* You can confirm in the same way when using the XDJ-AZ, OPUS-QUAD, or OMNIS-DUO.
+
+- You can confirm in the same way when using the XDJ-AZ, OPUS-QUAD, or OMNIS-DUO.
 
 Procedure for checking USB storage device content browseable on the CDJ-3000X
 
 1. Update rekordbox ver. 7 to the latest version.
-In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
+   In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
 2. Launch rekordbox and connect a USB storage device into your PC/Mac
 3. From the [Devices] of the Media Browser, select your USB storage device name > [OneLibrary] to check the contents.
-If the displayed tracks or playlists are missing, you must export OneLibrary to the USB storage device again. For details, please refer to the [FAQ](https://rekordbox.com/en/support/faq/onelibrary-7/#faq-q700038).
+   If the displayed tracks or playlists are missing, you must export OneLibrary to the USB storage device again. For details, please refer to the [FAQ](https://rekordbox.com/en/support/faq/onelibrary-7/#faq-q700038).
 
 ---
 
@@ -926,10 +930,10 @@ Note: If you are using XDJ-AZ, OPUS-QUAD, or OMNIS-DUO, export OneLibrary using 
 OneLibrary Export Procedure
 
 1. Update rekordbox ver. 7 to the latest version
-In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
+   In rekordbox, go to [Help] menu > [rekordbox update manager] to perform the update.
 2. Launch rekordbox and connect a USB storage device into your PC/Mac
 3. In the Media Browser, go to [Devices] > your USB storage device name, right-click [OneLibrary], and select [Convert from Device Library].
-![](https://cdn.rekordbox.com/files/20251224094129/Convert-device-library-en.png)
+   ![](https://cdn.rekordbox.com/files/20251224094129/Convert-device-library-en.png)
 
 This operation exports a OneLibrary with the same content as the existing Device Library to the USB storage device.
 
@@ -987,17 +991,17 @@ You can select either [3 Stems (VOCAL, INST, DRUMS)] or [4 Stems (VOCAL, INST, B
 ACTIVE STEM, STEM ISO, and STEM FX functions are usable.
 
 - ACTIVE STEM
-Each Stem is output by setting each STEM MUTE button displayed at the deck Stem to ON. If it is set to OFF, each Stem is muted.
-Click [Preferences] > [Extensions] category > [STEMS] tab > [ACTIVE STEM Setting]. You can select [MUTE] or [SOLO].
+  Each Stem is output by setting each STEM MUTE button displayed at the deck Stem to ON. If it is set to OFF, each Stem is muted.
+  Click [Preferences] > [Extensions] category > [STEMS] tab > [ACTIVE STEM Setting]. You can select [MUTE] or [SOLO].
 
 With [MUTE] setting, output / mute of each Stem can be controlled.
 With [SOLO] setting, output of all Stems or output of one Stem can be controlled.
 
 - STEM ISO
-If you set STEM ISO mode button that is displayed at mixer Stem to ON, the mode shifts to STEM ISO mode in which you can adjust the sound volume of each Stem.
-When STEM ISO mode is ON, adjust the sound volume of each Stem with each knob.
+  If you set STEM ISO mode button that is displayed at mixer Stem to ON, the mode shifts to STEM ISO mode in which you can adjust the sound volume of each Stem.
+  When STEM ISO mode is ON, adjust the sound volume of each Stem with each knob.
 - STEM FX
-If you set each STEM FX button that is displayed at effect Stem to ON, it is possible to apply an effect to each Stem.
+  If you set each STEM FX button that is displayed at effect Stem to ON, it is possible to apply an effect to each Stem.
 
 ---
 
@@ -1048,6 +1052,7 @@ Supported music file formats vary depending on DJ equipment.
 
 Please check the table below and use music file formats supported by your DJ equipment.
 
+<!-- dprint-ignore -->
 |                                                                 | **88.2/96KHz** | **44.1/48KHz**     |         |          |         |          |                    |         |          |         |         |
 | --------------------------------------------------------------- | -------------- | ------------------ | ------- | -------- | ------- | -------- | ------------------ | ------- | -------- | ------- | ------- |
 |                                                                 | **FLAC**       | **Apple Lossless** | **WAV** | **AIFF** | **AAC** | **FLAC** | **Apple Lossless** | **WAV** | **AIFF** | **mp3** | **AAC** |
@@ -1073,9 +1078,9 @@ Yes, you can.
 You can convert the traditional Device Library in the USB storage device to the OneLibrary format with rekordbox for Mac/Windows.
 
 - If the following dialog box appears when connecting a USB storage device, select [OK] to convert.
-![](https://cdn.rekordbox.com/files/20251002150123/OneLibrary001_En-300x171.png)
+  ![](https://cdn.rekordbox.com/files/20251002150123/OneLibrary001_En-300x171.png)
 - Select the device from the media browser, click [Convert from Device Library] from the OneLibrary context menu and follow the instructions.
-![](https://cdn.rekordbox.com/files/20251002150426/OneLibrary003_En-300x122.png)
+  ![](https://cdn.rekordbox.com/files/20251002150426/OneLibrary003_En-300x122.png)
 
 See the "[USB Export Guide](https://cdn.rekordbox.com/files/20251021171528/USB_export_guide_en_251007.pdf#page=2)" for more details.
 
@@ -1164,8 +1169,8 @@ You can automatically log in to TIDAL by connecting a USB storage device or SD m
 Also, with some DJ equipment, you can automatically log in to TIDAL by logging into rekordbox CloudDirectPlay using a mobile device.
 Some DJ equipment allows [NFC login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100117) and [QR code login](https://rekordbox.com/en/support/faq/log-in-to-dj-equipment/#faq-q100118). Please refer to the respective FAQs for details.
 
-* As of rekordbox ver. 7.0.6, login to TIDAL has been changed to a Single Sign On method.
-With the Single Sign On method, if you log in to TIDAL on rekordbox in advance, you do not need to enter your login account and password for TIDAL on the DJ equipment.
+- As of rekordbox ver. 7.0.6, login to TIDAL has been changed to a Single Sign On method.
+  With the Single Sign On method, if you log in to TIDAL on rekordbox in advance, you do not need to enter your login account and password for TIDAL on the DJ equipment.
 
 ---
 
@@ -1406,8 +1411,9 @@ Even if you cancel your subscription, you'll continue to have access to your rek
 
 If you decide to cancel your subscription, please visit the following page, which only opens for subscribers.
 
-- - Core Plan, Creative Plan, Professional Plan, Cloud Option:
-[https://rekordbox.com/en/cancel/](https://rekordbox.com/en/cancel/)
+-
+  - Core Plan, Creative Plan, Professional Plan, Cloud Option:
+    [https://rekordbox.com/en/cancel/](https://rekordbox.com/en/cancel/)
 
 After you cancel your paid plan, you can continue to use it until the date which would have been your next billing date, but you won’t be able to sign up for another plan until that date. If you’d like to switch to another plan instead, please select another plan on the plan page.
 
@@ -1547,12 +1553,12 @@ Update your mac OS, or if you have reinstalled your interface, the driver may al
 To use an ENTTEC DMX interface, first connect to rekordbox and confirm the following.
 
 1. Ensure that your DMX interface is one of the following models.
-ENTTEC Open DMX
-ENTTEC DMX USB Pro
-ENTTEC DMX USB Pro Mk2
+   ENTTEC Open DMX
+   ENTTEC DMX USB Pro
+   ENTTEC DMX USB Pro Mk2
 2. Are you subscribed to the Creative plan or Professional plan?
 3. For Mac, the FTDI d2xx driver needs to be installed separately.
-For details, see [here](https://rekordbox.com/en/support/faq/lighting-7/#faq-q700022).
+   For details, see [here](https://rekordbox.com/en/support/faq/lighting-7/#faq-q700022).
 
 ---
 
@@ -1612,17 +1618,17 @@ For the latest information, please refer [Compatible DJ units](https://rekordbox
 The limitations on the playback of offline tracks for each streaming service are as follows.
 
 - SoundCloud DJ
-Offline playback is available for 30 days from the date of offline storage. (*)
-The playability period of offline tracks will be reset to 30 days (*) by logging into SoundCloud on rekordbox with an Internet connection between the 21st and 30th day counting from the date of offline storage.
-Please note that offline tracks will be removed after the playback period of the offline track has expired.
+  Offline playback is available for 30 days from the date of offline storage. (_)
+  The playability period of offline tracks will be reset to 30 days (_) by logging into SoundCloud on rekordbox with an Internet connection between the 21st and 30th day counting from the date of offline storage.
+  Please note that offline tracks will be removed after the playback period of the offline track has expired.
 - Beatport Streaming
-There are no restrictions.
+  There are no restrictions.
 - Beatsource Streaming
-There are no restrictions.
+  There are no restrictions.
 - TIDAL DJ Extension
-Offline playback is available for 30 days from the date of offline storage. (*)
-The playability period of offline tracks will be reset to 30 days (*) by logging into TIDAL on rekordbox with an Internet connection between the 27st and 30th day counting from the date of offline storage.
-Once the playback period of an offline track has expired, playback is no longer available.
+  Offline playback is available for 30 days from the date of offline storage. (_)
+  The playability period of offline tracks will be reset to 30 days (_) by logging into TIDAL on rekordbox with an Internet connection between the 27st and 30th day counting from the date of offline storage.
+  Once the playback period of an offline track has expired, playback is no longer available.
 
 *The duration of offline playback may vary depending on the track.
 Please start rekordbox and log in to the streaming service periodically to maintain offline playback availability after 30 days.
@@ -1671,15 +1677,15 @@ If the Deck is paused:
 1. Set the Deck [Q] button (Quantize button) to ON.
 2. Move the range you want to capture to the current position of the waveform.
 3. Click the Deck [CUE] button.
-The closest BeatGrid is set to the current position.
+   The closest BeatGrid is set to the current position.
 4. Set the DRUM CAPTURE button to ON.
-The DRUM CAPTURE range is displayed from the current position.
+   The DRUM CAPTURE range is displayed from the current position.
 
 If the Deck is playing:
 
 1. Set the Deck [Q] button (Quantize button) to ON.
 2. Set Auto Beat Loop (32 beats, etc.) to ON at the position you want to capture.
-A Loop from the closest BeatGrid (32 beats, etc.) is created.
+   A Loop from the closest BeatGrid (32 beats, etc.) is created.
 3. The DRUM CAPTURE range is displayed from the Loop IN point.
 
 ---
@@ -1766,7 +1772,7 @@ GROOVE CIRCUIT can be controlled using the following DJ equipment.
 
 (As of October 2024)
 
-Each function can be used through mapping with the MIDI LEARN function on other DJ equipment.  (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
+Each function can be used through mapping with the MIDI LEARN function on other DJ equipment. (Subscription to a [plan](https://rekordbox.com/en/plan) higher than Core plan is required for the MIDI LEARN function.)
 See ["MIDI LEARN Operation Guide"](https://rekordbox.com/en/download/#manual) for mapping methods using the MIDI LEARN function.
 
 ---
@@ -1799,7 +1805,7 @@ See [here](https://rekordbox.com/en/plan/) for details on plan.
 
 ### Quantize playing decks when playing DRUM SWAP SLOT?
 
-Yes.  Playing DRUM SWAP SLOT quantizes the beginning of audio within DRUM SWAP SLOT to match the deck beat position.
+Yes. Playing DRUM SWAP SLOT quantizes the beginning of audio within DRUM SWAP SLOT to match the deck beat position.
 
 ---
 
@@ -1885,15 +1891,15 @@ You can select up to 5 recommendations, including [Era], [Mood], [Association], 
 While [Era], [Mood], and [Association] make recommendations based on track meta data, [Collection Radar] and [Streaming Radar] recommend tracks with similar musical characteristics based on unique algorithms developed using AI learning.
 
 - Era
-Prioritizes the display of tracks with similar year, BPM, etc. from [Collections].
+  Prioritizes the display of tracks with similar year, BPM, etc. from [Collections].
 - Mood
-Prioritizes the display of tracks with similar genre, BPM, etc. from [Collections].
+  Prioritizes the display of tracks with similar genre, BPM, etc. from [Collections].
 - Association
-Prioritizes the display of tracks with similar label, composer, etc. information from [Collections].
+  Prioritizes the display of tracks with similar label, composer, etc. information from [Collections].
 - Collection Radar
-Prioritizes the display of tracks with similar musical characteristics from [Collections].
+  Prioritizes the display of tracks with similar musical characteristics from [Collections].
 - Streaming Radar
-Prioritizes the display of tracks with similar musical characteristics from the streaming service.
+  Prioritizes the display of tracks with similar musical characteristics from the streaming service.
 
 Track Suggestion can be displayed using the sub-panel button located in Tree View or on the right side of the browse screen.
 
@@ -2004,12 +2010,12 @@ Collaborative playlists cannot be used to share track data (music files).
 Please use a different method to receive the tracks from the owner and follow the steps below to locate the missing tracks.
 
 1. Receive the tracks and save the music files in any folder (it is recommended to create a new folder).
-2. Select [Preferences] > [Advanced]category > [Database]tab and add a checkmark to the [Specified user folders] checkbox of  the [Auto Relocate Search Folders].
-Add the folder from Step 1.
-Remove the checkmark from all the items except for [Specified user folders].
+2. Select [Preferences] > [Advanced]category > [Database]tab and add a checkmark to the [Specified user folders] checkbox of the [Auto Relocate Search Folders].
+   Add the folder from Step 1.
+   Remove the checkmark from all the items except for [Specified user folders].
 3. Open the [File] menu and select [Display All Missing Files].
-Check that the collaborative playlist tracks are displayed in the [Missing File Manager] window.
-*If tracks other than the collaborative playlist tracks are displayed, add the folder those tracks are saved in using the points in Step 2.
+   Check that the collaborative playlist tracks are displayed in the [Missing File Manager] window.
+   *If tracks other than the collaborative playlist tracks are displayed, add the folder those tracks are saved in using the points in Step 2.
 4. In the [Missing File Manager] window, click the [Auto Relocate] button.
 
 ---
@@ -2037,11 +2043,11 @@ Collaborative Playlist can be used by Professional plan users.
 Follow the steps below.
 
 1. Select a playlist you want to share.
-Select [PLaylists] menu > [Collaborative Playlist] > [Share playlist].
+   Select [PLaylists] menu > [Collaborative Playlist] > [Share playlist].
 2. Enter the AlphaTheta account (email address) of the person you want to join as a shared member.
-*A notification and invitation email are sent to the shared member's [NOTIFICATION]tab.
+   *A notification and invitation email are sent to the shared member's [NOTIFICATION]tab.
 3. Have the shared member accept the invitation.
-*Click the [Join the collaborative playlist] link to open the web acceptance window. Add a check to the checkbox for the playlist you wish to join and click the Accept button.
+   *Click the [Join the collaborative playlist] link to open the web acceptance window. Add a check to the checkbox for the playlist you wish to join and click the Accept button.
 
 ---
 
@@ -2157,21 +2163,21 @@ If you switch to an account that has no subscription plan associated, you can us
 Use of the following features is limited with these plans:
 
 - Video function
-Caution messages are displayed on the external monitor.
+  Caution messages are displayed on the external monitor.
 - Cloud Library Sync
-It's impossible to sync your entire rekordbox library, but you can sync up to 20 tracks that can be added to the [Trial playlist - Cloud Library Sync], which is a playlist for sync.
+  It's impossible to sync your entire rekordbox library, but you can sync up to 20 tracks that can be added to the [Trial playlist - Cloud Library Sync], which is a playlist for sync.
 - rekordbox CloudDirectPlay
-You can use up to 20 tracks that can be added to [Trial playlist - Cloud Library Sync], but not the entire library.
+  You can use up to 20 tracks that can be added to [Trial playlist - Cloud Library Sync], but not the entire library.
 - RMX EFFECTS
-When a MIDI/HID device is connected, the function is locked and unavailable*1.
-Also, RMX EFFECTS FX cannot be turned on/off with keyboard shortcuts.
-*1 Except when a MIDI/HID device other than a Hardware Unlock device is connected under the Free plan
+  When a MIDI/HID device is connected, the function is locked and unavailable*1.
+  Also, RMX EFFECTS FX cannot be turned on/off with keyboard shortcuts.
+  *1 Except when a MIDI/HID device other than a Hardware Unlock device is connected under the Free plan
 - MIX POINT LINK
-When a MIDI/HID device is connected, the function is locked and unavailable*2.
-Also MIX POINT LINK feature cannot be used with keyboard shortcuts.
-*2 Except when a Hardware Unlock device for MIX POINT LINK is connected, or when a MIDI/HID device other than a Hardware Unlock device is connected under the Free Plan.
+  When a MIDI/HID device is connected, the function is locked and unavailable*2.
+  Also MIX POINT LINK feature cannot be used with keyboard shortcuts.
+  *2 Except when a Hardware Unlock device for MIX POINT LINK is connected, or when a MIDI/HID device other than a Hardware Unlock device is connected under the Free Plan.
 - STEMS
-STEMS function cannot be operated with keyboard shortcut.
+  STEMS function cannot be operated with keyboard shortcut.
 
 ---
 
@@ -2214,14 +2220,14 @@ To improve CUE Analysis precision, perform the following procedures and generate
 This may improve the positioning of HOT CUE and MEMORY CUE to the desired points.
 
 1. Add tracks with CUE point set to them to [CUE Analysis Playlist]
-*Approximately over 30 tracks recommended
-*CUE points set as phrase separators are required
+   *Approximately over 30 tracks recommended
+   *CUE points set as phrase separators are required
 2. Click the [Start] button on the right side of [CUE Analysis Playlist]
-*Analyzes the CUE point and generates personal CUE Tendency information.
-The more similar track CUE point tendencies are, the more closer you can set the CUE points to your CUE points.
-When adding or deleting tracks from your playlist, click the [Start] button and update your personal CUE Tendency information.
+   *Analyzes the CUE point and generates personal CUE Tendency information.
+   The more similar track CUE point tendencies are, the more closer you can set the CUE points to your CUE points.
+   When adding or deleting tracks from your playlist, click the [Start] button and update your personal CUE Tendency information.
 3. Run CUE Analysis (auto) again
-*If [Prohibit overwriting CUEs] is off, the latest analysis results will be reflected when running CUE Analysis again.
+   *If [Prohibit overwriting CUEs] is off, the latest analysis results will be reflected when running CUE Analysis again.
 
 ---
 
@@ -2381,7 +2387,8 @@ You can use rekordbox ver. 7 without a subscription.However, the available featu
 Track management, track import to USB devices, LINK Export, recording, and more.
 However, the following are required to use some functions.
 
-- - Subscribing to the subscription plan (paid)
+-
+  - Subscribing to the subscription plan (paid)
 - Connection to a Hardware Unlock device
 - Owner registoration
 
@@ -2390,7 +2397,8 @@ However, the following are required to use some functions.
 DJ mixing is available on this mode.
 Any of the following is required to control PERFORMANCE mode or record DJ mixes using DJ equipment.
 
-- - Subscribing to the subscription plan (paid)
+-
+  - Subscribing to the subscription plan (paid)
 - Connection to a Hardware Unlock device
 
 Go [here](https://rekordbox.com/en/plan/#plantable) for details concerning functions that are available on each plan and Cloud Option.
@@ -2445,7 +2453,7 @@ You can use Library Sync with rekordbox for Mac/Windows (ver. 6 or later) and re
 
 If you didn't receive the AlphaTheta account confirmation e-mail, there's a possibility that you entered a wrong e-mail address or the confirmation e-mail ended up in the “spam folder”, etc.
 
-* When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
+- When you are using Gmail, right-click on the confirmation e-mail in your "spam folder" and click "not spam".
 
 ---
 
@@ -2532,7 +2540,7 @@ It's not possible to join the Professional DJ team and Cloud Option DJ team in a
 
 If either of the above applies to you, you'll need to create a new Dropbox personal account. If you're already using Cloud Library Sync, move your music files to the new Dropbox account. Find details [here](https://rekordbox.com/en/cloud-setup-guide/).
 
-If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website.  Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
+If you don't receive an email from Dropbox inviting you to join the Professional DJ team/Cloud Option DJ team, check your spam folder. If you didn't receive the email, you can also receive an invitation to join the Professional DJ team/Cloud Option DJ team from the notifications on the Dropbox website. Find more information on how to check your notifications [here](https://help.dropbox.com/installs-integrations/desktop/homepage).
 
 ---
 
@@ -2554,8 +2562,8 @@ Note:
 
 - If you switch between 2 Dropbox Business team accounts on the Dropbox Desktop app, each time you log in to an account, all the files saved on the account are downloaded.
 - Your current Dropbox account type can be viewed on the following page.
-[https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
-If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
+  [https://www.dropbox.com/account/plan](https://www.dropbox.com/account/plan)
+  If "Dropbox Business Standard" or "Dropbox Business Advanced" is shown, your account is a Dropbox Business team account.
 
 ---
 
@@ -2696,12 +2704,12 @@ Example:
 Here explains about the operation method referencing the procedure for assigning the button of MIX POINT LINK to the hardware on MIDI LEARN and mixing track A of Deck 1 to track B of Deck 2.
 
 1. Set Hot Cues or Memory Cues to the position of MIX POINT preliminarily. To use SYNC function, set BEAT SYNC to ON.
-In MIX POINT LINK tab of MIDI LEARN, assign [MixPointLink CueSelectBack/Next] button and [MixPointLink Set] button to the hardware on MIDI LEARN.
+   In MIX POINT LINK tab of MIDI LEARN, assign [MixPointLink CueSelectBack/Next] button and [MixPointLink Set] button to the hardware on MIDI LEARN.
 2. Load track A to Deck 1 to replay it. Load track B to Deck 2.
 3. Press [MemoryCueCall] button of Deck 2 or the button / pad for which Hot Cues are set and call the starting MIX POINT from the cue point of track B or Hot Cues.
 4. Press [MixPointLink CueSelectBack/Next] button of Deck 2 and select the ending MIX POINT from track A that is currently replayed.
 5. Press [MixPointLink Set] button and set MIX POINT LINK.
-If the replay bar of Deck 1 reaches the beginning of Deck 2, the automatic playing starts.
+   If the replay bar of Deck 1 reaches the beginning of Deck 2, the automatic playing starts.
 
 ---
 
@@ -2766,6 +2774,7 @@ Please also configure the settings in either of the following ways to avoid copy
 [https://help.dropbox.com/en-en/sync/make-files-online-only](https://help.dropbox.com/en-en/sync/make-files-online-only)
 
 - Set Dropbox to selective sync so that rekordbox folders are not synchronized (*)
+
 * Do not apply this setting while [Synchronize all music files] is selected. (Since a file conflict occurs and it becomes a missing file)
 
 [https://help.dropbox.com/en-en/sync/selective-sync-overview](https://help.dropbox.com/en-en/sync/selective-sync-overview)
@@ -2848,17 +2857,17 @@ The following functionalities of DJ equipment that supports rekordbox CloudDirec
 There are possible causes as follows.
 
 - **Cloud Sync is incomplete**
-If the Cloud Library Sync between rekordbox and the library in the cloud hasn't finished, the track won't be displayed on the browse screen. Wait for the sync to finish, then the track should display.
+  If the Cloud Library Sync between rekordbox and the library in the cloud hasn't finished, the track won't be displayed on the browse screen. Wait for the sync to finish, then the track should display.
 - **The music file has not been uploaded to cloud storage (Dropbox or Google Drive)**
-Only music files that you have uploaded to cloud storage will be displayed on the Browse screen.
-If the upload is not complete, the music file cannot be loaded.
-Upload the music files you want to use to cloud storage beforehand, then use them once the upload is complete.
-You can upload with rekordbox.
+  Only music files that you have uploaded to cloud storage will be displayed on the Browse screen.
+  If the upload is not complete, the music file cannot be loaded.
+  Upload the music files you want to use to cloud storage beforehand, then use them once the upload is complete.
+  You can upload with rekordbox.
 - **Impact of cloud storage maintenance or failure**
-When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded. Try again when the cloud storage is back online.
-You can check the status of these issues on the cloud storage service websites below.
-[Dropbox](https://status.dropbox.com/)
-[Google Drive](https://www.google.co.jp/appsstatus/dashboard/)
+  When cloud storage is undergoing maintenance or experiencing problems, music files cannot be loaded. Try again when the cloud storage is back online.
+  You can check the status of these issues on the cloud storage service websites below.
+  [Dropbox](https://status.dropbox.com/)
+  [Google Drive](https://www.google.co.jp/appsstatus/dashboard/)
 
 ---
 
@@ -3056,7 +3065,7 @@ To render edited tracks as audio files, you'll need to subscribe to the Creative
 
 ### Which file formats can I render an audio file in?
 
-You can render audio files in the following formats.  (Version 6.5.1 and later)
+You can render audio files in the following formats. (Version 6.5.1 and later)
 
 Mac: FLAC, AIFF, WAV, M4A(128, 192, 256kbps)
 
@@ -3341,23 +3350,25 @@ When a track title is grayed out, it means the file hasn't been transferred from
 
 - File transfer using Mobile Library Sync
 
-1. 1. Connect rekordbox (Mac/Windows) and rekordbox (iOS) to the same Wi-Fi network.
+1.
+   1. Connect rekordbox (Mac/Windows) and rekordbox (iOS) to the same Wi-Fi network.
 2. In rekordbox (iOS), tap [Settings] > [Connect to rekordbox (Mac/Win)].
 3. In rekordbox (Mac/Windows), click [SEARCH MOBILE].
 4. Select the track from a track list in rekordbox (Mac/Windows) and right-click to show the context menu. Select [Mobile Library Sync] > [Transfer to this computer].
 
 - Using Cloud Library Sync
 
-1. 1. Open the information window and check which device contains the track with the grayed-out title.
+1.
+   1. Open the information window and check which device contains the track with the grayed-out title.
 2. Upload the track from the device that contains it.
 
-rekordbox (Mac/Windows):   Select the track from a track list, right-click and select [Cloud Library Sync] > [Upload] from the context menu.
+rekordbox (Mac/Windows): Select the track from a track list, right-click and select [Cloud Library Sync] > [Upload] from the context menu.
 
-rekordbox (iOS):  Swipe a track to the left, tap [...], and select [Upload to Cloud].
+rekordbox (iOS): Swipe a track to the left, tap [...], and select [Upload to Cloud].
 
 3. Once the track has been uploaded, it will be downloaded automatically by the Dropbox desktop application installed on your computer.
 
-1.
+4.
 
 ---
 
@@ -3412,20 +3423,23 @@ However, it is necessary to subscribe to a supported Plan or connect a HardwareU
 Check the following.
 
 1. Does your computer fulfill the environmental requirements of rekordbox?
-Check the [System Requirements](https://rekordbox.com/en/download/#system).
+   Check the [System Requirements](https://rekordbox.com/en/download/#system).
 2. Is the buffer size properly adjusted?
-The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
-If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
-Set the minimum buffer size that does not cause audio dropout.
-The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
-* If DJ equipment is connected, refer to the content shown in the operation manual.
+   The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
+   If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
+   Set the minimum buffer size that does not cause audio dropout.
+   The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
+
+- If DJ equipment is connected, refer to the content shown in the operation manual.
+
 3. Isn't other application operating?
-Close applications that are not in use including Web browser, Explorer (Windows) or Finder (Mac), screen saver, and resident software once.
+   Close applications that are not in use including Web browser, Explorer (Windows) or Finder (Mac), screen saver, and resident software once.
 4. You may be able to decrease the symptom by changing the setting of multithread.
-Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and deselect [Apply multi-thread to the analysis process].
+   Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and deselect [Apply multi-thread to the analysis process].
 5. You may be able to decrease the symptom by turning OFF the following functions with high processing load.
 
-- - Video function
+-
+  - Video function
 - Lyric function
 - MERGE FX
 
@@ -3436,15 +3450,17 @@ Click [Preferences] > [Extensions] category > [STEMS] tab > [Multi-thread] and d
 Check the following.
 
 1. Does your computer fulfill the environmental requirements of rekordbox?
-Check the System Requirements.
+   Check the System Requirements.
 2. Is the buffer size properly adjusted?
-The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
-If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
-Set the minimum buffer size that does not cause audio dropout.
-The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
-* If DJ equipment is connected, refer to the content shown in the operation manual.
+   The latency (time that elapses before outputting sound after operating this equipment) can be shortened by setting the buffer size small.
+   If audio dropout occurs, increase the buffer size. However, the latency becomes longer.
+   Set the minimum buffer size that does not cause audio dropout.
+   The buffer size can be adjusted by clicking [Preferences] > [Audio] category > [Configuration] tab > [Buffer size].
+
+- If DJ equipment is connected, refer to the content shown in the operation manual.
+
 3. Isn't an option for increasing the memory usage for analytical processing activated?
-Click [Preferences] > [Extensions] category > [STEMS] tab > [Memory] and deselect [Increase the memory size of the analysis process].
+   Click [Preferences] > [Extensions] category > [STEMS] tab > [Memory] and deselect [Increase the memory size of the analysis process].
 
 In addition, carrying out the following may resolve the insufficient memory space, however, change the setting at your own risk.
 

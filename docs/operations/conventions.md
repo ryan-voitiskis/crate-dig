@@ -51,6 +51,7 @@ play/
 
 ### Album type classification
 
+<!-- dprint-ignore -->
 | Pattern                        | Type           | Directory structure                   |
 | ------------------------------ | -------------- | ------------------------------------- |
 | All tracks same artist         | Single Artist  | `Artist/Album (Year)/`                |
@@ -76,6 +77,7 @@ play/
 
 These patterns are valid and should not be flagged as errors during audits:
 
+<!-- dprint-ignore -->
 | Pattern                   | Example                            | When acceptable                          |
 | ------------------------- | ---------------------------------- | ---------------------------------------- |
 | `NN. Title.ext`           | `08. Tune Out.flac`                | Single-artist album, if tags have artist |
@@ -89,14 +91,15 @@ These patterns are valid and should not be flagged as errors during audits:
 1. Strip file extension
 2. First 2 chars = track number (zero-padded)
 3. Char 3 = space (skip)
-4. Char 4 to first ` - ` = artist
-5. After first ` - ` = title
+4. Char 4 to first `-` = artist
+5. After first `-` = title
 
 **Edge cases:**
-- Title contains `-` (e.g., "Artist - Track - Subtitle") — split on first ` - ` only, unless artist is known from directory context.
+
+- Title contains `-` (e.g., "Artist - Track - Subtitle") — split on first `-` only, unless artist is known from directory context.
 - VA compilations — filename artist is the per-track artist, not the AlbumArtist.
 
-**Loose tracks** (`Artist Name - Track Title.ext`): split on first ` - `.
+**Loose tracks** (`Artist Name - Track Title.ext`): split on first `-`.
 
 ## Tags
 
@@ -104,6 +107,7 @@ These patterns are valid and should not be flagged as errors during audits:
 
 What Rekordbox reads on import by format:
 
+<!-- dprint-ignore -->
 | Field     | FLAC            | WAV               | MP3             |
 | --------- | --------------- | ----------------- | --------------- |
 | Artist    | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
@@ -119,6 +123,7 @@ What Rekordbox reads on import by format:
 
 ### Required tags
 
+<!-- dprint-ignore -->
 | Tag       | Album tracks | Loose tracks | Format                              |
 | --------- | ------------ | ------------ | ----------------------------------- |
 | Artist    | Required     | Required     | Track-level artist                  |
@@ -131,6 +136,7 @@ What Rekordbox reads on import by format:
 
 ### Recommended tags
 
+<!-- dprint-ignore -->
 | Tag                    | When required                        |
 | ---------------------- | ------------------------------------ |
 | Publisher/Organization | Always for VA, recommended for all   |

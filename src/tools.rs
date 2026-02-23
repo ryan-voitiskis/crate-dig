@@ -514,7 +514,9 @@ fn essentia_setup_hint() -> String {
 
     match std::env::var(ESSENTIA_PYTHON_ENV_VAR) {
         Ok(val) if !val.trim().is_empty() => {
-            checked.push(format!("env {ESSENTIA_PYTHON_ENV_VAR}={val} (not a valid Essentia Python)"));
+            checked.push(format!(
+                "env {ESSENTIA_PYTHON_ENV_VAR}={val} (not a valid Essentia Python)"
+            ));
         }
         _ => {
             checked.push(format!("env {ESSENTIA_PYTHON_ENV_VAR} (not set)"));
@@ -524,7 +526,10 @@ fn essentia_setup_hint() -> String {
     if let Some(venv_dir) = essentia_venv_dir() {
         let python_path = venv_dir.join("bin/python");
         if python_path.exists() {
-            checked.push(format!("{} (exists but Essentia import failed)", python_path.display()));
+            checked.push(format!(
+                "{} (exists but Essentia import failed)",
+                python_path.display()
+            ));
         } else {
             checked.push(format!("{} (not found)", python_path.display()));
         }
@@ -2467,14 +2472,19 @@ impl ReklawdboxServer {
             }
         }
 
-        let venv_dir = essentia_venv_dir().ok_or_else(|| {
-            err("Cannot determine home directory for venv location".to_string())
-        })?;
+        let venv_dir = essentia_venv_dir()
+            .ok_or_else(|| err("Cannot determine home directory for venv location".to_string()))?;
 
         // Find a suitable Python 3 and try venv+pip with each candidate,
         // falling through to the next on failure
-        let python_candidates: &[&str] =
-            &["python3.13", "python3.12", "python3.11", "python3.10", "python3.9", "python3"];
+        let python_candidates: &[&str] = &[
+            "python3.13",
+            "python3.12",
+            "python3.11",
+            "python3.10",
+            "python3.9",
+            "python3",
+        ];
 
         let mut last_error = String::new();
 
@@ -2502,7 +2512,10 @@ impl ReklawdboxServer {
             // Create parent directories
             if let Some(parent) = venv_dir.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
-                    err(format!("Failed to create directory {}: {e}", parent.display()))
+                    err(format!(
+                        "Failed to create directory {}: {e}",
+                        parent.display()
+                    ))
                 })?;
             }
 
@@ -2586,7 +2599,10 @@ impl ReklawdboxServer {
                 .to_string();
 
             // Set the override so it's available immediately (no restart)
-            let mut guard = self.state.essentia_python_override.lock()
+            let mut guard = self
+                .state
+                .essentia_python_override
+                .lock()
                 .map_err(|_| err("essentia override lock poisoned".to_string()))?;
             *guard = Some(venv_python_str.clone());
             drop(guard);
@@ -2753,8 +2769,9 @@ impl ReklawdboxServer {
                     )?;
                 requested_phases.into_iter().take(actual_target).collect()
             }
-            _ => resolve_energy_curve(p.energy_curve.as_ref(), actual_target)
-                .map_err(|e| McpError::invalid_params(format!("Invalid energy_curve: {e}"), None))?,
+            _ => resolve_energy_curve(p.energy_curve.as_ref(), actual_target).map_err(|e| {
+                McpError::invalid_params(format!("Invalid energy_curve: {e}"), None)
+            })?,
         };
         let effective_candidates = if profiles_by_id.len() <= actual_target {
             1
@@ -5278,8 +5295,7 @@ mod tests {
             .expect("metadata should be readable")
             .permissions();
         perms.set_mode(0o755);
-        std::fs::set_permissions(&fake_python, perms)
-            .expect("fake python should be executable");
+        std::fs::set_permissions(&fake_python, perms).expect("fake python should be executable");
         let fake_path = fake_python.to_string_lossy().to_string();
 
         let server = ReklawdboxServer::new(None);
@@ -5780,10 +5796,8 @@ mod tests {
 
     #[tokio::test]
     async fn lookup_beatport_no_match_payload_is_consistent_across_live_and_cache_paths() {
-        let db_conn = create_single_track_test_db(
-            "beatport-no-match-track",
-            "/tmp/beatport-no-match.flac",
-        );
+        let db_conn =
+            create_single_track_test_db("beatport-no-match-track", "/tmp/beatport-no-match.flac");
         let store_dir = tempfile::tempdir().expect("temp store dir should create");
         let store_path = store_dir.path().join("internal.sqlite3");
         let store_conn = store::open(

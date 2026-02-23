@@ -36,6 +36,7 @@ resolve_tracks_data(playlist_id="...")   # full metadata for a scope
 ```
 
 Build convention checks in the agent's logic:
+
 - Missing required fields (artist, title, track, album, year)
 - Artist-in-title pattern
 - Filename/tag mismatch (DB has both `Location` path and tag values)
@@ -43,6 +44,7 @@ Build convention checks in the agent's logic:
 ### Phase 2: File-level audit (targeted)
 
 Only for issues the DB can't detect:
+
 - WAV files: check RIFF INFO (tag 3) presence via `exiftool -s3 -RIFF:Artist`
 - Un-imported files: full exiftool read
 - Optional: compare file tags to DB values to detect drift

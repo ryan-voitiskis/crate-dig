@@ -118,7 +118,7 @@ Position the mouse cursor to the track's title in the sampler slot and click the
 1. Switch the play mode.
    - [play icon] [Play mode (Oneshot)]: Play the audio file till the end, and then stop it. During playback, you can click to restart playback from the beginning of the audio file.
    - [loop icon] [Play mode (Loop)]: Start the loop play. During playback, you can click to start the loop playback from the beginning.
-   The play mode can be switched by right-clicking the track in the track list and selecting [Track Type].
+     The play mode can be switched by right-clicking the track in the track list and selecting [Track Type].
 
 2. The playback continues only when you click and hold [gate play icon] or [gate loop icon]. When released, the playback pauses. ([Gate mode])
 
