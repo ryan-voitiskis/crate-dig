@@ -183,6 +183,8 @@ Synth-pop, Tech House, Techno, Trance, UK Bass
 - [`docs/README.md`](docs/README.md) — Documentation index by area
 - [`docs/rekordbox/README.md`](docs/rekordbox/README.md) — Rekordbox corpus map and manifest-first usage
 - [`docs/reference/rekordbox-internals.md`](docs/reference/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
+- [`docs/developer/rekordbox-gotchas.md`](docs/developer/rekordbox-gotchas.md) — Rekordbox schema/XML edge cases and invariants used by code paths
+- [`docs/developer/sql-patterns.md`](docs/developer/sql-patterns.md) — Query-building and binding patterns used in DB access code
 - [`docs/operations/runbooks/backup-and-restore.md`](docs/operations/runbooks/backup-and-restore.md) — Backup usage and restore procedures
 - [`docs/integrations/discogs/auth.md`](docs/integrations/discogs/auth.md) — Discogs broker setup, first-run auth, and re-auth/reset guidance
 - [`docs/integrations/discogs/auth-plan.md`](docs/integrations/discogs/auth-plan.md) — Discogs broker architecture decisions and phased implementation plan

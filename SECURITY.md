@@ -2,22 +2,22 @@
 
 ## Supported Versions
 
-Security fixes are applied to the latest `main` branch state.
+Security fixes are applied to the latest `main` branch.
 
 ## Reporting a Vulnerability
 
-Please report vulnerabilities privately.
+Report vulnerabilities privately.
 
 Preferred method:
 
-1. Open a GitHub Security Advisory draft (repository "Security" tab -> "Report a vulnerability").
+1. Open a GitHub Security Advisory draft (Security tab -> Report a vulnerability).
 2. Include reproduction details, impact, and any proof-of-concept.
 
-If Security Advisories are unavailable in your environment, contact the project maintainer through a private channel and include the same details.
+If advisories are unavailable, contact the maintainer through a private channel with the same details.
 
-Please do not post vulnerability details in public issues before a fix is available.
+Do not post vulnerability details in public issues before a fix is available.
 
-## What to Include
+## Include
 
 - Affected component(s) and file paths if known
 - Preconditions and attack scenario
@@ -29,4 +29,4 @@ Please do not post vulnerability details in public issues before a fix is availa
 
 - We will acknowledge receipt and triage severity.
 - We may request additional validation details.
-- A fix and release plan will be coordinated before public disclosure.
+- We coordinate a fix and release plan before public disclosure.

@@ -1,27 +1,19 @@
 # AGENTS.md
 
-Repository-wide instructions for coding agents.
+Reklawdbox is an MCP server for Rekordbox 7.x that gives an AI agent read-only
+SQLCipher DB access and stages metadata edits as Rekordbox XML for reimport
+while never writing directly to the DB; human approval is always required.
 
-## MCP Runtime
+It provides tools for library search, audio analysis via stratum-dsp +
+Essentia, Discogs/Beatport enrichment, genre classification, transition
+scoring, and greedy set sequencing with energy-curve shaping.
 
-- This project is an MCP server over stdio (`./target/release/reklawdbox`), not a flag-driven CLI app.
-- Host-specific guidance lives in:
-  - `CODEX.md` for Codex
-  - `CLAUDE.md` for Claude Code
-- Keep MCP credentials/secrets in local environment or untracked local config (`.mcp.json` is gitignored).
+- Runtime: Rust 2024 single binary (`cargo`), `rmcp`, `tokio`, `serde`/`serde_json`/`schemars`.
+- Rekordbox access: `rusqlite` + bundled SQLCipher/OpenSSL; encrypted `master.db` is read-only.
+- Write path: DB is never written; exports Rekordbox-compatible XML.
+- Local persistence: separate SQLite (WAL) for enrichment cache, audio-analysis cache, broker session tokens.
+- Enrichment I/O: `reqwest` + `rustls`; Discogs via broker API; Beatport via HTML/JSON extraction.
+- Audio analysis: `symphonia` decode + `stratum-dsp`; optional Essentia via Python subprocess.
+- Companion service: Discogs broker in TypeScript on Cloudflare Workers + D1.
 
-## Commit Messages
-
-Use Conventional Commits for every commit:
-
-```text
-type(scope): short summary
-```
-
-Allowed `type` values include: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `ci`, `build`.
-
-Examples:
-
-- `docs(rekordbox): add corpus manifest and cross-links`
-- `fix(xml): handle empty playlist entries`
-- `test(db): cover sqlcipher connection errors`
+Use Conventional Commits.
