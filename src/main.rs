@@ -10,6 +10,7 @@ mod eval_routing;
 mod eval_tasks;
 mod genre;
 mod store;
+mod tags;
 mod tools;
 mod types;
 mod xml;
@@ -22,7 +23,13 @@ where
     I: Iterator<Item = S>,
     S: AsRef<str>,
 {
-    args.nth(1).is_some_and(|arg| arg.as_ref() == "analyze")
+    args.nth(1).is_some_and(|arg| {
+        let a = arg.as_ref();
+        matches!(
+            a,
+            "analyze" | "read-tags" | "write-tags" | "extract-art" | "embed-art"
+        )
+    })
 }
 
 #[tokio::main]
@@ -49,6 +56,34 @@ mod tests {
     #[test]
     fn runs_cli_for_analyze_subcommand() {
         assert!(should_run_cli(vec!["reklawdbox", "analyze"].into_iter()));
+    }
+
+    #[test]
+    fn runs_cli_for_read_tags_subcommand() {
+        assert!(should_run_cli(
+            vec!["reklawdbox", "read-tags"].into_iter()
+        ));
+    }
+
+    #[test]
+    fn runs_cli_for_write_tags_subcommand() {
+        assert!(should_run_cli(
+            vec!["reklawdbox", "write-tags"].into_iter()
+        ));
+    }
+
+    #[test]
+    fn runs_cli_for_extract_art_subcommand() {
+        assert!(should_run_cli(
+            vec!["reklawdbox", "extract-art"].into_iter()
+        ));
+    }
+
+    #[test]
+    fn runs_cli_for_embed_art_subcommand() {
+        assert!(should_run_cli(
+            vec!["reklawdbox", "embed-art"].into_iter()
+        ));
     }
 
     #[test]

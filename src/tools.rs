@@ -21,6 +21,7 @@ use crate::db;
 use crate::discogs;
 use crate::genre;
 use crate::store;
+use crate::tags;
 use crate::types::TrackChange;
 use crate::xml;
 
@@ -1055,6 +1056,92 @@ pub struct ScoreTransitionParams {
     pub energy_phase: Option<EnergyPhase>,
     #[schemars(description = "Weighting axis (balanced, harmonic, energy, genre)")]
     pub priority: Option<SetPriority>,
+}
+
+// ---------------------------------------------------------------------------
+// Native tag tool params
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ReadFileTagsParams {
+    #[schemars(description = "Explicit file paths to read")]
+    paths: Option<Vec<String>>,
+
+    #[schemars(description = "Resolve file paths from Rekordbox track IDs")]
+    track_ids: Option<Vec<String>>,
+
+    #[schemars(description = "Scan directory for audio files")]
+    directory: Option<String>,
+
+    #[schemars(
+        description = "Glob filter within directory (default: all audio files). Only used with directory."
+    )]
+    glob: Option<String>,
+
+    #[schemars(description = "Scan subdirectories (default: false). Only used with directory.")]
+    recursive: Option<bool>,
+
+    #[schemars(
+        description = "Return only these fields (default: all). Valid: artist, title, album, album_artist, genre, year, track, disc, comment, publisher, bpm, key, composer, remixer"
+    )]
+    fields: Option<Vec<String>>,
+
+    #[schemars(description = "Include cover art metadata (default: false)")]
+    include_cover_art: Option<bool>,
+
+    #[schemars(description = "Max files to read (default: 200, max: 2000)")]
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct WriteFileTagsParams {
+    #[schemars(description = "Array of write operations")]
+    writes: Vec<WriteFileTagsEntry>,
+
+    #[schemars(description = "Preview changes without writing (default: false)")]
+    dry_run: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct WriteFileTagsEntry {
+    #[schemars(description = "Path to the audio file")]
+    path: String,
+
+    #[schemars(
+        description = "Tag fields to write. Keys are field names, values are strings to set or null to delete."
+    )]
+    tags: HashMap<String, Option<String>>,
+
+    #[schemars(
+        description = "WAV only: which tag layers to write (default: both). Values: \"id3v2\", \"riff_info\""
+    )]
+    wav_targets: Option<Vec<tags::WavTarget>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct ExtractCoverArtParams {
+    #[schemars(description = "Path to the audio file")]
+    path: String,
+
+    #[schemars(
+        description = "Where to save the extracted art (default: cover.{ext} in same directory)"
+    )]
+    output_path: Option<String>,
+
+    #[schemars(description = "Which art to extract (default: front_cover)")]
+    picture_type: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct EmbedCoverArtParams {
+    #[schemars(description = "Path to the image file")]
+    image_path: String,
+
+    #[schemars(description = "Audio files to embed art into")]
+    targets: Vec<String>,
+
+    #[schemars(description = "Picture type (default: front_cover)")]
+    picture_type: Option<String>,
 }
 
 use rmcp::handler::server::wrapper::Parameters;
@@ -3170,6 +3257,403 @@ impl ReklawdboxServer {
         let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
+
+    // -----------------------------------------------------------------------
+    // Native file-tag tools
+    // -----------------------------------------------------------------------
+
+    #[tool(
+        description = "Read metadata tags directly from audio files on disk. Supports FLAC, MP3, WAV, M4A, AAC, AIFF. Provide exactly one input selector: paths, track_ids, or directory."
+    )]
+    async fn read_file_tags(
+        &self,
+        params: Parameters<ReadFileTagsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+
+        // Validate exactly one selector
+        let selector_count = [p.paths.is_some(), p.track_ids.is_some(), p.directory.is_some()]
+            .iter()
+            .filter(|&&v| v)
+            .count();
+        if selector_count != 1 {
+            return Err(McpError::invalid_params(
+                "Provide exactly one of: paths, track_ids, directory".to_string(),
+                None,
+            ));
+        }
+
+        let limit = p.limit.unwrap_or(200).min(2000);
+        let include_cover_art = p.include_cover_art.unwrap_or(false);
+        let fields = p.fields;
+
+        // Resolve file paths from the chosen selector
+        let mut inline_errors: Vec<tags::FileReadResult> = Vec::new();
+        let mut file_paths: Vec<String> = if let Some(paths) = p.paths {
+            paths
+        } else if let Some(track_ids) = p.track_ids {
+            let conn = self.conn()?;
+            let mut resolved = Vec::with_capacity(track_ids.len());
+            for id in &track_ids {
+                match db::get_track(&conn, id) {
+                    Ok(Some(track)) => match resolve_file_path(&track.file_path) {
+                        Ok(path) => resolved.push(path),
+                        Err(e) => inline_errors.push(tags::FileReadResult::Error {
+                            path: format!("track_id:{id}"),
+                            error: format!("Failed to resolve path: {e}"),
+                        }),
+                    },
+                    Ok(None) => {
+                        inline_errors.push(tags::FileReadResult::Error {
+                            path: format!("track_id:{id}"),
+                            error: format!("Track '{id}' not found"),
+                        });
+                    }
+                    Err(e) => {
+                        inline_errors.push(tags::FileReadResult::Error {
+                            path: format!("track_id:{id}"),
+                            error: format!("DB error: {e}"),
+                        });
+                    }
+                }
+            }
+            resolved
+        } else if let Some(directory) = p.directory {
+            let recursive = p.recursive.unwrap_or(false);
+            let glob_pattern = p.glob.clone();
+            scan_audio_directory(&directory, recursive, glob_pattern.as_deref())
+                .map_err(|e| err(e))?
+        } else {
+            unreachable!()
+        };
+
+        file_paths.truncate(limit);
+
+        // Read tags concurrently with a semaphore (max 8 concurrent)
+        let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+        let mut handles = Vec::with_capacity(file_paths.len());
+
+        for file_path in file_paths {
+            let sem = semaphore.clone();
+            let fields_clone = fields.clone();
+            handles.push(tokio::task::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+                let path = std::path::PathBuf::from(&file_path);
+                let fc = fields_clone;
+                tokio::task::spawn_blocking(move || {
+                    tags::read_file_tags(&path, fc.as_deref(), include_cover_art)
+                })
+                .await
+                .unwrap_or_else(|e| tags::FileReadResult::Error {
+                    path: file_path,
+                    error: format!("task join error: {e}"),
+                })
+            }));
+        }
+
+        let mut results = Vec::with_capacity(inline_errors.len() + handles.len());
+        let mut files_read: usize = 0;
+        let mut files_failed: usize = inline_errors.len();
+        let mut format_counts: HashMap<String, usize> = HashMap::new();
+
+        // Prepend any inline errors from track_id resolution
+        results.append(&mut inline_errors);
+
+        for handle in handles {
+            let result = handle.await.map_err(|e| err(format!("join error: {e}")))?;
+            match &result {
+                tags::FileReadResult::Single { format, .. } => {
+                    files_read += 1;
+                    *format_counts.entry(format.clone()).or_insert(0) += 1;
+                }
+                tags::FileReadResult::Wav { format, .. } => {
+                    files_read += 1;
+                    *format_counts.entry(format.clone()).or_insert(0) += 1;
+                }
+                tags::FileReadResult::Error { .. } => {
+                    files_failed += 1;
+                }
+            }
+            results.push(result);
+        }
+
+        let output = serde_json::json!({
+            "summary": {
+                "files_read": files_read,
+                "files_failed": files_failed,
+                "formats": format_counts,
+            },
+            "results": results,
+        });
+
+        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(
+        description = "Write metadata tags to audio files on disk. Supports setting and deleting individual fields. Use dry_run to preview changes before writing."
+    )]
+    async fn write_file_tags(
+        &self,
+        params: Parameters<WriteFileTagsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let dry_run = p.dry_run.unwrap_or(false);
+
+        // Validate all entries up front
+        for entry in &p.writes {
+            tags::validate_write_tags(&entry.tags).map_err(|e| {
+                McpError::invalid_params(format!("{}: {e}", entry.path), None)
+            })?;
+        }
+
+        // Build WriteEntry values
+        let entries: Vec<tags::WriteEntry> = p
+            .writes
+            .into_iter()
+            .map(|e| tags::WriteEntry {
+                path: PathBuf::from(&e.path),
+                tags: e.tags,
+                wav_targets: e.wav_targets.unwrap_or_else(|| {
+                    vec![tags::WavTarget::Id3v2, tags::WavTarget::RiffInfo]
+                }),
+            })
+            .collect();
+
+        if dry_run {
+            // Dry-run: can be parallel since it only reads
+            let mut results = Vec::with_capacity(entries.len());
+            for entry in entries {
+                let result = tokio::task::spawn_blocking(move || {
+                    tags::write_file_tags_dry_run(&entry)
+                })
+                .await
+                .map_err(|e| err(format!("join error: {e}")))?;
+                results.push(result);
+            }
+
+            let mut previewed: usize = 0;
+            let mut failed: usize = 0;
+            for r in &results {
+                match r {
+                    tags::FileDryRunResult::Preview { .. } => previewed += 1,
+                    tags::FileDryRunResult::Error { .. } => failed += 1,
+                }
+            }
+
+            let output = serde_json::json!({
+                "dry_run": true,
+                "summary": {
+                    "files_previewed": previewed,
+                    "files_failed": failed,
+                },
+                "results": results,
+            });
+
+            let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+            Ok(CallToolResult::success(vec![Content::text(json)]))
+        } else {
+            // Actual writes: sequential
+            let mut results = Vec::with_capacity(entries.len());
+            let mut files_written: usize = 0;
+            let mut files_failed: usize = 0;
+            let mut total_fields_written: usize = 0;
+
+            for entry in entries {
+                let result = tokio::task::spawn_blocking(move || {
+                    tags::write_file_tags(&entry)
+                })
+                .await
+                .map_err(|e| err(format!("join error: {e}")))?;
+
+                match &result {
+                    tags::FileWriteResult::Ok { fields_written, .. } => {
+                        files_written += 1;
+                        total_fields_written += fields_written.len();
+                    }
+                    tags::FileWriteResult::Error { .. } => files_failed += 1,
+                }
+                results.push(result);
+            }
+
+            let output = serde_json::json!({
+                "summary": {
+                    "files_written": files_written,
+                    "files_failed": files_failed,
+                    "fields_written": total_fields_written,
+                },
+                "results": results,
+            });
+
+            let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+            Ok(CallToolResult::success(vec![Content::text(json)]))
+        }
+    }
+
+    #[tool(
+        description = "Extract cover art from an audio file and save to disk."
+    )]
+    async fn extract_cover_art(
+        &self,
+        params: Parameters<ExtractCoverArtParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let path = PathBuf::from(&p.path);
+        let output_path = p.output_path.map(PathBuf::from);
+        let picture_type = p.picture_type.unwrap_or_else(|| "front_cover".to_string());
+
+        let result = tokio::task::spawn_blocking(move || {
+            tags::extract_cover_art(
+                &path,
+                output_path.as_deref(),
+                &picture_type,
+            )
+        })
+        .await
+        .map_err(|e| err(format!("join error: {e}")))?
+        .map_err(|e| err(e))?;
+
+        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(
+        description = "Embed cover art into one or more audio files."
+    )]
+    async fn embed_cover_art(
+        &self,
+        params: Parameters<EmbedCoverArtParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+        let image_path = PathBuf::from(&p.image_path);
+        let picture_type = p.picture_type.unwrap_or_else(|| "front_cover".to_string());
+
+        // Read image metadata before the embed loop
+        let image_size_bytes = std::fs::metadata(&image_path)
+            .map(|m| m.len() as usize)
+            .unwrap_or(0);
+        let image_format = {
+            let data = std::fs::read(&image_path)
+                .map_err(|e| err(format!("Failed to read image: {e}")))?;
+            if data.starts_with(&[0xff, 0xd8]) {
+                "jpeg"
+            } else if data.starts_with(&[0x89, 0x50, 0x4e, 0x47]) {
+                "png"
+            } else if data.starts_with(&[0x47, 0x49, 0x46]) {
+                "gif"
+            } else if data.starts_with(&[0x42, 0x4d]) {
+                "bmp"
+            } else {
+                "unknown"
+            }
+        };
+
+        let mut results = Vec::with_capacity(p.targets.len());
+        let mut files_embedded: usize = 0;
+        let mut files_failed: usize = 0;
+
+        // Sequential writes to avoid file contention
+        for target in p.targets {
+            let img = image_path.clone();
+            let tgt = PathBuf::from(&target);
+            let pt = picture_type.clone();
+            let result = tokio::task::spawn_blocking(move || {
+                tags::embed_cover_art(&img, &tgt, &pt)
+            })
+            .await
+            .map_err(|e| err(format!("join error: {e}")))?;
+
+            match &result {
+                tags::FileEmbedResult::Ok { .. } => files_embedded += 1,
+                tags::FileEmbedResult::Error { .. } => files_failed += 1,
+            }
+            results.push(result);
+        }
+
+        let output = serde_json::json!({
+            "summary": {
+                "files_embedded": files_embedded,
+                "files_failed": files_failed,
+                "image_format": image_format,
+                "image_size_bytes": image_size_bytes,
+            },
+            "results": results,
+        });
+
+        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+}
+
+/// Audio file extensions accepted by the directory scanner.
+const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac", "aiff"];
+
+/// Scan a directory for audio files, optionally recursive, with optional glob filter.
+fn scan_audio_directory(
+    dir: &str,
+    recursive: bool,
+    glob_pattern: Option<&str>,
+) -> Result<Vec<String>, String> {
+    let dir_path = std::path::Path::new(dir);
+    if !dir_path.is_dir() {
+        return Err(format!("Not a directory: {dir}"));
+    }
+
+    // Parse glob into extension filter if it looks like "*.ext"
+    let ext_filter: Option<String> = glob_pattern.and_then(|g| {
+        let g = g.trim();
+        if g.starts_with("*.") {
+            Some(g[2..].to_lowercase())
+        } else {
+            None
+        }
+    });
+
+    let mut files = Vec::new();
+    let mut dirs_to_scan = vec![dir_path.to_path_buf()];
+
+    while let Some(current_dir) = dirs_to_scan.pop() {
+        let entries = std::fs::read_dir(&current_dir)
+            .map_err(|e| format!("Failed to read directory {}: {e}", current_dir.display()))?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Directory entry error: {e}"))?;
+            let path = entry.path();
+
+            if path.is_dir() && recursive {
+                dirs_to_scan.push(path);
+                continue;
+            }
+
+            if !path.is_file() {
+                continue;
+            }
+
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.to_lowercase());
+
+            let ext = match ext {
+                Some(e) => e,
+                None => continue,
+            };
+
+            // Check extension filter from glob
+            if let Some(ref filter_ext) = ext_filter {
+                if ext != *filter_ext {
+                    continue;
+                }
+            } else if !AUDIO_EXTENSIONS.contains(&ext.as_str()) {
+                continue;
+            }
+
+            files.push(path.display().to_string());
+        }
+    }
+
+    files.sort();
+    Ok(files)
 }
 
 fn describe_resolve_scope(params: &ResolveTracksDataParams) -> String {
