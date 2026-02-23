@@ -76,6 +76,18 @@ const DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 const DEFAULT_DISCOGS_MIN_INTERVAL_MS = 1100
 const DISCOGS_BASE_URL = 'https://api.discogs.com'
 
+class BrokerHttpError extends Error {
+  readonly error: string
+  readonly status: number
+
+  constructor(error: string, message: string, status: number,) {
+    super(message,)
+    this.name = 'BrokerHttpError'
+    this.error = error
+    this.status = status
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env,): Promise<Response> {
     try {
@@ -109,6 +121,16 @@ export default {
         404,
       )
     } catch (err) {
+      if (err instanceof BrokerHttpError) {
+        return json(
+          {
+            error: err.error,
+            message: err.message,
+          },
+          err.status,
+        )
+      }
+
       return json(
         {
           error: 'internal_error',
@@ -1163,7 +1185,11 @@ async function parseJsonBody<T,>(request: Request,): Promise<T> {
   try {
     return (await request.json()) as T
   } catch {
-    throw new Error('invalid JSON body',)
+    throw new BrokerHttpError(
+      'invalid_json',
+      'request body must be valid JSON',
+      400,
+    )
   }
 }
 

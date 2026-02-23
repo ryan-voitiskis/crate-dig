@@ -189,6 +189,7 @@ the pending token is still invalidated immediately after the first success.
 | `status/finalize` | `404 device session not found` | bad/expired `device_id` + `pending_token` pair | Restart from `POST /v1/device/session/start`. |
 | `finalize` | `409 device session is not authorized yet` | browser OAuth not completed | Complete auth URL flow, retry finalize. |
 | `finalize` | `410 device session expired; restart auth` | session TTL elapsed | Start a new device session and re-auth. |
+| `finalize/proxy/search` | `400 invalid_json` | malformed JSON request body | Send valid JSON in the request body. |
 | `proxy/search` | `401 missing bearer session token` | no bearer token sent | Send `authorization: Bearer <session_token>`. |
 | `proxy/search` | `401 invalid or expired broker session` | stale/invalid `session_token` | Re-run auth flow to obtain fresh session. |
 | `proxy/search` | `400 artist and title are required` | invalid request body | Send JSON with non-empty `artist` and `title`. |
