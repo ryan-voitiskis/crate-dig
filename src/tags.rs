@@ -420,6 +420,12 @@ fn mime_name(mime: Option<&MimeType>) -> &'static str {
 /// - All other fields: accepted as-is
 pub fn validate_write_tags(tags: &HashMap<String, Option<String>>) -> Result<(), String> {
     for (field, value) in tags {
+        // Check field name validity first — even for null/empty (delete) values
+        let is_validated_field = matches!(field.as_str(), "year" | "track" | "disc");
+        if !is_validated_field && field_to_item_key(field).is_none() {
+            return Err(format!("Unknown field \"{field}\""));
+        }
+
         let Some(val) = value else { continue };
         if val.is_empty() {
             continue; // empty means delete
@@ -443,12 +449,7 @@ pub fn validate_write_tags(tags: &HashMap<String, Option<String>>) -> Result<(),
                     }
                 }
             }
-            _ => {
-                // Check it's a known canonical field
-                if field_to_item_key(field).is_none() {
-                    return Err(format!("Unknown field \"{field}\""));
-                }
-            }
+            _ => {}
         }
     }
     Ok(())
@@ -1152,6 +1153,20 @@ mod tests {
     fn validate_unknown_field_rejected() {
         let mut tags = HashMap::new();
         tags.insert("nonexistent".to_string(), Some("value".to_string()));
+        assert!(validate_write_tags(&tags).is_err());
+    }
+
+    #[test]
+    fn validate_unknown_field_null_rejected() {
+        let mut tags = HashMap::new();
+        tags.insert("bogus_field".to_string(), None);
+        assert!(validate_write_tags(&tags).is_err());
+    }
+
+    #[test]
+    fn validate_unknown_field_empty_rejected() {
+        let mut tags = HashMap::new();
+        tags.insert("bogus_field".to_string(), Some("".to_string()));
         assert!(validate_write_tags(&tags).is_err());
     }
 
