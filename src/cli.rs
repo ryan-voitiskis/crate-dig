@@ -592,6 +592,7 @@ fn print_tags_human(result: &tags::FileReadResult) {
             eprintln!("=== {} ({}) ===", path, format.to_uppercase());
             println!("ID3v2:");
             print_tag_map(id3v2, 2);
+            println!();
             println!("RIFF INFO:");
             print_tag_map(riff_info, 2);
             if !tag3_missing.is_empty() {
