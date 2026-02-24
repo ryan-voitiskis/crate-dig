@@ -3592,15 +3592,18 @@ fn scan_audio_directory(
         return Err(format!("Not a directory: {dir}"));
     }
 
-    // Parse glob into extension filter if it looks like "*.ext"
-    let ext_filter: Option<String> = glob_pattern.and_then(|g| {
-        let g = g.trim();
-        if g.starts_with("*.") {
-            Some(g[2..].to_lowercase())
-        } else {
-            None
+    // Compile glob matcher if a pattern was provided
+    let glob_matcher = match glob_pattern {
+        Some(pattern) => {
+            let glob = globset::GlobBuilder::new(pattern)
+                .literal_separator(true)
+                .case_insensitive(true)
+                .build()
+                .map_err(|e| format!("Invalid glob pattern \"{pattern}\": {e}"))?;
+            Some(glob.compile_matcher())
         }
-    });
+        None => None,
+    };
 
     let mut files = Vec::new();
     let mut dirs_to_scan = vec![dir_path.to_path_buf()];
@@ -3622,23 +3625,24 @@ fn scan_audio_directory(
                 continue;
             }
 
-            let ext = path
+            // Must be an audio file regardless of glob
+            let is_audio = path
                 .extension()
                 .and_then(|e| e.to_str())
-                .map(|e| e.to_lowercase());
+                .is_some_and(|e| AUDIO_EXTENSIONS.contains(&e.to_lowercase().as_str()));
+            if !is_audio {
+                continue;
+            }
 
-            let ext = match ext {
-                Some(e) => e,
-                None => continue,
-            };
-
-            // Check extension filter from glob
-            if let Some(ref filter_ext) = ext_filter {
-                if ext != *filter_ext {
+            // Apply glob filter against the filename
+            if let Some(ref matcher) = glob_matcher {
+                let file_name = match path.file_name().and_then(|n| n.to_str()) {
+                    Some(n) => n,
+                    None => continue,
+                };
+                if !matcher.is_match(file_name) {
                     continue;
                 }
-            } else if !AUDIO_EXTENSIONS.contains(&ext.as_str()) {
-                continue;
             }
 
             files.push(path.display().to_string());
