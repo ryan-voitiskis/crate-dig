@@ -108,8 +108,7 @@ Selector groups: `paths`, `track_ids`, or `directory` (optionally with `glob` an
       },
       "cover_art": {            // only if include_cover_art: true
         "format": "jpeg",
-        "size_bytes": 45230,
-        "dimensions": "500x500"
+        "size_bytes": 45230
       }
     },
     {
@@ -148,7 +147,7 @@ Design notes:
 - **Field filter on WAV:** When `fields` is specified, both `id3v2` and `riff_info` objects are filtered to only the requested fields. `tag3_missing` is also scoped to the filtered fields only — it will not report unfiltered fields as missing.
 - **`tag3_missing`:** Computed for WAV only — surfaces the most critical audit issue (Rekordbox reads only RIFF INFO) without agent post-processing. A field appears in `tag3_missing` if it has a non-null value in `id3v2` but is `null` in `riff_info`.
 - **Errors inline:** Failed files appear inline with `error` rather than in a separate array. Keeps results ordered.
-- **Cover art metadata only:** `cover_art` returns format, size, and dimensions — never binary data. Use `extract_cover_art` to save art to a file.
+- **Cover art metadata only:** `cover_art` returns format and size — never binary data. Use `extract_cover_art` to save art to a file.
 
 ### `write_file_tags`
 
@@ -273,7 +272,6 @@ For WAV files, cover art is read from ID3v2 (tag 2) only — RIFF INFO does not 
   "output_path": "/path/to/cover.jpg",
   "image_format": "jpeg",
   "size_bytes": 45230,
-  "dimensions": "500x500",
   "picture_type": "front_cover"
 }
 ```
