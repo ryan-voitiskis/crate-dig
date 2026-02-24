@@ -722,9 +722,10 @@ fn write_tag_layer(
 ) -> Result<(), String> {
     // Re-read the file for this tag layer (lofty requires read-modify-write
     // per tag type since save_to_path reopens the file).
+    // Must read cover art (`true`) so existing pictures survive the round-trip.
     let mut tagged_file = Probe::open(path)
         .map_err(|e| format!("Failed to open: {e}"))?
-        .options(parse_options(false))
+        .options(parse_options(true))
         .read()
         .map_err(|e| format!("Failed to read: {e}"))?;
 
