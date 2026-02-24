@@ -2,8 +2,11 @@
 
 Maintainer-hosted broker for Discogs OAuth and proxied search.
 
+Prerequisite: Node.js `>=20.19.0`.
+
 ## Endpoints
 
+- `GET /v1/health`
 - `POST /v1/device/session/start`
 - `GET /v1/device/session/status?device_id=...&pending_token=...`
 - `POST /v1/device/session/finalize`
@@ -17,17 +20,36 @@ Set with `wrangler secret put`:
 
 - `DISCOGS_CONSUMER_KEY`
 - `DISCOGS_CONSUMER_SECRET`
+- `BROKER_CLIENT_TOKEN` (required unless explicitly running unauthenticated local-dev mode)
 
-## Optional vars
+## Runtime vars
 
 Set in `wrangler.toml` `[vars]`:
 
 - `BROKER_PUBLIC_BASE_URL`
-- `BROKER_CLIENT_TOKEN`
+- `ALLOW_UNAUTHENTICATED_BROKER` (optional dev-only override; set to `true` to allow requests without a client token)
 - `DEVICE_SESSION_TTL_SECONDS` (default `900`)
 - `SESSION_TOKEN_TTL_SECONDS` (default `2592000`)
 - `SEARCH_CACHE_TTL_SECONDS` (default `604800`)
 - `DISCOGS_MIN_INTERVAL_MS` (default `1100`)
+
+## Scheduled maintenance
+
+`wrangler.toml` config includes an hourly cron trigger (`0 * * * *`) that runs
+the Worker `scheduled()` handler to prune expired rows from:
+
+- `device_sessions`
+- `oauth_request_tokens`
+- `discogs_search_cache`
+
+## Health endpoint
+
+`GET /v1/health` returns broker runtime health and auth posture:
+
+- `status: "ok"` when client-token auth is enforced (`BROKER_CLIENT_TOKEN` set and unauthenticated mode disabled).
+- `status: "warning"` when either:
+  - `ALLOW_UNAUTHENTICATED_BROKER=true` (dev override; client-token checks disabled), or
+  - `BROKER_CLIENT_TOKEN` is unset while unauthenticated mode is disabled (fail-closed; protected routes return `401`).
 
 ## Local dev
 
@@ -35,6 +57,7 @@ Set in `wrangler.toml` `[vars]`:
 cd broker
 npm install
 npm run d1:migrate:local
+npm test
 npm run dev
 ```
 
@@ -43,6 +66,19 @@ Or run:
 ```bash
 cd broker
 ./scripts/dev.sh
+```
+
+## Testing philosophy
+
+- Prefer deterministic Worker-runtime integration tests over broad mocks.
+- Prioritize auth/session and error-semantics invariants first.
+- Keep external Discogs HTTP calls out of baseline tests unless explicitly running end-to-end flows.
+
+Run broker tests:
+
+```bash
+cd broker
+npm test
 ```
 
 ## Release Runbook (Test-First)
@@ -56,8 +92,8 @@ Ship broker auth changes in strict order:
 
 - `wrangler login` completed for the target Cloudflare account.
 - `broker/wrangler.toml` points to the real D1 `database_id`.
-- Required secrets are set (`DISCOGS_CONSUMER_KEY`, `DISCOGS_CONSUMER_SECRET`).
-- Optional vars are configured as needed (`BROKER_PUBLIC_BASE_URL`, `BROKER_CLIENT_TOKEN`).
+- Required secrets are set (`DISCOGS_CONSUMER_KEY`, `DISCOGS_CONSUMER_SECRET`, and `BROKER_CLIENT_TOKEN` unless unauthenticated mode is explicitly enabled).
+- Runtime vars are configured as needed (`BROKER_PUBLIC_BASE_URL`, optional `ALLOW_UNAUTHENTICATED_BROKER=true` for local-only unauthenticated mode).
 
 ### Gate 1: Rust Build/Test
 
@@ -78,6 +114,7 @@ From repo root:
 cd broker
 npm install
 npm run d1:migrate:local
+npm test
 npm run dev
 ```
 
@@ -86,7 +123,7 @@ In another terminal:
 ```bash
 curl -sS -X POST "http://127.0.0.1:8787/v1/device/session/start" \
   -H "content-type: application/json" \
-  -H "x-reklawdbox-broker-token: <BROKER_CLIENT_TOKEN_IF_ENABLED>"
+  -H "x-reklawdbox-broker-token: <BROKER_CLIENT_TOKEN>"
 ```
 
 Expected payload includes:
@@ -97,7 +134,7 @@ Expected payload includes:
 Set MCP host env:
 
 - `REKLAWDBOX_DISCOGS_BROKER_URL` (local or deployed broker URL)
-- `REKLAWDBOX_DISCOGS_BROKER_TOKEN` (if broker enforces client token)
+- `REKLAWDBOX_DISCOGS_BROKER_TOKEN` (required by default; skip only if broker sets `ALLOW_UNAUTHENTICATED_BROKER=true`)
 
 Run `lookup_discogs` from MCP client:
 
@@ -137,7 +174,7 @@ In terminal 2 (`jq` required):
 
 ```bash
 BROKER_URL="http://127.0.0.1:8787"
-BROKER_TOKEN="<BROKER_CLIENT_TOKEN_IF_ENABLED>"
+BROKER_TOKEN="<BROKER_CLIENT_TOKEN>"
 
 START_JSON=$(curl -sS -X POST "${BROKER_URL}/v1/device/session/start" \
   -H "x-reklawdbox-broker-token: ${BROKER_TOKEN}")
@@ -180,15 +217,22 @@ Expected proxy response includes `result`, `match_quality`, and `cache_hit`.
 `device_id` + `pending_token` pair and returns the same `session_token` on retries;
 the pending token is still invalidated immediately after the first success.
 
+For local-only unauthenticated mode, set `ALLOW_UNAUTHENTICATED_BROKER=true`.
+When this override is set, broker client-token checks are disabled even if
+`BROKER_CLIENT_TOKEN` is present, and you can omit the
+`x-reklawdbox-broker-token` header.
+
 ## Failure Triage
 
 <!-- dprint-ignore -->
 | Surface | Signal | Meaning | Action |
 |---|---|---|---|
-| `start/status/finalize` | `401 invalid broker client token` | `BROKER_CLIENT_TOKEN` mismatch | Fix token in broker env and MCP env/header. |
+| `start/status/finalize` | `401 invalid broker client token` | `BROKER_CLIENT_TOKEN` mismatch | Fix token in broker secret and MCP env/header. |
+| `start/status/finalize` | `401 broker client token is required ...` | broker started without `BROKER_CLIENT_TOKEN` and unauthenticated mode is not enabled | Set `BROKER_CLIENT_TOKEN` (recommended) or explicitly set `ALLOW_UNAUTHENTICATED_BROKER=true` for local development only. |
 | `status/finalize` | `404 device session not found` | bad/expired `device_id` + `pending_token` pair | Restart from `POST /v1/device/session/start`. |
 | `finalize` | `409 device session is not authorized yet` | browser OAuth not completed | Complete auth URL flow, retry finalize. |
 | `finalize` | `410 device session expired; restart auth` | session TTL elapsed | Start a new device session and re-auth. |
+| `finalize/proxy/search` | `400 invalid_json` | malformed JSON request body | Send valid JSON in the request body. |
 | `proxy/search` | `401 missing bearer session token` | no bearer token sent | Send `authorization: Bearer <session_token>`. |
 | `proxy/search` | `401 invalid or expired broker session` | stale/invalid `session_token` | Re-run auth flow to obtain fresh session. |
 | `proxy/search` | `400 artist and title are required` | invalid request body | Send JSON with non-empty `artist` and `title`. |

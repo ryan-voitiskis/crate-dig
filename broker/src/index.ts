@@ -9,6 +9,7 @@ interface Env {
   DISCOGS_CONSUMER_SECRET: string
   BROKER_PUBLIC_BASE_URL?: string
   BROKER_CLIENT_TOKEN?: string
+  ALLOW_UNAUTHENTICATED_BROKER?: string
   DEVICE_SESSION_TTL_SECONDS?: string
   SESSION_TOKEN_TTL_SECONDS?: string
   SEARCH_CACHE_TTL_SECONDS?: string
@@ -69,12 +70,36 @@ interface NormalizedProxyPayload {
   cache_hit: boolean
 }
 
+type BrokerClientAuthMode =
+  | 'token_required'
+  | 'unauthenticated_dev_override'
+  | 'misconfigured_no_token'
+
+interface BrokerClientAuthHealth {
+  mode: BrokerClientAuthMode
+  token_configured: boolean
+  allow_unauthenticated_broker: boolean
+  warning?: string
+}
+
 const DEFAULT_POLL_INTERVAL_SECONDS = 5
 const DEFAULT_DEVICE_SESSION_TTL_SECONDS = 15 * 60
 const DEFAULT_BROKER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 const DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 const DEFAULT_DISCOGS_MIN_INTERVAL_MS = 1100
 const DISCOGS_BASE_URL = 'https://api.discogs.com'
+
+class BrokerHttpError extends Error {
+  readonly error: string
+  readonly status: number
+
+  constructor(error: string, message: string, status: number,) {
+    super(message,)
+    this.name = 'BrokerHttpError'
+    this.error = error
+    this.status = status
+  }
+}
 
 export default {
   async fetch(request: Request, env: Env,): Promise<Response> {
@@ -83,22 +108,25 @@ export default {
       const method = request.method.toUpperCase()
 
       if (url.pathname === '/v1/device/session/start' && method === 'POST') {
-        return handleDeviceSessionStart(request, env, url,)
+        return await handleDeviceSessionStart(request, env, url,)
       }
       if (url.pathname === '/v1/device/session/status' && method === 'GET') {
-        return handleDeviceSessionStatus(request, env, url,)
+        return await handleDeviceSessionStatus(request, env, url,)
       }
       if (url.pathname === '/v1/device/session/finalize' && method === 'POST') {
-        return handleDeviceSessionFinalize(request, env,)
+        return await handleDeviceSessionFinalize(request, env,)
       }
       if (url.pathname === '/v1/discogs/oauth/link' && method === 'GET') {
-        return handleDiscogsOauthLink(env, url,)
+        return await handleDiscogsOauthLink(env, url,)
       }
       if (url.pathname === '/v1/discogs/oauth/callback' && method === 'GET') {
-        return handleDiscogsOauthCallback(env, url,)
+        return await handleDiscogsOauthCallback(env, url,)
       }
       if (url.pathname === '/v1/discogs/proxy/search' && method === 'POST') {
-        return handleDiscogsProxySearch(request, env,)
+        return await handleDiscogsProxySearch(request, env,)
+      }
+      if (url.pathname === '/v1/health' && method === 'GET') {
+        return await handleHealth(env,)
       }
 
       return json(
@@ -109,6 +137,16 @@ export default {
         404,
       )
     } catch (err) {
+      if (err instanceof BrokerHttpError) {
+        return json(
+          {
+            error: err.error,
+            message: err.message,
+          },
+          err.status,
+        )
+      }
+
       return json(
         {
           error: 'internal_error',
@@ -118,6 +156,13 @@ export default {
       )
     }
   },
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    ctx.waitUntil(pruneExpiredRows(env,),)
+  },
 }
 
 async function handleDeviceSessionStart(
@@ -126,7 +171,7 @@ async function handleDeviceSessionStart(
   url: URL,
 ): Promise<Response> {
   if (!isBrokerClientAuthorized(request, env,)) {
-    return unauthorizedBrokerClientResponse()
+    return unauthorizedBrokerClientResponse(env,)
   }
 
   assertDiscogsOAuthEnv(env,)
@@ -176,7 +221,7 @@ async function handleDeviceSessionStatus(
   url: URL,
 ): Promise<Response> {
   if (!isBrokerClientAuthorized(request, env,)) {
-    return unauthorizedBrokerClientResponse()
+    return unauthorizedBrokerClientResponse(env,)
   }
 
   const deviceId = url.searchParams.get('device_id',)?.trim()
@@ -240,7 +285,7 @@ async function handleDeviceSessionFinalize(
   env: Env,
 ): Promise<Response> {
   if (!isBrokerClientAuthorized(request, env,)) {
-    return unauthorizedBrokerClientResponse()
+    return unauthorizedBrokerClientResponse(env,)
   }
 
   const body = await parseJsonBody<
@@ -743,6 +788,14 @@ async function handleDiscogsProxySearch(
   return json(payload,)
 }
 
+function handleHealth(env: Env,): Response {
+  const brokerClientAuth = brokerClientAuthHealth(env,)
+  return json({
+    status: brokerClientAuth.warning ? 'warning' : 'ok',
+    broker_client_auth: brokerClientAuth,
+  },)
+}
+
 async function lookupDiscogsViaApi(
   env: Env,
   params: {
@@ -809,9 +862,17 @@ async function lookupDiscogsViaApi(
   }
 
   const normArtist = normalize(params.artist,)
+  if (!normArtist) {
+    return {
+      result: toDiscogsResult(results[0], true,),
+      match_quality: 'fuzzy',
+      cache_hit: false,
+    }
+  }
+
   const matched = results.find((entry,) => {
     const resultTitle = (entry.title ?? '').toLowerCase()
-    return resultTitle.includes(normArtist,) || normArtist.length < 3
+    return resultTitle.includes(normArtist,)
   },)
 
   if (matched) {
@@ -1018,34 +1079,80 @@ async function markSessionStatus(
 
 async function enforceDiscogsRateLimit(env: Env,): Promise<void> {
   const bucket = 'discogs-api-global'
-  const nowMs = Date.now()
   const minIntervalMs = envInt(
     env.DISCOGS_MIN_INTERVAL_MS,
     DEFAULT_DISCOGS_MIN_INTERVAL_MS,
   )
 
-  const row = await env.DB.prepare(
-    `SELECT last_request_at_ms
-     FROM rate_limit_state
-     WHERE bucket = ?1`,
-  )
-    .bind(bucket,)
-    .first<{ last_request_at_ms: number }>()
+  for (;;) {
+    const nowMs = Date.now()
+    const row = await env.DB.prepare(
+      `SELECT last_request_at_ms
+       FROM rate_limit_state
+       WHERE bucket = ?1`,
+    )
+      .bind(bucket,)
+      .first<{ last_request_at_ms: number }>()
 
-  if (row?.last_request_at_ms) {
-    const elapsed = nowMs - Number(row.last_request_at_ms,)
-    if (elapsed < minIntervalMs) {
-      await delay(minIntervalMs - elapsed,)
+    if (!row) {
+      const insertResult = await env.DB.prepare(
+        `INSERT INTO rate_limit_state (bucket, last_request_at_ms)
+         VALUES (?1, ?2)
+         ON CONFLICT(bucket) DO NOTHING`,
+      )
+        .bind(bucket, nowMs,)
+        .run()
+
+      if ((insertResult.meta.changes ?? 0) === 1) {
+        return
+      }
+      continue
+    }
+
+    const lastRequestAtMs = Number(row.last_request_at_ms,)
+    const reservedAtMs = Math.max(lastRequestAtMs + minIntervalMs, nowMs,)
+    const updateResult = await env.DB.prepare(
+      `UPDATE rate_limit_state
+       SET last_request_at_ms = ?1
+       WHERE bucket = ?2
+         AND last_request_at_ms = ?3`,
+    )
+      .bind(reservedAtMs, bucket, lastRequestAtMs,)
+      .run()
+
+    if ((updateResult.meta.changes ?? 0) === 1) {
+      const waitMs = reservedAtMs - nowMs
+      if (waitMs > 0) {
+        await delay(waitMs,)
+      }
+      return
     }
   }
+}
+
+async function pruneExpiredRows(env: Env,): Promise<void> {
+  const now = nowSeconds()
 
   await env.DB.prepare(
-    `INSERT INTO rate_limit_state (bucket, last_request_at_ms)
-     VALUES (?1, ?2)
-     ON CONFLICT(bucket) DO UPDATE SET
-       last_request_at_ms = excluded.last_request_at_ms`,
+    `DELETE FROM device_sessions
+     WHERE (status != 'finalized' AND expires_at <= ?1)
+        OR (status = 'finalized' AND (session_expires_at IS NULL OR session_expires_at <= ?1))`,
   )
-    .bind(bucket, Date.now(),)
+    .bind(now,)
+    .run()
+
+  await env.DB.prepare(
+    `DELETE FROM oauth_request_tokens
+     WHERE expires_at <= ?1`,
+  )
+    .bind(now,)
+    .run()
+
+  await env.DB.prepare(
+    `DELETE FROM discogs_search_cache
+     WHERE expires_at <= ?1`,
+  )
+    .bind(now,)
     .run()
 }
 
@@ -1063,16 +1170,31 @@ function publicBaseUrl(env: Env, requestUrl: URL,): string {
 }
 
 function isBrokerClientAuthorized(request: Request, env: Env,): boolean {
-  const expected = env.BROKER_CLIENT_TOKEN?.trim()
-  if (!expected) {
+  if (isUnauthenticatedBrokerAllowed(env,)) {
     return true
   }
 
-  const provided = request.headers.get('x-reklawdbox-broker-token',)?.trim()
-  return provided === expected
+  const expected = env.BROKER_CLIENT_TOKEN?.trim()
+  if (expected) {
+    const provided = request.headers.get('x-reklawdbox-broker-token',)?.trim()
+    return provided === expected
+  }
+
+  return false
 }
 
-function unauthorizedBrokerClientResponse(): Response {
+function unauthorizedBrokerClientResponse(env: Env,): Response {
+  if (!env.BROKER_CLIENT_TOKEN?.trim() && !isUnauthenticatedBrokerAllowed(env,)) {
+    return json(
+      {
+        error: 'unauthorized',
+        message:
+          'broker client token is required; set BROKER_CLIENT_TOKEN or ALLOW_UNAUTHENTICATED_BROKER=true for local development',
+      },
+      401,
+    )
+  }
+
   return json(
     {
       error: 'unauthorized',
@@ -1080,6 +1202,40 @@ function unauthorizedBrokerClientResponse(): Response {
     },
     401,
   )
+}
+
+function isUnauthenticatedBrokerAllowed(env: Env,): boolean {
+  return env.ALLOW_UNAUTHENTICATED_BROKER?.trim().toLowerCase() === 'true'
+}
+
+function brokerClientAuthHealth(env: Env,): BrokerClientAuthHealth {
+  const tokenConfigured = Boolean(env.BROKER_CLIENT_TOKEN?.trim(),)
+  const allowUnauthenticatedBroker = isUnauthenticatedBrokerAllowed(env,)
+  if (allowUnauthenticatedBroker) {
+    return {
+      mode: 'unauthenticated_dev_override',
+      token_configured: tokenConfigured,
+      allow_unauthenticated_broker: true,
+      warning:
+        'ALLOW_UNAUTHENTICATED_BROKER=true disables broker client-token checks; use for local development only',
+    }
+  }
+
+  if (!tokenConfigured) {
+    return {
+      mode: 'misconfigured_no_token',
+      token_configured: false,
+      allow_unauthenticated_broker: false,
+      warning:
+        'BROKER_CLIENT_TOKEN is not set; protected endpoints will reject requests until configured',
+    }
+  }
+
+  return {
+    mode: 'token_required',
+    token_configured: true,
+    allow_unauthenticated_broker: false,
+  }
 }
 
 function oauthHeader(params: Record<string, string>,): string {
@@ -1163,7 +1319,11 @@ async function parseJsonBody<T,>(request: Request,): Promise<T> {
   try {
     return (await request.json()) as T
   } catch {
-    throw new Error('invalid JSON body',)
+    throw new BrokerHttpError(
+      'invalid_json',
+      'request body must be valid JSON',
+      400,
+    )
   }
 }
 
