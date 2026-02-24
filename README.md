@@ -4,7 +4,7 @@ MCP server for Rekordbox 7.x library management. Reads directly from the encrypt
 stages metadata changes in memory, and writes Rekordbox-compatible XML for safe reimport.
 
 Built as a single Rust binary. Primary operation is through an MCP host (Codex, Claude Code,
-etc.), with an optional `analyze` CLI subcommand for local batch audio analysis.
+etc.), with CLI subcommands for local batch audio analysis and native tag read/write.
 
 ### Why MCP as the primary interface?
 
@@ -112,20 +112,38 @@ cp mcp-config.example.json .mcp.json
 
 7. Verify wiring by running a simple tool call from Codex (for example `read_library`).
 
-## Optional CLI: Batch Audio Analysis
+## Optional CLI Subcommands
 
-The binary runs MCP server mode by default. Use the `analyze` subcommand for local batch analysis
-and cache priming outside your MCP host:
+The binary runs MCP server mode by default. Subcommands are available for local workflows
+outside your MCP host.
+
+### Batch Audio Analysis
 
 ```bash
 ./target/release/reklawdbox analyze --max-tracks 200
-```
-
-Example with filters:
-
-```bash
 ./target/release/reklawdbox analyze --playlist <playlist_id> --genre Techno --bpm-min 126 --bpm-max 134
 ```
+
+### Tag Read/Write
+
+Read, write, and manage metadata tags directly on audio files (FLAC, MP3, WAV, M4A, AAC, AIFF).
+
+```bash
+# Read tags (human-readable or --json)
+./target/release/reklawdbox read-tags track.flac
+./target/release/reklawdbox read-tags /music/album/ --fields artist,title,bpm --json
+
+# Write tags (with dry-run preview)
+./target/release/reklawdbox write-tags track.mp3 --artist "New Artist" --year 2026
+./target/release/reklawdbox write-tags track.wav --genre Techno --wav-targets id3v2,riff_info --dry-run
+
+# Cover art
+./target/release/reklawdbox extract-art track.flac --output cover.jpg
+./target/release/reklawdbox embed-art cover.jpg track1.mp3 track2.flac
+```
+
+WAV files support dual-layer tagging (ID3v2 + RIFF INFO). Use `--wav-targets` to control
+which layers are written. See `docs/spec/native-tag-tools.md` for full parameter reference.
 
 ### Essentia Setup (Recommended)
 
@@ -178,6 +196,10 @@ Restart the MCP host/server after updating config.
 | `resolve_track_data` | Return all cached + staged data for one track without external calls |
 | `resolve_tracks_data` | Batched `resolve_track_data` over IDs, playlist, or search scope |
 | `cache_coverage` | Report enrichment/audio cache completeness for a selected track scope |
+| `read_file_tags` | Read metadata tags from audio files (FLAC, MP3, WAV, M4A, AAC, AIFF) |
+| `write_file_tags` | Write/delete metadata tags on audio files with optional dry-run preview |
+| `extract_cover_art` | Extract embedded cover art from an audio file to disk |
+| `embed_cover_art` | Embed cover art into one or more audio files |
 
 ## Response Contract Notes
 
