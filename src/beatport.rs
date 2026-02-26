@@ -109,21 +109,21 @@ fn parse_beatport_html(
 ) -> Result<Option<BeatportResult>, String> {
     let json_str = match extract_next_data_json(html) {
         Some(v) => v,
-        None => return Ok(None),
+        None => return Err("Beatport HTML missing __NEXT_DATA__ script tag".to_string()),
     };
     let next_data: serde_json::Value = match serde_json::from_str(json_str) {
         Ok(v) => v,
-        Err(_) => return Ok(None),
+        Err(e) => return Err(format!("Beatport __NEXT_DATA__ JSON malformed: {e}")),
     };
 
     // Search every dehydrated query entry for track arrays.
     let queries = match next_data.pointer("/props/pageProps/dehydratedState/queries") {
         Some(v) => v,
-        None => return Ok(None),
+        None => return Err("Beatport JSON missing dehydratedState/queries path".to_string()),
     };
     let queries = match queries.as_array() {
         Some(arr) => arr,
-        None => return Ok(None),
+        None => return Err("Beatport queries field is not an array".to_string()),
     };
 
     for query in queries {
@@ -259,8 +259,8 @@ mod tests {
     #[test]
     fn test_parse_no_next_data() {
         let html = "<html><body>No data here</body></html>";
-        let result = parse_beatport_html(html, "Burial", "Archangel").unwrap();
-        assert!(result.is_none());
+        let err = parse_beatport_html(html, "Burial", "Archangel").expect_err("should fail on missing __NEXT_DATA__");
+        assert!(err.contains("__NEXT_DATA__"), "error should mention __NEXT_DATA__, got: {err}");
     }
 
     #[test]
@@ -288,10 +288,10 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_returns_none_for_invalid_json() {
+    fn test_parse_returns_err_for_invalid_json() {
         let html = r#"<html><head><script id="__NEXT_DATA__" type="application/json">{invalid json}</script></head><body></body></html>"#;
-        let result = parse_beatport_html(html, "Burial", "Archangel").unwrap();
-        assert!(result.is_none());
+        let err = parse_beatport_html(html, "Burial", "Archangel").expect_err("should fail on malformed JSON");
+        assert!(err.contains("malformed"), "error should mention malformed, got: {err}");
     }
 
     #[test]
