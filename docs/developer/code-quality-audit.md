@@ -179,7 +179,7 @@ Notable issues. Manageable with awareness but easy to get wrong.
 
 | ID | Issue | Files |
 |----|-------|-------|
-| M23 | `Track` struct is flat primitives with no newtypes (`rating: u8`, `file_type: i32`) | `types.rs:4-30` |
+| M23 | ~~`Track` struct is flat primitives with no newtypes (`rating: u8`, `file_type: i32`)~~ ✅ Partially resolved — `FileKind` enum replaces `file_type`/`file_type_name` | |
 | M24 | ~~Priority weights returned as anonymous 6-tuple~~ ✅ Resolved — `PriorityWeights` named struct | |
 | M25 | ~~Energy computation uses undocumented magic numbers~~ ✅ Resolved — named constants extracted | |
 | M26 | `write_track` two-phase attribute writing (main write + conditional appends + close) | `xml.rs:75-131` |
@@ -203,7 +203,7 @@ Minor issues. Documented for completeness.
 | L4 | Legacy Discogs HTTP errors drop response-body diagnostics | `discogs.rs:530` |
 | L5 | Issue detail JSON parse failure silently dropped | `audit.rs:1057` |
 | L6 | Poisoned mutex silently recovered in staged changes | `changes.rs:20` |
-| L7 | `file_type_to_kind` catch-all `_ => "Audio File"` | `types.rs:99-108` |
+| L7 | ~~`file_type_to_kind` catch-all `_ => "Audio File"`~~ ✅ Resolved — `FileKind` enum with `Unknown(i32)` variant | |
 | L8 | Hardcoded Rekordbox version `"7.2.10"` in XML | `xml.rs:146-148` |
 | L9 | Hardcoded User-Agent with Chrome 91 (2021) in Beatport scraper | `beatport.rs:4-5` |
 | L10 | Double-negative CLI flag `--no-skip-cached` | `cli.rs:68` |
