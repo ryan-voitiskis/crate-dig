@@ -1,20 +1,7 @@
 use rusqlite::{Connection, OpenFlags, ffi, params};
 use std::path::PathBuf;
 
-/// Escape SQL LIKE wildcard characters so they are matched literally.
-fn escape_like(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '\\' | '%' | '_' => {
-                out.push('\\');
-                out.push(ch);
-            }
-            _ => out.push(ch),
-        }
-    }
-    out
-}
+use crate::db::escape_like;
 
 pub fn default_path() -> PathBuf {
     dirs::data_dir()

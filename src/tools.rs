@@ -723,8 +723,8 @@ fn attach_corpus_provenance(result: &mut serde_json::Value, consultation: Corpus
     }
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SearchTracksParams {
+#[derive(Debug, Default, Deserialize, JsonSchema)]
+pub struct SearchFilterParams {
     #[schemars(description = "Search query matching title or artist")]
     pub query: Option<String>,
     #[schemars(description = "Filter by artist name (partial match)")]
@@ -739,8 +739,6 @@ pub struct SearchTracksParams {
     pub bpm_max: Option<f64>,
     #[schemars(description = "Filter by musical key (e.g. 'Am', 'Cm')")]
     pub key: Option<String>,
-    #[schemars(description = "Filter by playlist ID")]
-    pub playlist: Option<String>,
     #[schemars(description = "Filter by whether track has a genre set")]
     pub has_genre: Option<bool>,
     #[schemars(description = "Filter by label name (partial match)")]
@@ -755,6 +753,42 @@ pub struct SearchTracksParams {
         description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
     )]
     pub added_before: Option<String>,
+}
+
+impl SearchFilterParams {
+    fn into_search_params(
+        self,
+        exclude_samples: bool,
+        limit: Option<u32>,
+        offset: Option<u32>,
+    ) -> db::SearchParams {
+        db::SearchParams {
+            query: self.query,
+            artist: self.artist,
+            genre: self.genre,
+            rating_min: self.rating_min,
+            bpm_min: self.bpm_min,
+            bpm_max: self.bpm_max,
+            key: self.key,
+            playlist: None,
+            has_genre: self.has_genre,
+            label: self.label,
+            path: self.path,
+            added_after: self.added_after,
+            added_before: self.added_before,
+            exclude_samples,
+            limit,
+            offset,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SearchTracksParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
+    #[schemars(description = "Filter by playlist ID")]
+    pub playlist: Option<String>,
     #[schemars(description = "Include Rekordbox factory samples (default false)")]
     pub include_samples: Option<bool>,
     #[schemars(description = "Max results (default 50, max 200)")]
@@ -867,38 +901,12 @@ pub struct LookupBeatportParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct EnrichTracksParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
     #[schemars(description = "Specific track IDs to enrich (highest priority selector)")]
     pub track_ids: Option<Vec<String>>,
     #[schemars(description = "Enrich tracks in this playlist")]
     pub playlist_id: Option<String>,
-    #[schemars(description = "Search query matching title or artist")]
-    pub query: Option<String>,
-    #[schemars(description = "Filter by artist name (partial match)")]
-    pub artist: Option<String>,
-    #[schemars(description = "Filter by genre name (partial match)")]
-    pub genre: Option<String>,
-    #[schemars(description = "Filter by whether track has a genre set")]
-    pub has_genre: Option<bool>,
-    #[schemars(description = "Minimum BPM")]
-    pub bpm_min: Option<f64>,
-    #[schemars(description = "Maximum BPM")]
-    pub bpm_max: Option<f64>,
-    #[schemars(description = "Filter by musical key (e.g. 'Am', 'Cm')")]
-    pub key: Option<String>,
-    #[schemars(description = "Minimum star rating (1-5)")]
-    pub rating_min: Option<u8>,
-    #[schemars(description = "Filter by label name (partial match)")]
-    pub label: Option<String>,
-    #[schemars(description = "Filter by file path/folder (partial match)")]
-    pub path: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
-    )]
-    pub added_after: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
-    )]
-    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to enrich (default 50)")]
     pub max_tracks: Option<u32>,
     #[schemars(description = "Providers to use: 'discogs', 'beatport' (default ['discogs'])")]
@@ -919,38 +927,12 @@ pub struct AnalyzeTrackAudioParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AnalyzeAudioBatchParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
     #[schemars(description = "Specific track IDs to analyze (highest priority selector)")]
     pub track_ids: Option<Vec<String>>,
     #[schemars(description = "Analyze tracks in this playlist")]
     pub playlist_id: Option<String>,
-    #[schemars(description = "Search query matching title or artist")]
-    pub query: Option<String>,
-    #[schemars(description = "Filter by artist name (partial match)")]
-    pub artist: Option<String>,
-    #[schemars(description = "Filter by genre name (partial match)")]
-    pub genre: Option<String>,
-    #[schemars(description = "Filter by whether track has a genre set")]
-    pub has_genre: Option<bool>,
-    #[schemars(description = "Minimum BPM")]
-    pub bpm_min: Option<f64>,
-    #[schemars(description = "Maximum BPM")]
-    pub bpm_max: Option<f64>,
-    #[schemars(description = "Filter by musical key")]
-    pub key: Option<String>,
-    #[schemars(description = "Minimum star rating (1-5)")]
-    pub rating_min: Option<u8>,
-    #[schemars(description = "Filter by label name (partial match)")]
-    pub label: Option<String>,
-    #[schemars(description = "Filter by file path/folder (partial match)")]
-    pub path: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
-    )]
-    pub added_after: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
-    )]
-    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to analyze (default 20)")]
     pub max_tracks: Option<u32>,
     #[schemars(description = "Skip tracks already in cache (default true)")]
@@ -965,38 +947,12 @@ pub struct ResolveTrackDataParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ResolveTracksDataParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
     #[schemars(description = "Specific track IDs to resolve (highest priority selector)")]
     pub track_ids: Option<Vec<String>>,
     #[schemars(description = "Resolve tracks in this playlist")]
     pub playlist_id: Option<String>,
-    #[schemars(description = "Search query matching title or artist")]
-    pub query: Option<String>,
-    #[schemars(description = "Filter by artist name (partial match)")]
-    pub artist: Option<String>,
-    #[schemars(description = "Filter by genre name (partial match)")]
-    pub genre: Option<String>,
-    #[schemars(description = "Filter by whether track has a genre set")]
-    pub has_genre: Option<bool>,
-    #[schemars(description = "Minimum BPM")]
-    pub bpm_min: Option<f64>,
-    #[schemars(description = "Maximum BPM")]
-    pub bpm_max: Option<f64>,
-    #[schemars(description = "Filter by musical key")]
-    pub key: Option<String>,
-    #[schemars(description = "Minimum star rating (1-5)")]
-    pub rating_min: Option<u8>,
-    #[schemars(description = "Filter by label name (partial match)")]
-    pub label: Option<String>,
-    #[schemars(description = "Filter by file path/folder (partial match)")]
-    pub path: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or after this date (ISO date, e.g. '2026-01-01')"
-    )]
-    pub added_after: Option<String>,
-    #[schemars(
-        description = "Only tracks added on or before this date (ISO date, e.g. '2026-12-31')"
-    )]
-    pub added_before: Option<String>,
     #[schemars(description = "Max tracks to resolve (default 50)")]
     pub max_tracks: Option<u32>,
 }
@@ -1235,24 +1191,12 @@ impl ReklawdboxServer {
         params: Parameters<SearchTracksParams>,
     ) -> Result<CallToolResult, McpError> {
         let conn = self.conn()?;
-        let search = db::SearchParams {
-            query: params.0.query,
-            artist: params.0.artist,
-            genre: params.0.genre,
-            rating_min: params.0.rating_min,
-            bpm_min: params.0.bpm_min,
-            bpm_max: params.0.bpm_max,
-            key: params.0.key,
-            playlist: params.0.playlist,
-            has_genre: params.0.has_genre,
-            label: params.0.label,
-            path: params.0.path,
-            added_after: params.0.added_after,
-            added_before: params.0.added_before,
-            exclude_samples: !params.0.include_samples.unwrap_or(false),
-            limit: params.0.limit,
-            offset: params.0.offset,
-        };
+        let mut search = params.0.filters.into_search_params(
+            !params.0.include_samples.unwrap_or(false),
+            params.0.limit,
+            params.0.offset,
+        );
+        search.playlist = params.0.playlist;
         let tracks =
             db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?;
         let json = serde_json::to_string_pretty(&tracks).map_err(|e| err(format!("{e}")))?;
@@ -1906,24 +1850,7 @@ impl ReklawdboxServer {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
             } else {
-                let search = db::SearchParams {
-                    query: p.query,
-                    artist: p.artist,
-                    genre: p.genre,
-                    rating_min: p.rating_min,
-                    bpm_min: p.bpm_min,
-                    bpm_max: p.bpm_max,
-                    key: p.key,
-                    playlist: None,
-                    has_genre: p.has_genre,
-                    label: p.label,
-                    path: p.path,
-                    added_after: p.added_after,
-                    added_before: p.added_before,
-                    exclude_samples: true,
-                    limit: Some(max_tracks as u32),
-                    offset: None,
-                };
+                let search = p.filters.into_search_params(true, Some(max_tracks as u32), None);
                 db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
@@ -2263,24 +2190,7 @@ impl ReklawdboxServer {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
             } else {
-                let search = db::SearchParams {
-                    query: p.query,
-                    artist: p.artist,
-                    genre: p.genre,
-                    rating_min: p.rating_min,
-                    bpm_min: p.bpm_min,
-                    bpm_max: p.bpm_max,
-                    key: p.key,
-                    playlist: None,
-                    has_genre: p.has_genre,
-                    label: p.label,
-                    path: p.path,
-                    added_after: p.added_after,
-                    added_before: p.added_before,
-                    exclude_samples: true,
-                    limit: Some(max_tracks as u32),
-                    offset: None,
-                };
+                let search = p.filters.into_search_params(true, Some(max_tracks as u32), None);
                 db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
@@ -3084,24 +2994,7 @@ impl ReklawdboxServer {
                 db::get_playlist_tracks(&conn, playlist_id, Some(max_tracks as u32))
                     .map_err(|e| err(format!("DB error: {e}")))?
             } else {
-                let search = db::SearchParams {
-                    query: p.query,
-                    artist: p.artist,
-                    genre: p.genre,
-                    rating_min: p.rating_min,
-                    bpm_min: p.bpm_min,
-                    bpm_max: p.bpm_max,
-                    key: p.key,
-                    playlist: None,
-                    has_genre: p.has_genre,
-                    label: p.label,
-                    path: p.path,
-                    added_after: p.added_after,
-                    added_before: p.added_before,
-                    exclude_samples: true,
-                    limit: Some(max_tracks as u32),
-                    offset: None,
-                };
+                let search = p.filters.into_search_params(true, Some(max_tracks as u32), None);
                 db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?
             }
         };
@@ -3191,24 +3084,7 @@ impl ReklawdboxServer {
                 }
                 selected
             } else {
-                let search = db::SearchParams {
-                    query: p.query,
-                    artist: p.artist,
-                    genre: p.genre,
-                    rating_min: p.rating_min,
-                    bpm_min: p.bpm_min,
-                    bpm_max: p.bpm_max,
-                    key: p.key,
-                    playlist: None,
-                    has_genre: p.has_genre,
-                    label: p.label,
-                    path: p.path,
-                    added_after: p.added_after,
-                    added_before: p.added_before,
-                    exclude_samples: true,
-                    limit: p.max_tracks,
-                    offset: None,
-                };
+                let search = p.filters.into_search_params(true, p.max_tracks, None);
                 db::search_tracks_unbounded(&conn, &search)
                     .map_err(|e| err(format!("DB error: {e}")))?
             };
@@ -3744,8 +3620,7 @@ impl ReklawdboxServer {
     }
 }
 
-/// Audio file extensions accepted by the directory scanner.
-const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac", "aiff"];
+use crate::audio::AUDIO_EXTENSIONS;
 
 /// Scan a directory for audio files, optionally recursive, with optional glob filter.
 fn scan_audio_directory(
@@ -3838,40 +3713,40 @@ fn describe_resolve_scope(params: &ResolveTracksDataParams) -> String {
     }
 
     let mut filters: Vec<String> = Vec::new();
-    if let Some(query) = &params.query {
+    if let Some(query) = &params.filters.query {
         filters.push(format!("query ~= \"{query}\""));
     }
-    if let Some(artist) = &params.artist {
+    if let Some(artist) = &params.filters.artist {
         filters.push(format!("artist ~= \"{artist}\""));
     }
-    if let Some(genre) = &params.genre {
+    if let Some(genre) = &params.filters.genre {
         filters.push(format!("genre ~= \"{genre}\""));
     }
-    if let Some(has_genre) = params.has_genre {
+    if let Some(has_genre) = params.filters.has_genre {
         filters.push(format!("has_genre = {has_genre}"));
     }
-    if let Some(bpm_min) = params.bpm_min {
+    if let Some(bpm_min) = params.filters.bpm_min {
         filters.push(format!("bpm_min = {bpm_min}"));
     }
-    if let Some(bpm_max) = params.bpm_max {
+    if let Some(bpm_max) = params.filters.bpm_max {
         filters.push(format!("bpm_max = {bpm_max}"));
     }
-    if let Some(key) = &params.key {
+    if let Some(key) = &params.filters.key {
         filters.push(format!("key = \"{key}\""));
     }
-    if let Some(rating_min) = params.rating_min {
+    if let Some(rating_min) = params.filters.rating_min {
         filters.push(format!("rating_min = {rating_min}"));
     }
-    if let Some(label) = &params.label {
+    if let Some(label) = &params.filters.label {
         filters.push(format!("label ~= \"{label}\""));
     }
-    if let Some(path) = &params.path {
+    if let Some(path) = &params.filters.path {
         filters.push(format!("path ~= \"{path}\""));
     }
-    if let Some(added_after) = &params.added_after {
+    if let Some(added_after) = &params.filters.added_after {
         filters.push(format!("added_after = \"{added_after}\""));
     }
-    if let Some(added_before) = &params.added_before {
+    if let Some(added_before) = &params.filters.added_before {
         filters.push(format!("added_before = \"{added_before}\""));
     }
     if let Some(max_tracks) = params.max_tracks {
@@ -5113,22 +4988,10 @@ mod tests {
         db::search_tracks(
             &conn,
             &db::SearchParams {
-                query: None,
-                artist: None,
-                genre: None,
-                rating_min: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                playlist: None,
                 has_genre: Some(true),
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 exclude_samples: true,
                 limit: Some(limit),
-                offset: None,
+                ..Default::default()
             },
         )
         .expect("sample search should succeed")
@@ -6305,20 +6168,9 @@ mod tests {
 
         let err = server
             .enrich_tracks(Parameters(EnrichTracksParams {
+                filters: SearchFilterParams::default(),
                 track_ids: None,
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: Some(1),
                 providers: Some(vec!["spotify".to_string()]),
                 skip_cached: Some(true),
@@ -6591,23 +6443,12 @@ mod tests {
             create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
 
         let params = EnrichTracksParams {
+            filters: SearchFilterParams::default(),
             track_ids: Some(vec![
                 "cached-track-1".to_string(),
                 "cached-track-2".to_string(),
             ]),
             playlist_id: None,
-            query: None,
-            artist: None,
-            genre: None,
-            has_genre: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            rating_min: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
             max_tracks: Some(10),
             providers: Some(vec!["discogs".to_string()]),
             skip_cached: Some(true),
@@ -6634,23 +6475,12 @@ mod tests {
 
         let second_result = server
             .enrich_tracks(Parameters(EnrichTracksParams {
+                filters: SearchFilterParams::default(),
                 track_ids: Some(vec![
                     "cached-track-1".to_string(),
                     "cached-track-2".to_string(),
                 ]),
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: Some(10),
                 providers: Some(vec!["discogs".to_string()]),
                 skip_cached: Some(true),
@@ -6721,20 +6551,9 @@ mod tests {
             create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
         let result = server
             .enrich_tracks(Parameters(EnrichTracksParams {
+                filters: SearchFilterParams::default(),
                 track_ids: Some(vec!["cached-track-1".to_string()]),
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: Some(1),
                 providers: Some(vec!["discogs".to_string(), "beatport".to_string()]),
                 skip_cached: Some(true),
@@ -6914,20 +6733,12 @@ mod tests {
 
         let result = server
             .cache_coverage(Parameters(ResolveTracksDataParams {
+                filters: SearchFilterParams {
+                    has_genre: Some(false),
+                    ..Default::default()
+                },
                 track_ids: None,
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: Some(false),
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: None,
             }))
             .await
@@ -7010,23 +6821,12 @@ mod tests {
 
         let id_scope = server
             .cache_coverage(Parameters(ResolveTracksDataParams {
+                filters: SearchFilterParams::default(),
                 track_ids: Some(vec![
                     "coverage-nonsample".to_string(),
                     "coverage-sampler".to_string(),
                 ]),
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: None,
             }))
             .await
@@ -7038,20 +6838,9 @@ mod tests {
 
         let playlist_scope = server
             .cache_coverage(Parameters(ResolveTracksDataParams {
+                filters: SearchFilterParams::default(),
                 track_ids: None,
                 playlist_id: Some("pl-cache".to_string()),
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: None,
             }))
             .await
@@ -7224,20 +7013,9 @@ mod tests {
 
         let enrich_result = server
             .enrich_tracks(Parameters(EnrichTracksParams {
+                filters: SearchFilterParams::default(),
                 track_ids: Some(vec![track.id.clone()]),
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: Some(1),
                 providers: Some(vec!["beatport".to_string()]),
                 skip_cached: Some(false),
@@ -7306,20 +7084,9 @@ mod tests {
 
         let batch_result = server
             .resolve_tracks_data(Parameters(ResolveTracksDataParams {
+                filters: SearchFilterParams::default(),
                 track_ids: Some(track_ids.clone()),
                 playlist_id: None,
-                query: None,
-                artist: None,
-                genre: None,
-                has_genre: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                rating_min: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
                 max_tracks: Some(track_ids.len() as u32),
             }))
             .await
@@ -8134,5 +7901,186 @@ mod tests {
         assert_eq!(payload["scores"]["brightness"]["value"], 0.5);
         assert_eq!(payload["scores"]["rhythm"]["value"], 0.5);
         assert_eq!(payload["scores"]["composite"], 0.965);
+    }
+
+    // ==================== serde/schema contract tests for #[serde(flatten)] ====================
+
+    /// Verify that flat JSON (as sent by MCP) deserializes correctly into all
+    /// param structs that use `#[serde(flatten)] filters: SearchFilterParams`.
+    /// Guards against regressions where fields silently stop binding.
+    #[test]
+    fn flatten_json_round_trip_search_tracks_params() {
+        let json = serde_json::json!({
+            "query": "burial",
+            "artist": "Burial",
+            "genre": "Dubstep",
+            "rating_min": 3,
+            "bpm_min": 130.0,
+            "bpm_max": 145.0,
+            "key": "Am",
+            "has_genre": true,
+            "label": "Hyperdub",
+            "path": "/Music",
+            "added_after": "2026-01-01",
+            "added_before": "2026-12-31",
+            "playlist": "p1",
+            "include_samples": true,
+            "limit": 50,
+            "offset": 10,
+        });
+        let p: SearchTracksParams = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(p.filters.query.as_deref(), Some("burial"));
+        assert_eq!(p.filters.artist.as_deref(), Some("Burial"));
+        assert_eq!(p.filters.genre.as_deref(), Some("Dubstep"));
+        assert_eq!(p.filters.rating_min, Some(3));
+        assert_eq!(p.filters.bpm_min, Some(130.0));
+        assert_eq!(p.filters.bpm_max, Some(145.0));
+        assert_eq!(p.filters.key.as_deref(), Some("Am"));
+        assert_eq!(p.filters.has_genre, Some(true));
+        assert_eq!(p.filters.label.as_deref(), Some("Hyperdub"));
+        assert_eq!(p.filters.path.as_deref(), Some("/Music"));
+        assert_eq!(p.filters.added_after.as_deref(), Some("2026-01-01"));
+        assert_eq!(p.filters.added_before.as_deref(), Some("2026-12-31"));
+        assert_eq!(p.playlist.as_deref(), Some("p1"));
+        assert_eq!(p.include_samples, Some(true));
+        assert_eq!(p.limit, Some(50));
+        assert_eq!(p.offset, Some(10));
+    }
+
+    #[test]
+    fn flatten_json_round_trip_enrich_tracks_params() {
+        let json = serde_json::json!({
+            "genre": "Techno",
+            "bpm_min": 125.0,
+            "track_ids": ["t1", "t2"],
+            "playlist_id": "p1",
+            "max_tracks": 20,
+            "providers": ["discogs", "beatport"],
+            "skip_cached": false,
+            "force_refresh": true,
+        });
+        let p: EnrichTracksParams = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(p.filters.genre.as_deref(), Some("Techno"));
+        assert_eq!(p.filters.bpm_min, Some(125.0));
+        assert_eq!(p.filters.query, None);
+        assert_eq!(p.track_ids.as_ref().unwrap().len(), 2);
+        assert_eq!(p.playlist_id.as_deref(), Some("p1"));
+        assert_eq!(p.max_tracks, Some(20));
+        assert_eq!(p.skip_cached, Some(false));
+        assert_eq!(p.force_refresh, Some(true));
+    }
+
+    #[test]
+    fn flatten_json_round_trip_analyze_audio_batch_params() {
+        let json = serde_json::json!({
+            "artist": "Aphex Twin",
+            "rating_min": 4,
+            "track_ids": ["t1"],
+            "max_tracks": 10,
+            "skip_cached": true,
+        });
+        let p: AnalyzeAudioBatchParams = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(p.filters.artist.as_deref(), Some("Aphex Twin"));
+        assert_eq!(p.filters.rating_min, Some(4));
+        assert_eq!(p.track_ids.as_ref().unwrap(), &["t1"]);
+        assert_eq!(p.max_tracks, Some(10));
+        assert_eq!(p.skip_cached, Some(true));
+    }
+
+    #[test]
+    fn flatten_json_round_trip_resolve_tracks_data_params() {
+        let json = serde_json::json!({
+            "key": "Cm",
+            "has_genre": false,
+            "added_after": "2025-06-01",
+            "playlist_id": "p2",
+            "max_tracks": 100,
+        });
+        let p: ResolveTracksDataParams = serde_json::from_value(json).expect("should deserialize");
+        assert_eq!(p.filters.key.as_deref(), Some("Cm"));
+        assert_eq!(p.filters.has_genre, Some(false));
+        assert_eq!(p.filters.added_after.as_deref(), Some("2025-06-01"));
+        assert_eq!(p.playlist_id.as_deref(), Some("p2"));
+        assert_eq!(p.max_tracks, Some(100));
+    }
+
+    #[test]
+    fn flatten_json_empty_payload_deserializes_to_all_none() {
+        let json = serde_json::json!({});
+        let p: SearchTracksParams = serde_json::from_value(json.clone()).expect("SearchTracksParams");
+        assert!(p.filters.query.is_none());
+        assert!(p.playlist.is_none());
+        assert!(p.limit.is_none());
+
+        let p: EnrichTracksParams = serde_json::from_value(json.clone()).expect("EnrichTracksParams");
+        assert!(p.filters.genre.is_none());
+        assert!(p.track_ids.is_none());
+
+        let p: AnalyzeAudioBatchParams = serde_json::from_value(json.clone()).expect("AnalyzeAudioBatchParams");
+        assert!(p.filters.artist.is_none());
+        assert!(p.track_ids.is_none());
+
+        let p: ResolveTracksDataParams = serde_json::from_value(json).expect("ResolveTracksDataParams");
+        assert!(p.filters.key.is_none());
+        assert!(p.track_ids.is_none());
+    }
+
+    /// Verify that schemars inlines flattened fields at the top level of the
+    /// JSON Schema. MCP clients read the schema to build tool UIs — a nested
+    /// `filters` wrapper object would break them.
+    #[test]
+    fn flatten_schema_has_top_level_filter_properties() {
+        // Filter fields that must appear as top-level properties in every schema
+        let filter_fields = [
+            "query", "artist", "genre", "rating_min", "bpm_min", "bpm_max",
+            "key", "has_genre", "label", "path", "added_after", "added_before",
+        ];
+
+        fn assert_schema_properties<T: JsonSchema>(type_name: &str, expected: &[&str], forbidden: &[&str]) {
+            let schema = schemars::schema_for!(T);
+            let root = schema.as_value();
+            let props = root.get("properties")
+                .expect(&format!("{type_name} schema should have properties"));
+            for field in expected {
+                assert!(
+                    props.get(*field).is_some(),
+                    "{type_name} schema missing top-level property '{field}'"
+                );
+            }
+            for field in forbidden {
+                assert!(
+                    props.get(*field).is_none(),
+                    "{type_name} schema should NOT have property '{field}'"
+                );
+            }
+        }
+
+        // SearchTracksParams: filter fields + playlist, include_samples, limit, offset
+        assert_schema_properties::<SearchTracksParams>(
+            "SearchTracksParams",
+            &[&filter_fields[..], &["playlist", "include_samples", "limit", "offset"]].concat(),
+            &["filters"],
+        );
+
+        // EnrichTracksParams: filter fields + track_ids, playlist_id, max_tracks, providers, skip_cached, force_refresh
+        assert_schema_properties::<EnrichTracksParams>(
+            "EnrichTracksParams",
+            &[&filter_fields[..], &["track_ids", "playlist_id", "max_tracks", "providers", "skip_cached", "force_refresh"]].concat(),
+            &["filters"],
+        );
+
+        // AnalyzeAudioBatchParams: filter fields + track_ids, playlist_id, max_tracks, skip_cached
+        assert_schema_properties::<AnalyzeAudioBatchParams>(
+            "AnalyzeAudioBatchParams",
+            &[&filter_fields[..], &["track_ids", "playlist_id", "max_tracks", "skip_cached"]].concat(),
+            &["filters"],
+        );
+
+        // ResolveTracksDataParams: filter fields + track_ids, playlist_id, max_tracks
+        assert_schema_properties::<ResolveTracksDataParams>(
+            "ResolveTracksDataParams",
+            &[&filter_fields[..], &["track_ids", "playlist_id", "max_tracks"]].concat(),
+            &["filters"],
+        );
     }
 }

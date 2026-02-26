@@ -120,6 +120,7 @@ fn is_sampler_path(path: &str) -> bool {
     path.contains(SAMPLER_PATH_FRAGMENT)
 }
 
+#[derive(Default)]
 pub struct SearchParams {
     pub query: Option<String>,
     pub artist: Option<String>,
@@ -737,24 +738,7 @@ mod tests {
     #[test]
     fn test_search_all() {
         let conn = create_test_db();
-        let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
-        };
+        let params = SearchParams::default();
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 6); // includes sampler track
     }
@@ -763,22 +747,8 @@ mod tests {
     fn test_search_exclude_samples() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
             exclude_samples: true,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 5); // sampler track excluded
@@ -789,22 +759,8 @@ mod tests {
     fn test_search_by_genre() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
             genre: Some("Dubstep".to_string()),
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 2); // Archangel + Endorphin
@@ -815,22 +771,9 @@ mod tests {
     fn test_search_by_bpm_range() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
             bpm_min: Some(130.0),
             bpm_max: Some(145.0),
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 2); // 139.5 and 140.0
@@ -841,22 +784,8 @@ mod tests {
     fn test_search_has_no_genre() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
             has_genre: Some(false),
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 1); // Unknown Track has no genre
@@ -867,22 +796,8 @@ mod tests {
     fn test_search_by_rating() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
             rating_min: Some(3),
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 2); // Archangel (4 stars) + Endorphin (3 stars)
@@ -895,22 +810,8 @@ mod tests {
             .expect("fixture rating update should succeed");
 
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
             rating_min: Some(5),
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).expect("rating filter should succeed");
         assert_eq!(tracks.len(), 1);
@@ -922,22 +823,8 @@ mod tests {
     fn test_search_by_key() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
             key: Some("Am".to_string()),
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 1);
@@ -948,22 +835,8 @@ mod tests {
     fn test_search_by_playlist() {
         let conn = create_test_db();
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
             playlist: Some("p1".to_string()),
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
-            limit: None,
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 2); // Archangel + R.I.P.
@@ -1205,44 +1078,18 @@ mod tests {
 
         // Unfiltered search
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(10),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert!(!tracks.is_empty(), "unfiltered search returned no results");
 
         // BPM range search
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
             bpm_min: Some(120.0),
             bpm_max: Some(130.0),
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(50),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert!(!tracks.is_empty(), "BPM 120-130 range returned no results");
@@ -1261,22 +1108,8 @@ mod tests {
     fn test_real_db_field_encoding() {
         let conn = open_real_db().expect("backup tarball not found");
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(200),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
 
@@ -1318,22 +1151,9 @@ mod tests {
 
         // has_genre=false should work without panic
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
             has_genre: Some(false),
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(50),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         for t in &tracks {
@@ -1347,22 +1167,9 @@ mod tests {
 
         // has_genre=true
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
             has_genre: Some(true),
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(50),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         for t in &tracks {
@@ -1437,22 +1244,8 @@ mod tests {
 
         // Get a track via search, then fetch by ID
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
-            exclude_samples: false,
             limit: Some(1),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert!(!tracks.is_empty());
@@ -1505,22 +1298,10 @@ mod tests {
         let stats = get_library_stats(&conn).unwrap();
 
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
             rating_min: Some(1),
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
             exclude_samples: true,
             limit: Some(50),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).expect("rating-filtered search should succeed");
 
@@ -1568,21 +1349,8 @@ mod tests {
         for input in nasty_inputs {
             let params = SearchParams {
                 query: Some(input.to_string()),
-                artist: None,
-                genre: None,
-                rating_min: None,
-                bpm_min: None,
-                bpm_max: None,
-                key: None,
-                playlist: None,
-                has_genre: None,
-                label: None,
-                path: None,
-                added_after: None,
-                added_before: None,
-                exclude_samples: false,
                 limit: Some(5),
-                offset: None,
+                ..Default::default()
             };
             // Should not panic or error
             let result = search_tracks(&conn, &params);
@@ -1615,22 +1383,9 @@ mod tests {
 
         // Search with exclude_samples=true should not return sampler paths
         let params = SearchParams {
-            query: None,
-            artist: None,
-            genre: None,
-            rating_min: None,
-            bpm_min: None,
-            bpm_max: None,
-            key: None,
-            playlist: None,
-            has_genre: None,
-            label: None,
-            path: None,
-            added_after: None,
-            added_before: None,
             exclude_samples: true,
             limit: Some(200),
-            offset: None,
+            ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         for t in &tracks {

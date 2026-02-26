@@ -1,6 +1,8 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
+use crate::discogs::urlencoding;
+
 const BEATPORT_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36";
 
@@ -220,16 +222,6 @@ fn is_track_match(track: &serde_json::Value, artist: &str, title: &str) -> bool 
     let title_match = track_name.contains(&norm_title) || norm_title.contains(&track_name);
 
     artist_match && title_match
-}
-
-fn urlencoding(s: &str) -> String {
-    use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
-    const SET: &AsciiSet = &NON_ALPHANUMERIC
-        .remove(b'-')
-        .remove(b'_')
-        .remove(b'.')
-        .remove(b'~');
-    utf8_percent_encode(s, SET).to_string()
 }
 
 #[cfg(test)]

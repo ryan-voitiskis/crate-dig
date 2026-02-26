@@ -693,7 +693,7 @@ pub fn check_filename(
 // Scan operation
 // ---------------------------------------------------------------------------
 
-const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac", "aiff"];
+use crate::audio::AUDIO_EXTENSIONS;
 const BATCH_SIZE: usize = 500;
 
 #[derive(Debug, Serialize)]

@@ -530,12 +530,10 @@ async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::error::Error>
 // Audio file extension matching for directory scanning
 // ---------------------------------------------------------------------------
 
-const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac", "aiff"];
-
 fn is_audio_file(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
-        .is_some_and(|ext| AUDIO_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
+        .is_some_and(|ext| crate::audio::AUDIO_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str()))
 }
 
 fn expand_paths(paths: &[String]) -> Vec<PathBuf> {

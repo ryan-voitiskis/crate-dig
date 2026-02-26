@@ -27,6 +27,9 @@ pub struct StratumResult {
     pub warnings: Vec<String>,
 }
 
+/// Audio file extensions accepted by all directory scanners.
+pub(crate) const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac", "aiff"];
+
 const ESSENTIA_TIMEOUT_SECS: u64 = 300;
 
 const ESSENTIA_SCRIPT: &str = r#"

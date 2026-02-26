@@ -583,7 +583,7 @@ fn result_title_matches_artist(result_title: &str, artist: &str) -> bool {
     normalize(result_title).contains(&norm_artist)
 }
 
-fn urlencoding(s: &str) -> String {
+pub(crate) fn urlencoding(s: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
     const SET: &AsciiSet = &NON_ALPHANUMERIC
         .remove(b'-')
