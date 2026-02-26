@@ -20,12 +20,28 @@ pub struct BrokerConfig {
     pub broker_token: Option<String>,
 }
 
+/// Result of attempting to load broker config from the environment.
+pub enum BrokerConfigResult {
+    /// Config loaded successfully.
+    Ok(BrokerConfig),
+    /// Env var not set — broker auth is not configured.
+    NotConfigured,
+    /// Env var set but URL is malformed.
+    InvalidUrl(String),
+}
+
 impl BrokerConfig {
-    pub fn from_env() -> Option<Self> {
-        let raw_base_url = std::env::var(BROKER_URL_ENV).ok()?;
-        let base_url = normalize_base_url(&raw_base_url)?;
+    pub fn from_env() -> BrokerConfigResult {
+        let raw_base_url = match std::env::var(BROKER_URL_ENV) {
+            Ok(v) => v,
+            Err(_) => return BrokerConfigResult::NotConfigured,
+        };
+        let base_url = match normalize_base_url(&raw_base_url) {
+            Some(url) => url,
+            None => return BrokerConfigResult::InvalidUrl(raw_base_url),
+        };
         let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
-        Some(Self {
+        BrokerConfigResult::Ok(Self {
             base_url,
             broker_token,
         })

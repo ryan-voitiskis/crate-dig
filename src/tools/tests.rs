@@ -1341,7 +1341,7 @@
 
     #[tokio::test]
     async fn lookup_discogs_without_auth_returns_actionable_remediation() {
-        if discogs::BrokerConfig::from_env().is_some() || discogs::legacy_credentials_configured() {
+        if matches!(discogs::BrokerConfig::from_env(), discogs::BrokerConfigResult::Ok(_)) || discogs::legacy_credentials_configured() {
             eprintln!("Skipping auth-remediation test: local Discogs env is already configured");
             return;
         }

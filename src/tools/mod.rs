@@ -130,7 +130,14 @@ impl ReklawdboxServer {
             return result;
         }
 
-        if let Some(cfg) = discogs::BrokerConfig::from_env() {
+        if let discogs::BrokerConfigResult::InvalidUrl(raw) = discogs::BrokerConfig::from_env() {
+            return Err(discogs::LookupError::message(format!(
+                "Invalid broker URL in {}: {raw}",
+                discogs::BROKER_URL_ENV
+            )));
+        }
+
+        if let discogs::BrokerConfigResult::Ok(cfg) = discogs::BrokerConfig::from_env() {
             let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
