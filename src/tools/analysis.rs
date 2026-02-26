@@ -41,7 +41,9 @@ pub(super) async fn analyze_essentia(
     python_path: &str,
     file_path: &str,
 ) -> Result<audio::EssentiaOutput, String> {
-    audio::run_essentia(python_path, file_path).await
+    audio::run_essentia(python_path, file_path)
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Write analysis result to cache.

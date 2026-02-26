@@ -237,7 +237,7 @@ fn cache_status_for_track(
 }
 
 fn handle_decode_result(
-    decode_result: Result<Result<(Vec<f32>, u32), String>, tokio::task::JoinError>,
+    decode_result: Result<Result<(Vec<f32>, u32), audio::AudioError>, tokio::task::JoinError>,
     idx: usize,
     pending: usize,
     label: &str,
@@ -259,7 +259,7 @@ fn handle_decode_result(
 }
 
 fn handle_analysis_result(
-    analysis_result: Result<Result<audio::StratumResult, String>, tokio::task::JoinError>,
+    analysis_result: Result<Result<audio::StratumResult, audio::AudioError>, tokio::task::JoinError>,
     idx: usize,
     pending: usize,
     label: &str,
@@ -295,7 +295,9 @@ async fn run_and_cache_essentia(
     file_size: i64,
     file_mtime: i64,
 ) -> Result<(), String> {
-    let result = audio::run_essentia(python, file_path).await?;
+    let result = audio::run_essentia(python, file_path)
+        .await
+        .map_err(|e| e.to_string())?;
     let version = if result.analyzer_version.is_empty() {
         "unknown"
     } else {
@@ -913,7 +915,7 @@ mod tests {
         cache_status_for_track, file_mtime_unix, handle_analysis_result, handle_decode_result,
         is_cache_fresh, mark_track_outcome,
     };
-    use crate::{audio::StratumResult, store, store::CachedAudioAnalysis};
+    use crate::{audio::AudioError, audio::StratumResult, store, store::CachedAudioAnalysis};
     use std::time::Duration;
 
     fn cached(file_size: i64, file_mtime: i64) -> CachedAudioAnalysis {
@@ -1042,7 +1044,7 @@ mod tests {
     async fn decode_join_error_marks_failed_and_allows_next_track() {
         let handle = tokio::spawn(async {
             tokio::time::sleep(Duration::from_secs(60)).await;
-            Ok::<(Vec<f32>, u32), String>((vec![0.0], 44_100))
+            Ok::<(Vec<f32>, u32), AudioError>((vec![0.0], 44_100))
         });
         handle.abort();
         let join_err = handle
@@ -1065,7 +1067,7 @@ mod tests {
     async fn analysis_join_error_marks_failed_and_allows_next_track() {
         let handle = tokio::spawn(async {
             tokio::time::sleep(Duration::from_secs(60)).await;
-            Ok::<StratumResult, String>(sample_stratum_result())
+            Ok::<StratumResult, AudioError>(sample_stratum_result())
         });
         handle.abort();
         let join_err = handle

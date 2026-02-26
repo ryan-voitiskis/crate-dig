@@ -11,6 +11,25 @@ use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 use symphonia::default::get_probe;
 
+#[derive(Debug, thiserror::Error)]
+pub enum AudioError {
+    /// File I/O failures (open, path resolution, not found).
+    #[error("{0}")]
+    Io(String),
+    /// Symphonia probe/decode/format failures.
+    #[error("{0}")]
+    Decode(String),
+    /// Essentia subprocess spawn/exit/stderr failures.
+    #[error("{0}")]
+    Subprocess(String),
+    /// Essentia JSON output parse failures.
+    #[error("{0}")]
+    Parse(String),
+    /// stratum-dsp analysis errors.
+    #[error("{0}")]
+    Analysis(String),
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StratumResult {
     pub bpm: f64,
@@ -243,20 +262,21 @@ pub struct EssentiaOutput {
     pub spectral_contrast_mean: Option<Vec<f64>>,
 }
 
-fn parse_essentia_stdout(stdout: &[u8]) -> Result<EssentiaOutput, String> {
+fn parse_essentia_stdout(stdout: &[u8]) -> Result<EssentiaOutput, AudioError> {
     let text = std::str::from_utf8(stdout)
-        .map_err(|e| format!("Essentia stdout was not valid UTF-8: {e}"))?;
+        .map_err(|e| AudioError::Parse(format!("Essentia stdout was not valid UTF-8: {e}")))?;
     let trimmed = text.trim();
     if trimmed.is_empty() {
-        return Err("Essentia stdout was empty".to_string());
+        return Err(AudioError::Parse("Essentia stdout was empty".to_string()));
     }
-    serde_json::from_str(trimmed).map_err(|e| format!("Failed to parse Essentia JSON output: {e}"))
+    serde_json::from_str(trimmed)
+        .map_err(|e| AudioError::Parse(format!("Failed to parse Essentia JSON output: {e}")))
 }
 
 pub async fn run_essentia(
     python_path: &str,
     audio_path: &str,
-) -> Result<EssentiaOutput, String> {
+) -> Result<EssentiaOutput, AudioError> {
     let mut command = Command::new(python_path);
     command.args(["-c", ESSENTIA_SCRIPT, audio_path]);
     command.kill_on_drop(true);
@@ -264,12 +284,12 @@ pub async fn run_essentia(
     let output = timeout(Duration::from_secs(ESSENTIA_TIMEOUT_SECS), command.output())
         .await
         .map_err(|_| {
-            format!(
+            AudioError::Subprocess(format!(
                 "Essentia analysis timed out after {}s for '{}'",
                 ESSENTIA_TIMEOUT_SECS, audio_path
-            )
+            ))
         })?
-        .map_err(|e| format!("Failed to start Essentia subprocess: {e}"))?;
+        .map_err(|e| AudioError::Subprocess(format!("Failed to start Essentia subprocess: {e}")))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
@@ -278,10 +298,10 @@ pub async fn run_essentia(
         } else {
             stderr
         };
-        return Err(format!(
+        return Err(AudioError::Subprocess(format!(
             "Essentia subprocess failed for '{}': {}",
             audio_path, stderr
-        ));
+        )));
     }
 
     parse_essentia_stdout(&output.stdout)
@@ -289,28 +309,28 @@ pub async fn run_essentia(
 
 /// Resolve a Rekordbox file path to an actual filesystem path.
 /// Tries the raw path first; if that fails, tries percent-decoding.
-pub(crate) fn resolve_audio_path(raw_path: &str) -> Result<String, String> {
+pub(crate) fn resolve_audio_path(raw_path: &str) -> Result<String, AudioError> {
     if std::fs::metadata(raw_path).is_ok() {
         return Ok(raw_path.to_string());
     }
 
     let decoded = percent_encoding::percent_decode_str(raw_path)
         .decode_utf8()
-        .map_err(|e| format!("Invalid UTF-8 in file path: {e}"))?
+        .map_err(|e| AudioError::Parse(format!("Invalid UTF-8 in file path: {e}")))?
         .to_string();
 
     if std::fs::metadata(&decoded).is_ok() {
         return Ok(decoded);
     }
 
-    Err(format!(
+    Err(AudioError::Io(format!(
         "File not found (tried raw and decoded): {raw_path}"
-    ))
+    )))
 }
 
-pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
+pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), AudioError> {
     let file = std::fs::File::open(path)
-        .map_err(|e| format!("Failed to open audio file '{path}': {e}"))?;
+        .map_err(|e| AudioError::Io(format!("Failed to open audio file '{path}': {e}")))?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
 
     let mut hint = Hint::new();
@@ -328,7 +348,7 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
             &FormatOptions::default(),
             &MetadataOptions::default(),
         )
-        .map_err(|e| format!("Failed to probe audio format: {e}"))?;
+        .map_err(|e| AudioError::Decode(format!("Failed to probe audio format: {e}")))?;
 
     let mut format_reader = probed.format;
 
@@ -336,17 +356,17 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
         .tracks()
         .iter()
         .find(|t| t.codec_params.codec != symphonia::core::codecs::CODEC_TYPE_NULL)
-        .ok_or_else(|| "No audio track found in file".to_string())?;
+        .ok_or_else(|| AudioError::Decode("No audio track found in file".to_string()))?;
 
     let track_id = track.id;
     let sample_rate = track
         .codec_params
         .sample_rate
-        .ok_or_else(|| "Audio track has no sample rate".to_string())?;
+        .ok_or_else(|| AudioError::Decode("Audio track has no sample rate".to_string()))?;
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
-        .map_err(|e| format!("Failed to create decoder: {e}"))?;
+        .map_err(|e| AudioError::Decode(format!("Failed to create decoder: {e}")))?;
 
     let mut all_samples: Vec<f32> = Vec::new();
     let mut decode_warning_count: u64 = 0;
@@ -359,7 +379,7 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
             {
                 break;
             }
-            Err(e) => return Err(format!("Error reading packet: {e}")),
+            Err(e) => return Err(AudioError::Decode(format!("Error reading packet: {e}"))),
         };
 
         if packet.track_id() != track_id {
@@ -376,7 +396,7 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
                 decoder.reset();
                 continue;
             }
-            Err(e) => return Err(format!("Decode error: {e}")),
+            Err(e) => return Err(AudioError::Decode(format!("Decode error: {e}"))),
         };
 
         let mono = decode_buffer_to_mono(&decoded);
@@ -388,7 +408,9 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
     }
 
     if all_samples.is_empty() {
-        return Err("Decoded zero audio samples".to_string());
+        return Err(AudioError::Decode(
+            "Decoded zero audio samples".to_string(),
+        ));
     }
 
     Ok((all_samples, sample_rate))
@@ -464,12 +486,12 @@ fn to_camelot(stratum_notation: &str) -> String {
     format!("{camelot_num}{camelot_letter}")
 }
 
-pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, String> {
+pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, AudioError> {
     let config = stratum_dsp::AnalysisConfig::default();
 
     let start = Instant::now();
     let result = stratum_dsp::analyze_audio(samples, sample_rate, config)
-        .map_err(|e| format!("Analysis error: {e}"))?;
+        .map_err(|e| AudioError::Analysis(format!("Analysis error: {e}")))?;
     let processing_time_ms = start.elapsed().as_secs_f64() * 1000.0;
 
     let confidence = stratum_dsp::compute_confidence(&result);
@@ -630,8 +652,8 @@ mod tests {
         let err =
             parse_essentia_stdout(b"   \n").expect_err("empty output should produce a parse error");
         assert!(
-            err.contains("empty"),
-            "error should mention empty stdout, got: {err}"
+            matches!(&err, AudioError::Parse(msg) if msg.contains("empty")),
+            "error should be Parse mentioning empty stdout, got: {err}"
         );
     }
 
@@ -641,8 +663,8 @@ mod tests {
             .await
             .expect_err("missing python binary should fail");
         assert!(
-            err.contains("Failed to start Essentia subprocess"),
-            "expected startup failure context, got: {err}"
+            matches!(&err, AudioError::Subprocess(msg) if msg.contains("Failed to start Essentia subprocess")),
+            "expected Subprocess variant with startup failure context, got: {err}"
         );
     }
 
