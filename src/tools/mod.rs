@@ -40,6 +40,10 @@ use crate::tags;
 use crate::types::TrackChange;
 use crate::xml;
 
+fn internal(msg: String) -> McpError {
+    McpError::internal_error(msg, None)
+}
+
 /// Inner shared state (not Clone).
 struct ServerState {
     db: OnceLock<Result<Mutex<Connection>, String>>,
@@ -347,8 +351,8 @@ impl ReklawdboxServer {
         );
         search.playlist = params.0.playlist;
         let tracks =
-            db::search_tracks(&conn, &search).map_err(|e| err(format!("DB error: {e}")))?;
-        let json = serde_json::to_string_pretty(&tracks).map_err(|e| err(format!("{e}")))?;
+            db::search_tracks(&conn, &search).map_err(|e| internal(format!("DB error: {e}")))?;
+        let json = serde_json::to_string_pretty(&tracks).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -359,10 +363,10 @@ impl ReklawdboxServer {
     ) -> Result<CallToolResult, McpError> {
         let conn = self.conn()?;
         let track =
-            db::get_track(&conn, &params.0.track_id).map_err(|e| err(format!("DB error: {e}")))?;
+            db::get_track(&conn, &params.0.track_id).map_err(|e| internal(format!("DB error: {e}")))?;
         match track {
             Some(t) => {
-                let json = serde_json::to_string_pretty(&t).map_err(|e| err(format!("{e}")))?;
+                let json = serde_json::to_string_pretty(&t).map_err(|e| internal(format!("{e}")))?;
                 Ok(CallToolResult::success(vec![Content::text(json)]))
             }
             None => Ok(CallToolResult::success(vec![Content::text(format!(
@@ -375,8 +379,8 @@ impl ReklawdboxServer {
     #[tool(description = "List all playlists with track counts")]
     async fn get_playlists(&self) -> Result<CallToolResult, McpError> {
         let conn = self.conn()?;
-        let playlists = db::get_playlists(&conn).map_err(|e| err(format!("DB error: {e}")))?;
-        let json = serde_json::to_string_pretty(&playlists).map_err(|e| err(format!("{e}")))?;
+        let playlists = db::get_playlists(&conn).map_err(|e| internal(format!("DB error: {e}")))?;
+        let json = serde_json::to_string_pretty(&playlists).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -387,31 +391,30 @@ impl ReklawdboxServer {
     ) -> Result<CallToolResult, McpError> {
         let conn = self.conn()?;
         let tracks = db::get_playlist_tracks(&conn, &params.0.playlist_id, params.0.limit)
-            .map_err(|e| err(format!("DB error: {e}")))?;
-        let json = serde_json::to_string_pretty(&tracks).map_err(|e| err(format!("{e}")))?;
+            .map_err(|e| internal(format!("DB error: {e}")))?;
+        let json = serde_json::to_string_pretty(&tracks).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
     #[tool(description = "Get library summary: track count, genre distribution, stats")]
     async fn read_library(&self) -> Result<CallToolResult, McpError> {
         let conn = self.conn()?;
-        let stats = db::get_library_stats(&conn).map_err(|e| err(format!("DB error: {e}")))?;
-        let json = serde_json::to_string_pretty(&stats).map_err(|e| err(format!("{e}")))?;
+        let stats = db::get_library_stats(&conn).map_err(|e| internal(format!("DB error: {e}")))?;
+        let json = serde_json::to_string_pretty(&stats).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
     #[tool(description = "Get the configured genre taxonomy")]
     async fn get_genre_taxonomy(&self) -> Result<CallToolResult, McpError> {
-        let genres = genre::get_taxonomy();
-        let aliases: std::collections::HashMap<String, String> =
-            genre::get_alias_map().into_iter().collect();
+        let genres = genre::GENRES;
+        let aliases = genre::alias_map();
         let mut result = serde_json::json!({
             "genres": genres,
             "aliases": aliases,
             "description": "Flat genre taxonomy. Not a closed list — arbitrary genres are accepted. This list provides consistency suggestions. Aliases map non-canonical genre names to their canonical forms."
         });
         attach_corpus_provenance(&mut result, consult_genre_workflow_docs());
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -495,7 +498,7 @@ impl ReklawdboxServer {
             result["warnings"] = serde_json::json!(warnings);
         }
         attach_corpus_provenance(&mut result, consult_genre_workflow_docs());
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -509,7 +512,7 @@ impl ReklawdboxServer {
         let conn = self.conn()?;
         let min_count = params.0.min_count.unwrap_or(1);
 
-        let stats = db::get_library_stats(&conn).map_err(|e| err(format!("DB error: {e}")))?;
+        let stats = db::get_library_stats(&conn).map_err(|e| internal(format!("DB error: {e}")))?;
 
         let mut alias_suggestions = Vec::new();
         let mut unknown_items = Vec::new();
@@ -525,7 +528,7 @@ impl ReklawdboxServer {
 
             if let Some(canonical) = genre::normalize_genre(&gc.name) {
                 let tracks = db::get_tracks_by_exact_genre(&conn, &gc.name, true)
-                    .map_err(|e| err(format!("DB error: {e}")))?;
+                    .map_err(|e| internal(format!("DB error: {e}")))?;
                 for t in tracks {
                     alias_suggestions.push(crate::types::NormalizationSuggestion {
                         track_id: t.id,
@@ -543,7 +546,7 @@ impl ReklawdboxServer {
                 }));
             } else {
                 let tracks = db::get_tracks_by_exact_genre(&conn, &gc.name, true)
-                    .map_err(|e| err(format!("DB error: {e}")))?;
+                    .map_err(|e| internal(format!("DB error: {e}")))?;
                 for t in tracks {
                     unknown_items.push(crate::types::NormalizationSuggestion {
                         track_id: t.id,
@@ -568,7 +571,7 @@ impl ReklawdboxServer {
             }
         });
         attach_corpus_provenance(&mut result, consult_genre_workflow_docs());
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -597,7 +600,7 @@ impl ReklawdboxServer {
 
         let conn = self.conn()?;
         let current_tracks =
-            db::get_tracks_by_ids(&conn, &ids).map_err(|e| err(format!("DB error: {e}")))?;
+            db::get_tracks_by_ids(&conn, &ids).map_err(|e| internal(format!("DB error: {e}")))?;
 
         let diffs = self.state.changes.preview(&current_tracks);
         if diffs.is_empty() {
@@ -606,7 +609,7 @@ impl ReklawdboxServer {
             )]));
         }
 
-        let json = serde_json::to_string_pretty(&diffs).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&diffs).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -627,7 +630,7 @@ impl ReklawdboxServer {
                 "changes_applied": 0,
             });
             attach_corpus_provenance(&mut result, consult_xml_workflow_docs());
-            let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
             return Ok(CallToolResult::success(vec![Content::text(json)]));
         }
 
@@ -688,7 +691,7 @@ impl ReklawdboxServer {
             Ok(tracks) => tracks,
             Err(e) => {
                 self.state.changes.restore(snapshot);
-                return Err(err(format!("DB error: {e}")));
+                return Err(internal(format!("DB error: {e}")));
             }
         };
         let found_ids: HashSet<&str> = current_tracks.iter().map(|t| t.id.as_str()).collect();
@@ -699,7 +702,7 @@ impl ReklawdboxServer {
             .collect();
         if !missing_ids.is_empty() {
             self.state.changes.restore(snapshot);
-            return Err(err(format!(
+            return Err(internal(format!(
                 "Track IDs not found in database: {}",
                 missing_ids.join(", ")
             )));
@@ -726,7 +729,7 @@ impl ReklawdboxServer {
             xml::write_xml_with_playlists(&modified_tracks, &playlist_defs, &output_path)
         {
             self.state.changes.restore(snapshot);
-            return Err(err(format!("Write error: {e}")));
+            return Err(internal(format!("Write error: {e}")));
         }
 
         let track_count = modified_tracks.len();
@@ -741,7 +744,7 @@ impl ReklawdboxServer {
             result["playlist_count"] = serde_json::json!(playlists.len());
         }
         attach_corpus_provenance(&mut result, consult_xml_workflow_docs());
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -769,7 +772,7 @@ impl ReklawdboxServer {
                 "remaining": remaining,
                 "fields_cleared": fields,
             });
-            let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
             Ok(CallToolResult::success(vec![Content::text(json)]))
         } else {
             let (cleared, remaining) = self.state.changes.clear(params.0.track_ids);
@@ -777,7 +780,7 @@ impl ReklawdboxServer {
                 "cleared": cleared,
                 "remaining": remaining,
             });
-            let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
             Ok(CallToolResult::success(vec![Content::text(json)]))
         }
     }
@@ -795,7 +798,7 @@ impl ReklawdboxServer {
         let (artist, title, album) = if let Some(ref track_id) = params.0.track_id {
             let conn = self.conn()?;
             let track = db::get_track(&conn, track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(format!("Track '{track_id}' not found"), None)
                 })?;
@@ -825,7 +828,7 @@ impl ReklawdboxServer {
             let store = self.internal_conn()?;
             if let Some(cached) =
                 store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?
             {
                 let result = match &cached.response_json {
                     Some(json_str) => serde_json::from_str::<serde_json::Value>(json_str)
@@ -838,7 +841,7 @@ impl ReklawdboxServer {
                     Some(cached.created_at.as_str()),
                 );
                 let json =
-                    serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
                 return Ok(CallToolResult::success(vec![Content::text(json)]));
             }
         }
@@ -847,14 +850,14 @@ impl ReklawdboxServer {
             .lookup_discogs_live(&artist, &title, album.as_deref())
             .await
             .map_err(|e| match e.auth_remediation() {
-                Some(remediation) => err(auth_remediation_message(remediation)),
-                None => err(format!("Discogs error: {e}")),
+                Some(remediation) => internal(auth_remediation_message(remediation)),
+                None => internal(format!("Discogs error: {e}")),
             })?;
 
         let (match_quality, response_json) = match &result {
             Some(r) => {
                 let quality = if r.fuzzy_match { "fuzzy" } else { "exact" };
-                let json = serde_json::to_string(r).map_err(|e| err(format!("{e}")))?;
+                let json = serde_json::to_string(r).map_err(|e| internal(format!("{e}")))?;
                 (Some(quality), Some(json))
             }
             None => (Some("none"), None),
@@ -869,15 +872,15 @@ impl ReklawdboxServer {
                 match_quality,
                 response_json.as_deref(),
             )
-            .map_err(|e| err(format!("Cache write error: {e}")))?;
+            .map_err(|e| internal(format!("Cache write error: {e}")))?;
         }
 
         let output = lookup_output_with_cache_metadata(
-            serde_json::to_value(&result).map_err(|e| err(format!("{e}")))?,
+            serde_json::to_value(&result).map_err(|e| internal(format!("{e}")))?,
             false,
             None,
         );
-        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -894,7 +897,7 @@ impl ReklawdboxServer {
         let (artist, title) = if let Some(ref track_id) = params.0.track_id {
             let conn = self.conn()?;
             let track = db::get_track(&conn, track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(format!("Track '{track_id}' not found"), None)
                 })?;
@@ -919,7 +922,7 @@ impl ReklawdboxServer {
             let store = self.internal_conn()?;
             if let Some(cached) =
                 store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?
             {
                 let result = match &cached.response_json {
                     Some(json_str) => serde_json::from_str::<serde_json::Value>(json_str)
@@ -932,7 +935,7 @@ impl ReklawdboxServer {
                     Some(cached.created_at.as_str()),
                 );
                 let json =
-                    serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
                 return Ok(CallToolResult::success(vec![Content::text(json)]));
             }
         }
@@ -940,11 +943,11 @@ impl ReklawdboxServer {
         let result = self
             .lookup_beatport_live(&artist, &title)
             .await
-            .map_err(|e| err(format!("Beatport error: {e}")))?;
+            .map_err(|e| internal(format!("Beatport error: {e}")))?;
 
         let (match_quality, response_json) = match &result {
             Some(r) => {
-                let json = serde_json::to_string(r).map_err(|e| err(format!("{e}")))?;
+                let json = serde_json::to_string(r).map_err(|e| internal(format!("{e}")))?;
                 (Some("exact"), Some(json))
             }
             None => (Some("none"), None),
@@ -959,15 +962,15 @@ impl ReklawdboxServer {
                 match_quality,
                 response_json.as_deref(),
             )
-            .map_err(|e| err(format!("Cache write error: {e}")))?;
+            .map_err(|e| internal(format!("Cache write error: {e}")))?;
         }
 
         let output = lookup_output_with_cache_metadata(
-            serde_json::to_value(&result).map_err(|e| err(format!("{e}")))?,
+            serde_json::to_value(&result).map_err(|e| internal(format!("{e}")))?,
             false,
             None,
         );
-        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1019,7 +1022,7 @@ impl ReklawdboxServer {
                         &norm_artist,
                         &norm_title,
                     )
-                    .map_err(|e| err(format!("Cache read error: {e}")))?
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?
                     .is_some()
                     {
                         cached += 1;
@@ -1051,7 +1054,7 @@ impl ReklawdboxServer {
                         {
                             Ok(Some(r)) => {
                                 let json_str =
-                                    serde_json::to_string(&r).map_err(|e| err(format!("{e}")))?;
+                                    serde_json::to_string(&r).map_err(|e| internal(format!("{e}")))?;
                                 let quality = if r.fuzzy_match { "fuzzy" } else { "exact" };
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
@@ -1062,7 +1065,7 @@ impl ReklawdboxServer {
                                     Some(quality),
                                     Some(&json_str),
                                 )
-                                .map_err(|e| err(format!("Cache write error: {e}")))?;
+                                .map_err(|e| internal(format!("Cache write error: {e}")))?;
                                 enriched += 1;
                             }
                             Ok(None) => {
@@ -1075,7 +1078,7 @@ impl ReklawdboxServer {
                                     Some("none"),
                                     None,
                                 )
-                                .map_err(|e| err(format!("Cache write error: {e}")))?;
+                                .map_err(|e| internal(format!("Cache write error: {e}")))?;
                                 skipped += 1;
                             }
                             Err(e) => {
@@ -1102,7 +1105,7 @@ impl ReklawdboxServer {
                         {
                             Ok(Some(r)) => {
                                 let json_str =
-                                    serde_json::to_string(&r).map_err(|e| err(format!("{e}")))?;
+                                    serde_json::to_string(&r).map_err(|e| internal(format!("{e}")))?;
                                 let store = self.internal_conn()?;
                                 store::set_enrichment(
                                     &store,
@@ -1112,7 +1115,7 @@ impl ReklawdboxServer {
                                     Some("exact"),
                                     Some(&json_str),
                                 )
-                                .map_err(|e| err(format!("Cache write error: {e}")))?;
+                                .map_err(|e| internal(format!("Cache write error: {e}")))?;
                                 enriched += 1;
                             }
                             Ok(None) => {
@@ -1125,7 +1128,7 @@ impl ReklawdboxServer {
                                     Some("none"),
                                     None,
                                 )
-                                .map_err(|e| err(format!("Cache write error: {e}")))?;
+                                .map_err(|e| internal(format!("Cache write error: {e}")))?;
                                 skipped += 1;
                             }
                             Err(e) => {
@@ -1154,7 +1157,7 @@ impl ReklawdboxServer {
             },
             "failures": failed,
         });
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1170,7 +1173,7 @@ impl ReklawdboxServer {
         let track = {
             let conn = self.conn()?;
             db::get_track(&conn, &params.0.track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(
                         format!("Track '{}' not found", params.0.track_id),
@@ -1181,7 +1184,7 @@ impl ReklawdboxServer {
 
         let file_path = resolve_file_path(&track.file_path)?;
         let metadata = std::fs::metadata(&file_path)
-            .map_err(|e| err(format!("Cannot stat file '{}': {e}", file_path)))?;
+            .map_err(|e| internal(format!("Cannot stat file '{}': {e}", file_path)))?;
         let file_size = metadata.len() as i64;
         let file_mtime = metadata
             .modified()
@@ -1194,21 +1197,21 @@ impl ReklawdboxServer {
         let stratum_cached = if skip_cached {
             let store = self.internal_conn()?;
             check_analysis_cache(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime)
-                .map_err(err)?
+                .map_err(internal)?
         } else {
             None
         };
 
         let (stratum_dsp, stratum_cache_hit) = if let Some(json_str) = stratum_cached {
-            let val = serde_json::from_str(&json_str).map_err(|e| err(format!("Cache parse error: {e}")))?;
+            let val = serde_json::from_str(&json_str).map_err(|e| internal(format!("Cache parse error: {e}")))?;
             (val, true)
         } else {
-            let analysis = analyze_stratum(&file_path).await.map_err(err)?;
-            let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
+            let analysis = analyze_stratum(&file_path).await.map_err(internal)?;
+            let features_json = serde_json::to_string(&analysis).map_err(|e| internal(format!("{e}")))?;
             let store = self.internal_conn()?;
-            cache_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
-                .map_err(err)?;
-            (serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?, false)
+            store::set_audio_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
+                .map_err(|e| internal(format!("Cache write error: {e}")))?;
+            (serde_json::to_value(&analysis).map_err(|e| internal(format!("{e}")))?, false)
         };
 
         // Essentia: check cache then analyze
@@ -1222,23 +1225,23 @@ impl ReklawdboxServer {
             let essentia_cached = if skip_cached {
                 let store = self.internal_conn()?;
                 check_analysis_cache(&store, &file_path, audio::ANALYZER_ESSENTIA, file_size, file_mtime)
-                    .map_err(err)?
+                    .map_err(internal)?
             } else {
                 None
             };
 
             if let Some(json_str) = essentia_cached {
-                essentia = Some(serde_json::from_str(&json_str).map_err(|e| err(format!("Cache parse error: {e}")))?);
+                essentia = Some(serde_json::from_str(&json_str).map_err(|e| internal(format!("Cache parse error: {e}")))?);
                 essentia_cache_hit = Some(true);
             } else {
-                match analyze_essentia(python_path, &file_path).await {
+                match audio::run_essentia(python_path, &file_path).await.map_err(|e| e.to_string()) {
                     Ok(features) => {
                         let version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
-                        let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
+                        let features_json = serde_json::to_string(&features).map_err(|e| internal(format!("{e}")))?;
                         let store = self.internal_conn()?;
-                        cache_analysis(&store, &file_path, audio::ANALYZER_ESSENTIA, file_size, file_mtime, version, &features_json)
-                            .map_err(err)?;
-                        essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
+                        store::set_audio_analysis(&store, &file_path, audio::ANALYZER_ESSENTIA, file_size, file_mtime, version, &features_json)
+                            .map_err(|e| internal(format!("Cache write error: {e}")))?;
+                        essentia = Some(serde_json::to_value(&features).map_err(|e| internal(format!("{e}")))?);
                         essentia_cache_hit = Some(false);
                     }
                     Err(e) => essentia_error = Some(e),
@@ -1260,7 +1263,7 @@ impl ReklawdboxServer {
         if !essentia_available {
             result["essentia_setup_hint"] = serde_json::Value::String(essentia_setup_hint());
         }
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1383,11 +1386,11 @@ impl ReklawdboxServer {
             if stratum_dsp.is_none() {
                 match analyze_stratum(&file_path).await {
                     Ok(analysis) => {
-                        let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
+                        let features_json = serde_json::to_string(&analysis).map_err(|e| internal(format!("{e}")))?;
                         let store = self.internal_conn()?;
-                        cache_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
-                            .map_err(err)?;
-                        stratum_dsp = Some(serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?);
+                        store::set_audio_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
+                            .map_err(|e| internal(format!("Cache write error: {e}")))?;
+                        stratum_dsp = Some(serde_json::to_value(&analysis).map_err(|e| internal(format!("{e}")))?);
                         analyzed += 1;
                     }
                     Err(e) => {
@@ -1409,7 +1412,7 @@ impl ReklawdboxServer {
                 file_size,
                 file_mtime,
                 stratum_dsp: stratum_dsp
-                    .ok_or_else(|| err("Missing stratum-dsp result in batch".to_string()))?,
+                    .ok_or_else(|| internal("Missing stratum-dsp result in batch".to_string()))?,
                 stratum_cache_hit,
                 essentia: None,
                 essentia_cache_hit: None,
@@ -1457,14 +1460,14 @@ impl ReklawdboxServer {
                     }
                 }
 
-                match analyze_essentia(python_path, &row.file_path).await {
+                match audio::run_essentia(python_path, &row.file_path).await.map_err(|e| e.to_string()) {
                     Ok(features) => {
                         let version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
-                        let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
+                        let features_json = serde_json::to_string(&features).map_err(|e| internal(format!("{e}")))?;
                         let store = self.internal_conn()?;
-                        cache_analysis(&store, &row.file_path, audio::ANALYZER_ESSENTIA, row.file_size, row.file_mtime, version, &features_json)
-                            .map_err(err)?;
-                        row.essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
+                        store::set_audio_analysis(&store, &row.file_path, audio::ANALYZER_ESSENTIA, row.file_size, row.file_mtime, version, &features_json)
+                            .map_err(|e| internal(format!("Cache write error: {e}")))?;
+                        row.essentia = Some(serde_json::to_value(&features).map_err(|e| internal(format!("{e}")))?);
                         row.essentia_cache_hit = Some(false);
                         essentia_analyzed += 1;
                     }
@@ -1514,7 +1517,7 @@ impl ReklawdboxServer {
         if !essentia_available {
             result["essentia_setup_hint"] = serde_json::Value::String(essentia_setup_hint());
         }
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1534,7 +1537,7 @@ impl ReklawdboxServer {
                     "message": "Essentia is already available.",
                 });
                 let json =
-                    serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
                 return Ok(CallToolResult::success(vec![Content::text(json)]));
             }
             // Stale override — clear it and proceed with fresh install
@@ -1544,7 +1547,7 @@ impl ReklawdboxServer {
         }
 
         let venv_dir = essentia_venv_dir()
-            .ok_or_else(|| err("Cannot determine home directory for venv location".to_string()))?;
+            .ok_or_else(|| internal("Cannot determine home directory for venv location".to_string()))?;
 
         // Find a suitable Python 3 and try venv+pip with each candidate,
         // falling through to the next on failure
@@ -1583,7 +1586,7 @@ impl ReklawdboxServer {
             // Create parent directories
             if let Some(parent) = venv_dir.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
-                    err(format!(
+                    internal(format!(
                         "Failed to create directory {}: {e}",
                         parent.display()
                     ))
@@ -1604,8 +1607,8 @@ impl ReklawdboxServer {
                 }
             })
             .await
-            .map_err(|e| err(format!("venv task failed: {e}")))?
-            .map_err(|e| err(format!("Failed to run {python_bin} -m venv: {e}")))?;
+            .map_err(|e| internal(format!("venv task failed: {e}")))?
+            .map_err(|e| internal(format!("Failed to run {python_bin} -m venv: {e}")))?;
 
             if !venv_output.status.success() {
                 last_error = format!(
@@ -1630,8 +1633,8 @@ impl ReklawdboxServer {
                 }
             })
             .await
-            .map_err(|e| err(format!("pip task failed: {e}")))?
-            .map_err(|e| err(format!("Failed to run pip install: {e}")))?;
+            .map_err(|e| internal(format!("pip task failed: {e}")))?
+            .map_err(|e| internal(format!("Failed to run pip install: {e}")))?;
 
             if !pip_output.status.success() {
                 last_error = format!(
@@ -1654,8 +1657,8 @@ impl ReklawdboxServer {
                 }
             })
             .await
-            .map_err(|e| err(format!("validate task failed: {e}")))?
-            .map_err(|e| err(format!("Failed to validate essentia installation: {e}")))?;
+            .map_err(|e| internal(format!("validate task failed: {e}")))?
+            .map_err(|e| internal(format!("Failed to validate essentia installation: {e}")))?;
 
             if !validate_output.status.success() {
                 last_error = format!(
@@ -1674,7 +1677,7 @@ impl ReklawdboxServer {
                 .state
                 .essentia_python_override
                 .lock()
-                .map_err(|_| err("essentia override lock poisoned".to_string()))?;
+                .map_err(|_| internal("essentia override lock poisoned".to_string()))?;
             *guard = Some(venv_python_str.clone());
             drop(guard);
 
@@ -1686,11 +1689,11 @@ impl ReklawdboxServer {
                 "venv_dir": venv_dir.to_string_lossy(),
                 "message": "Essentia installed successfully. Audio analysis will now include Essentia features — no restart needed.",
             });
-            let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
             return Ok(CallToolResult::success(vec![Content::text(json)]));
         }
 
-        Err(err(format!(
+        Err(internal(format!(
             "All Python candidates failed. Last error: {last_error}"
         )))
     }
@@ -1708,12 +1711,12 @@ impl ReklawdboxServer {
         let (from_track, to_track) = {
             let conn = self.conn()?;
             let from = db::get_track(&conn, &p.from_track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(format!("Track '{}' not found", p.from_track_id), None)
                 })?;
             let to = db::get_track(&conn, &p.to_track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(format!("Track '{}' not found", p.to_track_id), None)
                 })?;
@@ -1723,9 +1726,9 @@ impl ReklawdboxServer {
         let (from_profile, to_profile) = {
             let store = self.internal_conn()?;
             let from = build_track_profile(from_track, &store)
-                .map_err(|e| err(format!("Failed to build source track profile: {e}")))?;
+                .map_err(|e| internal(format!("Failed to build source track profile: {e}")))?;
             let to = build_track_profile(to_track, &store)
-                .map_err(|e| err(format!("Failed to build destination track profile: {e}")))?;
+                .map_err(|e| internal(format!("Failed to build destination track profile: {e}")))?;
             (from, to)
         };
 
@@ -1759,7 +1762,7 @@ impl ReklawdboxServer {
             "scores": scores.to_json(),
         });
 
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1803,7 +1806,7 @@ impl ReklawdboxServer {
 
         let tracks = {
             let conn = self.conn()?;
-            db::get_tracks_by_ids(&conn, &deduped_ids).map_err(|e| err(format!("DB error: {e}")))?
+            db::get_tracks_by_ids(&conn, &deduped_ids).map_err(|e| internal(format!("DB error: {e}")))?
         };
         if tracks.is_empty() {
             return Err(McpError::invalid_params(
@@ -1817,7 +1820,7 @@ impl ReklawdboxServer {
             let store = self.internal_conn()?;
             for track in tracks {
                 let profile = build_track_profile(track, &store)
-                    .map_err(|e| err(format!("Failed to build track profile: {e}")))?;
+                    .map_err(|e| internal(format!("Failed to build track profile: {e}")))?;
                 profiles_by_id.insert(profile.track.id.clone(), profile);
             }
         }
@@ -1937,7 +1940,7 @@ impl ReklawdboxServer {
             "pool_size": profiles_by_id.len(),
             "tracks_used": actual_target,
         });
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -1951,7 +1954,7 @@ impl ReklawdboxServer {
         let track = {
             let conn = self.conn()?;
             db::get_track(&conn, &params.0.track_id)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .ok_or_else(|| {
                     McpError::invalid_params(
                         format!("Track '{}' not found", params.0.track_id),
@@ -1968,15 +1971,15 @@ impl ReklawdboxServer {
         let (discogs_cache, beatport_cache, stratum_cache, essentia_cache) = {
             let store = self.internal_conn()?;
             let dc = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-                .map_err(|e| err(format!("Cache read error: {e}")))?;
+                .map_err(|e| internal(format!("Cache read error: {e}")))?;
             let bc = store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
-                .map_err(|e| err(format!("Cache read error: {e}")))?;
+                .map_err(|e| internal(format!("Cache read error: {e}")))?;
             let audio_cache_key =
                 resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
             let sc = store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_STRATUM)
-                .map_err(|e| err(format!("Cache read error: {e}")))?;
+                .map_err(|e| internal(format!("Cache read error: {e}")))?;
             let ec = store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_ESSENTIA)
-                .map_err(|e| err(format!("Cache read error: {e}")))?;
+                .map_err(|e| internal(format!("Cache read error: {e}")))?;
             (dc, bc, sc, ec)
         };
 
@@ -1992,7 +1995,7 @@ impl ReklawdboxServer {
             staged.as_ref(),
         );
 
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2026,15 +2029,15 @@ impl ReklawdboxServer {
             let (discogs_cache, beatport_cache, stratum_cache, essentia_cache) = {
                 let store = self.internal_conn()?;
                 let dc = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?;
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?;
                 let bc = store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?;
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?;
                 let audio_cache_key =
                     resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
                 let sc = store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_STRATUM)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?;
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?;
                 let ec = store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_ESSENTIA)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?;
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?;
                 (dc, bc, sc, ec)
             };
 
@@ -2051,7 +2054,7 @@ impl ReklawdboxServer {
             ));
         }
 
-        let json = serde_json::to_string_pretty(&results).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&results).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2076,7 +2079,7 @@ impl ReklawdboxServer {
                     rusqlite::params![sample_prefix],
                     |row| row.get::<_, i64>(0),
                 )
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
                 .max(0) as usize;
 
             let tracks = resolve_tracks(
@@ -2112,18 +2115,18 @@ impl ReklawdboxServer {
 
                 let has_discogs =
                     store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-                        .map_err(|e| err(format!("Cache read error: {e}")))?
+                        .map_err(|e| internal(format!("Cache read error: {e}")))?
                         .is_some();
                 let has_beatport =
                     store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
-                        .map_err(|e| err(format!("Cache read error: {e}")))?
+                        .map_err(|e| internal(format!("Cache read error: {e}")))?
                         .is_some();
                 let has_stratum =
                     store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_STRATUM)
-                        .map_err(|e| err(format!("Cache read error: {e}")))?
+                        .map_err(|e| internal(format!("Cache read error: {e}")))?
                         .is_some();
                 let has_essentia = store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_ESSENTIA)
-                    .map_err(|e| err(format!("Cache read error: {e}")))?
+                    .map_err(|e| internal(format!("Cache read error: {e}")))?
                     .is_some();
 
                 if has_stratum {
@@ -2182,7 +2185,7 @@ impl ReklawdboxServer {
             },
         });
 
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2250,7 +2253,7 @@ impl ReklawdboxServer {
             let recursive = p.recursive.unwrap_or(false);
             let glob_pattern = p.glob.clone();
             scan_audio_directory(&directory, recursive, glob_pattern.as_deref())
-                .map_err(err)?
+                .map_err(internal)?
         } else {
             unreachable!()
         };
@@ -2288,7 +2291,7 @@ impl ReklawdboxServer {
         results.append(&mut inline_errors);
 
         for handle in handles {
-            let result = handle.await.map_err(|e| err(format!("join error: {e}")))?;
+            let result = handle.await.map_err(|e| internal(format!("join error: {e}")))?;
             match &result {
                 tags::FileReadResult::Single { format, .. } => {
                     files_read += 1;
@@ -2314,7 +2317,7 @@ impl ReklawdboxServer {
             "results": results,
         });
 
-        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2349,7 +2352,7 @@ impl ReklawdboxServer {
                     tags::write_file_tags_dry_run(&entry)
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?;
+                .map_err(|e| internal(format!("join error: {e}")))?;
                 results.push(result);
             }
 
@@ -2371,7 +2374,7 @@ impl ReklawdboxServer {
                 "results": results,
             });
 
-            let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
             Ok(CallToolResult::success(vec![Content::text(json)]))
         } else {
             // Actual writes: sequential
@@ -2385,7 +2388,7 @@ impl ReklawdboxServer {
                     tags::write_file_tags(&entry)
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?;
+                .map_err(|e| internal(format!("join error: {e}")))?;
 
                 match &result {
                     tags::FileWriteResult::Ok { fields_written, .. } => {
@@ -2406,7 +2409,7 @@ impl ReklawdboxServer {
                 "results": results,
             });
 
-            let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+            let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
             Ok(CallToolResult::success(vec![Content::text(json)]))
         }
     }
@@ -2431,10 +2434,10 @@ impl ReklawdboxServer {
             )
         })
         .await
-        .map_err(|e| err(format!("join error: {e}")))?
-        .map_err(|e| err(e.to_string()))?;
+        .map_err(|e| internal(format!("join error: {e}")))?
+        .map_err(|e| internal(e.to_string()))?;
 
-        let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2455,7 +2458,7 @@ impl ReklawdboxServer {
             .unwrap_or(0);
         let image_format = {
             let data = std::fs::read(&image_path)
-                .map_err(|e| err(format!("Failed to read image: {e}")))?;
+                .map_err(|e| internal(format!("Failed to read image: {e}")))?;
             if data.starts_with(&[0xff, 0xd8]) {
                 "jpeg"
             } else if data.starts_with(&[0x89, 0x50, 0x4e, 0x47]) {
@@ -2482,7 +2485,7 @@ impl ReklawdboxServer {
                 tags::embed_cover_art(&img, &tgt, &pt)
             })
             .await
-            .map_err(|e| err(format!("join error: {e}")))?;
+            .map_err(|e| internal(format!("join error: {e}")))?;
 
             match &result {
                 tags::FileEmbedResult::Ok { .. } => files_embedded += 1,
@@ -2501,7 +2504,7 @@ impl ReklawdboxServer {
             "results": results,
         });
 
-        let json = serde_json::to_string_pretty(&output).map_err(|e| err(format!("{e}")))?;
+        let json = serde_json::to_string_pretty(&output).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
@@ -2537,11 +2540,11 @@ impl ReklawdboxServer {
                     audit::scan(&conn, &scope, revalidate, &skip)
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(err)?;
+                .map_err(|e| internal(format!("join error: {e}")))?
+                .map_err(internal)?;
 
                 let json =
-                    serde_json::to_string_pretty(&summary).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&summary).map_err(|e| internal(format!("{e}")))?;
                 Ok(CallToolResult::success(vec![Content::text(json)]))
             }
 
@@ -2568,11 +2571,11 @@ impl ReklawdboxServer {
                     )
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(err)?;
+                .map_err(|e| internal(format!("join error: {e}")))?
+                .map_err(internal)?;
 
                 let json =
-                    serde_json::to_string_pretty(&issues).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&issues).map_err(|e| internal(format!("{e}")))?;
                 Ok(CallToolResult::success(vec![Content::text(json)]))
             }
 
@@ -2592,12 +2595,12 @@ impl ReklawdboxServer {
                     )
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(err)?;
+                .map_err(|e| internal(format!("join error: {e}")))?
+                .map_err(internal)?;
 
                 let json = serde_json::json!({ "resolved": count });
                 let text =
-                    serde_json::to_string_pretty(&json).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&json).map_err(|e| internal(format!("{e}")))?;
                 Ok(CallToolResult::success(vec![Content::text(text)]))
             }
 
@@ -2608,11 +2611,11 @@ impl ReklawdboxServer {
                     audit::get_summary(&conn, &scope)
                 })
                 .await
-                .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(err)?;
+                .map_err(|e| internal(format!("join error: {e}")))?
+                .map_err(internal)?;
 
                 let json =
-                    serde_json::to_string_pretty(&summary).map_err(|e| err(format!("{e}")))?;
+                    serde_json::to_string_pretty(&summary).map_err(|e| internal(format!("{e}")))?;
                 Ok(CallToolResult::success(vec![Content::text(json)]))
             }
         }

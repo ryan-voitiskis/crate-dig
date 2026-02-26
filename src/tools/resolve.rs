@@ -2,12 +2,9 @@ use rusqlite::Connection;
 
 use rmcp::ErrorData as McpError;
 
+use super::internal;
 use super::params::{ResolveTracksDataParams, SearchFilterParams};
 use crate::db;
-
-pub(super) fn err(msg: String) -> McpError {
-    McpError::internal_error(msg, None)
-}
 
 pub(super) struct ResolveTracksOpts {
     /// Default max_tracks when track_ids are absent and max_tracks param is None.
@@ -52,24 +49,24 @@ pub(super) fn resolve_tracks(
     let bounded = opts.cap.is_some();
 
     let tracks = if let Some(ids) = track_ids {
-        db::get_tracks_by_ids(conn, ids).map_err(|e| err(format!("DB error: {e}")))?
+        db::get_tracks_by_ids(conn, ids).map_err(|e| internal(format!("DB error: {e}")))?
     } else if let Some(pid) = playlist_id {
         let db_limit = if bounded { effective_max.map(|m| m as u32) } else { None };
         if bounded {
             db::get_playlist_tracks(conn, pid, db_limit)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
         } else {
             db::get_playlist_tracks_unbounded(conn, pid, db_limit)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
         }
     } else {
         let limit = effective_max.map(|m| m as u32);
         let search = filters.into_search_params(true, limit, None);
         if bounded {
-            db::search_tracks(conn, &search).map_err(|e| err(format!("DB error: {e}")))?
+            db::search_tracks(conn, &search).map_err(|e| internal(format!("DB error: {e}")))?
         } else {
             db::search_tracks_unbounded(conn, &search)
-                .map_err(|e| err(format!("DB error: {e}")))?
+                .map_err(|e| internal(format!("DB error: {e}")))?
         }
     };
 

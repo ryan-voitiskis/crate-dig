@@ -1241,10 +1241,11 @@
     #[tokio::test]
     async fn update_tracks_includes_provenance() {
         let server = ReklawdboxServer::new(None);
-        let known_genre = genre::get_taxonomy()
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| "House".to_string());
+        let known_genre = genre::GENRES
+            .first()
+            .copied()
+            .unwrap_or("House")
+            .to_string();
 
         let result = server
             .update_tracks(Parameters(UpdateTracksParams {

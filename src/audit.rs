@@ -5,7 +5,6 @@
 //! applies checks, and persists results to SQLite.
 
 use std::collections::{HashMap, HashSet};
-use std::fmt;
 use std::path::Path;
 
 use rusqlite::Connection;
@@ -19,7 +18,7 @@ use crate::tags::{self, FileReadResult};
 // Issue types & safety tiers
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::EnumIter, strum::Display)]
 pub enum IssueType {
     #[strum(serialize = "EMPTY_ARTIST")]
     EmptyArtist,
@@ -101,11 +100,6 @@ pub enum SafetyTier {
     Review,
 }
 
-impl fmt::Display for IssueType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
 
 // ---------------------------------------------------------------------------
 // Audit status & resolution

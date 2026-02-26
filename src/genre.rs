@@ -49,9 +49,6 @@ pub const GENRES: &[&str] = &[
     "UK Bass",
 ];
 
-pub fn get_taxonomy() -> Vec<String> {
-    GENRES.iter().map(|s| s.to_string()).collect()
-}
 
 /// Returns the canonical casing of a genre if it's in the taxonomy.
 pub fn canonical_casing(genre: &str) -> Option<&'static str> {
@@ -129,7 +126,7 @@ fn build_alias_map(aliases: &[(&str, &'static str)]) -> HashMap<String, &'static
 }
 
 /// Static alias map built once via OnceLock. Maps lowercase ASCII alias → canonical genre.
-fn alias_map() -> &'static HashMap<String, &'static str> {
+pub fn alias_map() -> &'static HashMap<String, &'static str> {
     static MAP: OnceLock<HashMap<String, &'static str>> = OnceLock::new();
     MAP.get_or_init(|| build_alias_map(ALIASES))
 }
@@ -139,15 +136,6 @@ pub fn normalize_genre(genre: &str) -> Option<&'static str> {
     alias_map().get(&genre.trim().to_ascii_lowercase()).copied()
 }
 
-pub fn get_alias_map() -> Vec<(String, String)> {
-    let map = alias_map();
-    let mut pairs: Vec<(String, String)> = map
-        .iter()
-        .map(|(k, v)| (k.clone(), v.to_string()))
-        .collect();
-    pairs.sort_by(|a, b| a.0.cmp(&b.0));
-    pairs
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GenreFamily {
@@ -187,15 +175,14 @@ mod tests {
 
     #[test]
     fn taxonomy_not_empty() {
-        assert!(!get_taxonomy().is_empty());
+        assert!(!GENRES.is_empty());
     }
 
     #[test]
     fn taxonomy_sorted() {
-        let genres = get_taxonomy();
-        let mut sorted = genres.clone();
+        let mut sorted = GENRES.to_vec();
         sorted.sort_by_key(|a| a.to_lowercase());
-        assert_eq!(genres, sorted, "GENRES array must be sorted alphabetically");
+        assert_eq!(GENRES, sorted.as_slice(), "GENRES array must be sorted alphabetically");
     }
 
     #[test]
@@ -273,7 +260,7 @@ mod tests {
 
     #[test]
     fn alias_map_not_empty() {
-        let aliases = get_alias_map();
+        let aliases = alias_map();
         assert!(
             aliases.len() >= 30,
             "expected at least 30 aliases, got {}",

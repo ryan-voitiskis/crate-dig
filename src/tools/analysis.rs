@@ -35,27 +35,3 @@ pub(super) async fn analyze_stratum(file_path: &str) -> Result<audio::StratumRes
         .map_err(|e| format!("Analysis task failed: {e}"))?
         .map_err(|e| format!("Analysis error: {e}"))
 }
-
-/// Run essentia analysis (async subprocess).
-pub(super) async fn analyze_essentia(
-    python_path: &str,
-    file_path: &str,
-) -> Result<audio::EssentiaOutput, String> {
-    audio::run_essentia(python_path, file_path)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// Write analysis result to cache.
-pub(super) fn cache_analysis(
-    store: &Connection,
-    file_path: &str,
-    analyzer: &str,
-    file_size: i64,
-    file_mtime: i64,
-    version: &str,
-    features_json: &str,
-) -> Result<(), String> {
-    store::set_audio_analysis(store, file_path, analyzer, file_size, file_mtime, version, features_json)
-        .map_err(|e| format!("Cache write error: {e}"))
-}

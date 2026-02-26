@@ -76,5 +76,6 @@ pub(super) fn scan_audio_directory(
 }
 
 pub(super) fn resolve_file_path(raw_path: &str) -> Result<String, McpError> {
-    audio::resolve_audio_path(raw_path).map_err(|e| super::resolve::err(e.to_string()))
+    audio::resolve_audio_path(raw_path)
+        .map_err(|e| McpError::internal_error(e.to_string(), None))
 }
