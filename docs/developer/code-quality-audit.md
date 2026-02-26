@@ -14,28 +14,13 @@ readability or style.
 
 These will likely cause agent-introduced bugs on the next non-trivial change.
 
-#### C1. `TrackChange` field set enumerated in 8+ locations with no compile-time enforcement
+#### C1. ~~`TrackChange` field set enumerated in 8+ locations with no compile-time enforcement~~ ✅ Resolved
 
-Adding a new editable field (e.g., `label: Option<String>`) requires updating
-8 locations in perfect sync. None are compiler-enforced:
-
-| # | Location | What it does |
-|---|----------|-------------|
-| 1 | `types.rs:45-48` | `TrackChange` struct definition |
-| 2 | `changes.rs:239-244` | `has_any_staged_field` — `is_some()` per field |
-| 3 | `changes.rs:246-258` | `merge_track_change` — overwrites per field |
-| 4 | `changes.rs:261-273` | `merge_missing_fields` — fills per field |
-| 5 | `changes.rs:276-301` | `apply_changes_with_map` — applies per field |
-| 6 | `changes.rs:165-215` | `clear_fields` — string-match with `_ => {}` catch-all |
-| 7 | `changes.rs:54-121` | `preview` — diff generation per field |
-| 8 | `tools.rs:787-798` | `TrackChangeInput` — mirrors struct with schemars |
-| 9 | `tools.rs:1654` | `VALID_FIELDS` — hardcoded string list |
-
-`clear_fields` uses string dispatch — a misspelled field silently does nothing.
-`changes.rs:205-210` has an inline all-fields-None check that also needs updating.
-
-**Fix**: Macro or derive to enumerate fields once; or refactor fields into a
-`BTreeMap<FieldName, Value>` with a `FieldName` enum.
+`EditableField` enum in `types.rs` with `ALL` constant and `from_str()`/`as_str()`
+methods. `clear_fields` uses `EditableField::from_str()` dispatch. `VALID_FIELDS`
+replaced with `EditableField::from_str()` + `all_names_csv()`. Compile-time
+field-count assertion test catches divergence between `TrackChange` fields and
+`EditableField` variants.
 
 #### C2. ~~`SearchParams` construction copy-pasted 6 times~~ ✅ Resolved
 
@@ -44,32 +29,17 @@ with `SearchFilterParams::into_search_params()`. All 18 test constructions use
 `..Default::default()`. Adding a new filter field only requires updating
 `SearchFilterParams` and `into_search_params`.
 
-#### C3. `tools.rs` is 8138 lines — exceeds agent context windows
+#### C3. ~~`tools.rs` is 8138 lines — exceeds agent context windows~~ ✅ Resolved
 
-Contains logically unrelated concerns: MCP tool definitions, parameter structs,
-transition scoring engine (Camelot math, energy curves), corpus helpers,
-Essentia setup, audio scanning, genre family mapping, ~3100 lines of tests.
+Split into `src/tools/` module directory: `mod.rs` (2899 lines, tool methods only),
+`params.rs`, `scoring.rs`, `corpus_helpers.rs`, `enrichment.rs`, `essentia.rs`,
+`resolve.rs`, `audio_scan.rs`, `tests.rs`.
 
-**Fix**: Split into modules: `tools/mod.rs`, `tools/params.rs`,
-`tools/scoring.rs`, `tools/enrichment.rs`, `tools/analysis.rs`.
+#### C4. ~~`IssueType` enum: 7 update sites, only `as_str()` is compiler-enforced~~ ✅ Resolved
 
-#### C4. `IssueType` enum: 7 update sites, only `as_str()` is compiler-enforced
-
-| # | Location | Compiler-enforced? |
-|---|----------|-------------------|
-| 1 | `audit.rs:42-59` `as_str()` | Yes (exhaustive match) |
-| 2 | `audit.rs:62-80` `from_str()` | No (`_ => None`) |
-| 3 | `audit.rs:83-89` `safety_tier()` | No (`_ => Review`) |
-| 4 | `audit.rs:396-540` / `545-693` detection logic | No |
-| 5 | `audit.rs:1569-1585` round-trip test array | No |
-| 6 | `audit.rs:1597-1611` safety_tiers test | No |
-| 7 | `check_tags`/`check_filename` skip handling | No |
-
-A new variant that only updates `as_str()` compiles and passes tests but never
-detects anything and silently defaults to `Review` tier.
-
-**Fix**: `strum::EnumString` derive for `from_str`; remove `_ =>` catch-all
-from `safety_tier()`.
+`strum::EnumString` + `strum::Display` derives replace manual `as_str()`/`from_str()`.
+`safety_tier()` catch-all removed — new variants get a compile error until
+assigned a tier.
 
 #### C5. `OnceLock` caches credential errors permanently
 
@@ -96,13 +66,12 @@ structs now use `#[serde(flatten)] pub filters: SearchFilterParams`.
 `db::SearchParams`. MCP tool JSON schemas are unchanged (`schemars` inlines
 flattened fields).
 
-#### H2. Track resolution pattern duplicated 4 times with subtle differences
+#### H2. ~~Track resolution pattern duplicated 4 times with subtle differences~~ ✅ Resolved
 
-`tools.rs` — "resolve tracks by priority: ids > playlist > search" in
-`enrich_tracks`, `analyze_audio_batch`, `resolve_tracks_data`, `cache_coverage`.
-The `cache_coverage` variant uses unbounded queries and sampler filtering.
-
-**Fix**: Extract `resolve_tracks(params, conn, opts) -> Vec<Track>`.
+Extracted `resolve_tracks()` in `tools/resolve.rs` with `ResolveTracksOpts`
+struct handling bounded/unbounded queries and sampler filtering. All 4 call
+sites (`enrich_tracks`, `analyze_audio_batch`, `resolve_tracks_data`,
+`cache_coverage`) use the shared helper.
 
 #### H3. ~~`AUDIO_EXTENSIONS` defined identically in 3 files~~ ✅ Resolved
 
@@ -117,12 +86,10 @@ independent implementations with different error handling.
 
 **Fix**: Extract `analyze_and_cache(path, store, analyzers) -> AnalysisResult`.
 
-#### H5. Provider dispatch via raw strings instead of enum
+#### H5. ~~Provider dispatch via raw strings instead of enum~~ ✅ Resolved
 
-`tools.rs:1891-1898,1957-2069` — `"discogs"` / `"beatport"` validated and
-dispatched as bare strings. Adding a provider requires 3 manual updates.
-
-**Fix**: `enum Provider { Discogs, Beatport }` with `Deserialize`.
+`enum Provider { Discogs, Beatport }` in `types.rs` with `Serialize`/`Deserialize`.
+String dispatch replaced with enum match in tool handlers.
 
 #### H6. Genre-to-family mapping disconnected from genre taxonomy
 
@@ -143,14 +110,10 @@ that the replacement produced different output.
 **Fix**: `assert_ne!(base_sql, TRACK_SELECT)` after replacement; or compose SQL
 from parts instead of string surgery.
 
-#### H8. Audit status/resolution strings cross module boundaries untyped
+#### H8. ~~Audit status/resolution strings cross module boundaries untyped~~ ✅ Resolved
 
-`audit.rs:952,1094` and `store.rs:524-528` — Statuses (`"open"`, `"resolved"`,
-`"accepted"`, `"deferred"`) and resolutions (`"accepted_as_is"`, `"wont_fix"`,
-`"deferred"`) are bare string literals. `store.rs` maps with `_ => "resolved"`
-catch-all.
-
-**Fix**: `enum AuditStatus` and `enum Resolution` with `as_str()` methods.
+`enum AuditStatus` and `enum Resolution` in `audit.rs` with `strum` derives.
+Bare string literals and catch-all mappings replaced with enum variants.
 
 #### H9. Dynamic SQL parameter numbering in `get_audit_issues`
 
@@ -177,13 +140,12 @@ No logging at fallback points.
 **Fix**: Add `tracing::debug!` at each fallback; consider returning a
 `NotFound` vs `ParseError` distinction.
 
-#### H12. String-typed closed sets: `FieldDiff.field`, `NormalizationSuggestion.confidence`
+#### H12. ~~String-typed closed sets: `FieldDiff.field`, `NormalizationSuggestion.confidence`~~ ✅ Resolved
 
-`types.rs:52-56,96` — `field` only takes 4 values, `confidence` only takes 3.
-Both are `String`. Consumers match with catch-all fallbacks.
-
-**Fix**: `enum EditableField { Genre, Comments, Rating, Color }` and
-`enum Confidence { Alias, Unknown, Canonical }`.
+`enum Confidence { Alias, Unknown, Canonical }` in `types.rs` with
+`Serialize`/`Deserialize`. `EditableField` enum added (see C1). `FieldDiff.field`
+remains `String` for JSON serialization but values are produced via
+`EditableField::as_str()`.
 
 #### H13. Blocking subprocess in async tool handler
 
@@ -295,21 +257,17 @@ one side could break the contract.
 
 ### 1. String-typed closed sets instead of enums
 
-The single most pervasive anti-pattern. Affects: editable fields, audit
-statuses, resolutions, issue types (partially), provider names, confidence
-levels, analyzer names, field diff names. Converting to enums makes the
-compiler catch omissions when adding variants.
+Largely resolved. Remaining: analyzer name strings (M31), field diff names
+(still `String` for JSON compat but produced via `EditableField::as_str()`).
 
-**Affected findings**: C1, C4, H5, H8, H12, M31
+**Affected findings**: ~~C1~~, ~~C4~~, ~~H5~~, ~~H8~~, ~~H12~~, M31
 
 ### 2. Copy-paste with subtle variation
 
-SearchParams construction (C2), track resolution (H2), audio analysis caching
-(H4), parameter structs (H1), status aggregation (M4), AUDIO_EXTENSIONS (H3),
-escape_like (M1), urlencoding (M2). Each copy has minor differences that make
-extraction tricky but not impossible.
+Largely resolved. Remaining: audio analysis caching (H4), status aggregation
+(M4), disc-subdir detection (M5), Essentia storage in CLI (M3).
 
-**Affected findings**: C2, H1-H4, M1-M5
+**Affected findings**: ~~C2~~, ~~H1~~, ~~H2~~, H4, ~~H3~~, ~~M1~~, ~~M2~~, M3-M5
 
 ### 3. Cross-module implicit contracts
 
@@ -320,13 +278,12 @@ these contracts gives no signal about the other.
 
 **Affected findings**: H6-H8, H10, M10, M11
 
-### 4. Monolith file
+### 4. ~~Monolith file~~ ✅ Resolved
 
-`tools.rs` at 8k lines is the #1 barrier to agent productivity. All the
-duplication findings (C2, H1, H2, H4) live here and would be more apparent
-and fixable after splitting.
+`tools.rs` split into 9-file module directory. `mod.rs` is 2899 lines
+(tool methods only). Submodules handle params, scoring, enrichment, etc.
 
-**Affected findings**: C3, and indirectly C2, H1, H2, H4, H5
+**Affected findings**: ~~C3~~
 
 ### 5. Silent error swallowing
 
@@ -342,13 +299,13 @@ went wrong — the agent assumes success and moves on.
 
 Highest-impact changes ordered by (bug prevention * effort ratio):
 
-1. **Derive `Default` for `SearchParams`** — trivial change, eliminates C2
-2. **`enum EditableField`** — moderate change, eliminates C1 + H12
-3. **Split `tools.rs`** — moderate effort, unlocks all other refactors (C3)
-4. **`enum AuditStatus` + `enum Resolution`** — small change, eliminates H8
-5. **`strum` derives for `IssueType`** — small change, partially fixes C4
-6. **Extract `SearchFilterParams`** — moderate, eliminates H1
-7. **Extract `resolve_tracks()` helper** — moderate, eliminates H2
-8. **Shared `AUDIO_EXTENSIONS` constant** — trivial, eliminates H3
-9. **`enum Provider`** — small, eliminates H5
+1. ~~**Derive `Default` for `SearchParams`**~~ ✅ Done — eliminates C2
+2. ~~**`enum EditableField`**~~ ✅ Done — eliminates C1 + H12
+3. ~~**Split `tools.rs`**~~ ✅ Done — unlocks all other refactors (C3)
+4. ~~**`enum AuditStatus` + `enum Resolution`**~~ ✅ Done — eliminates H8
+5. ~~**`strum` derives for `IssueType`**~~ ✅ Done — eliminates C4
+6. ~~**Extract `SearchFilterParams`**~~ ✅ Done — eliminates H1
+7. ~~**Extract `resolve_tracks()` helper**~~ ✅ Done — eliminates H2
+8. ~~**Shared `AUDIO_EXTENSIONS` constant**~~ ✅ Done — eliminates H3
+9. ~~**`enum Provider`**~~ ✅ Done — eliminates H5
 10. **`EssentiaOutput` struct** — moderate, eliminates H10
