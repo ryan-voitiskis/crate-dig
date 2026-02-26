@@ -1144,10 +1144,15 @@ pub struct IssueRecord {
 }
 
 fn store_issue_to_record(i: store::AuditIssue) -> IssueRecord {
-    let detail = i
-        .detail
-        .as_deref()
-        .and_then(|d| serde_json::from_str(d).ok());
+    let detail = i.detail.as_deref().and_then(|d| {
+        match serde_json::from_str(d) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                eprintln!("[audit] issue {}: detail JSON parse failed: {e}", i.id);
+                None
+            }
+        }
+    });
     IssueRecord {
         id: i.id,
         path: i.path,
