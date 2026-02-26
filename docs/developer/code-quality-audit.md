@@ -73,13 +73,11 @@ sites (`enrich_tracks`, `analyze_audio_batch`, `resolve_tracks_data`,
 Single `pub(crate) const AUDIO_EXTENSIONS` in `audio.rs`, referenced by
 `cli.rs`, `audit.rs`, and `tools.rs`.
 
-#### H4. Audio analysis cache flow duplicated between single and batch tools
+#### H4. ~~Audio analysis cache flow duplicated between single and batch tools~~ ✅ Resolved
 
-`tools.rs:2121-2226` (single) vs `tools.rs:2349-2549` (batch). Stratum-dsp
-and Essentia flows (check cache → decode → analyze → cache → return) are
-independent implementations with different error handling.
-
-**Fix**: Extract `analyze_and_cache(path, store, analyzers) -> AnalysisResult`.
+Extracted `check_analysis_cache()`, `analyze_stratum()`, `analyze_essentia()`,
+and `cache_analysis()` into `tools/analysis.rs`. Both `analyze_track_audio` and
+`analyze_audio_batch` use the shared helpers.
 
 #### H5. ~~Provider dispatch via raw strings instead of enum~~ ✅ Resolved
 
@@ -110,22 +108,17 @@ Replaced manual `?4`/`?5` numbering and 4-arm match with dynamic
 `Vec<Box<dyn ToSql>>` builder and `params_from_iter`. Adding new filters
 requires only a new `if let` block.
 
-#### H10. Embedded 185-line Python script with no schema contract
+#### H10. ~~Embedded 185-line Python script with no schema contract~~ ✅ Resolved
 
-`audio.rs:32-216` — Essentia script as raw string. Output parsed as untyped
-`serde_json::Value`. No Rust struct defines expected keys. Errors are runtime-only.
+`EssentiaOutput` struct with `Serialize`/`Deserialize` + `#[serde(default)]`
+in `audio.rs`. `run_essentia()` and `parse_essentia_stdout()` return typed
+struct. All downstream consumers use typed field access.
 
-**Fix**: Define `EssentiaOutput` struct with `Deserialize`; validate output
-against it.
+#### H11. ~~Beatport HTML parsing silently fragile~~ ✅ Resolved
 
-#### H11. Beatport HTML parsing silently fragile
-
-`beatport.rs:102-192` — Scrapes `__NEXT_DATA__` via string search. Every
-failure point returns `Ok(None)` — indistinguishable from "no results."
-No logging at fallback points.
-
-**Fix**: Add `tracing::debug!` at each fallback; consider returning a
-`NotFound` vs `ParseError` distinction.
+`parse_beatport_html()` now returns `Err(String)` with descriptive messages
+for parse failures (missing `__NEXT_DATA__`, malformed JSON, missing path,
+non-array queries). `Ok(None)` reserved for legitimate "no matching track".
 
 #### H12. ~~String-typed closed sets: `FieldDiff.field`, `NormalizationSuggestion.confidence`~~ ✅ Resolved
 
@@ -134,12 +127,10 @@ No logging at fallback points.
 remains `String` for JSON serialization but values are produced via
 `EditableField::as_str()`.
 
-#### H13. Blocking subprocess in async tool handler
+#### H13. ~~Blocking subprocess in async tool handler~~ ✅ Resolved
 
-`tools.rs:1546` — `std::process::Command` (backup script) runs synchronously
-inside an async MCP tool handler. Can stall a Tokio worker thread.
-
-**Fix**: Use `tokio::process::Command` or `spawn_blocking`.
+Backup script call wrapped in `tokio::task::spawn_blocking()`, matching the
+existing pattern used for essentia validation.
 
 ---
 
@@ -251,18 +242,17 @@ Largely resolved. Remaining: analyzer name strings (M31), field diff names
 
 ### 2. Copy-paste with subtle variation
 
-Largely resolved. Remaining: audio analysis caching (H4), status aggregation
-(M4), disc-subdir detection (M5), Essentia storage in CLI (M3).
+Largely resolved. Remaining: status aggregation (M4), disc-subdir detection
+(M5), Essentia storage in CLI (M3).
 
-**Affected findings**: ~~C2~~, ~~H1~~, ~~H2~~, H4, ~~H3~~, ~~M1~~, ~~M2~~, M3-M5
+**Affected findings**: ~~C2~~, ~~H1~~, ~~H2~~, ~~H4~~, ~~H3~~, ~~M1~~, ~~M2~~, M3-M5
 
 ### 3. Cross-module implicit contracts
 
-Color `0 = unset` (M10), Python Essentia output keys (H10), XML attribute names
-vs struct fields (M11). Modifying one side of these contracts gives no signal
-about the other.
+Color `0 = unset` (M10), XML attribute names vs struct fields (M11). Modifying
+one side of these contracts gives no signal about the other.
 
-**Affected findings**: ~~H6~~, ~~H7~~, ~~H8~~, H10, M10, M11
+**Affected findings**: ~~H6~~, ~~H7~~, ~~H8~~, ~~H10~~, M10, M11
 
 ### 4. ~~Monolith file~~ ✅ Resolved
 
@@ -277,7 +267,7 @@ Multiple sites return `Ok(None)` or `Ok(0)` where an error occurred. This is
 particularly dangerous for agents because there's no signal that something
 went wrong — the agent assumes success and moves on.
 
-**Affected findings**: H11, M12, M15-M19, L3-L6
+**Affected findings**: ~~H11~~, M12, M15-M19, L3-L6
 
 ---
 
@@ -294,4 +284,4 @@ Highest-impact changes ordered by (bug prevention * effort ratio):
 7. ~~**Extract `resolve_tracks()` helper**~~ ✅ Done — eliminates H2
 8. ~~**Shared `AUDIO_EXTENSIONS` constant**~~ ✅ Done — eliminates H3
 9. ~~**`enum Provider`**~~ ✅ Done — eliminates H5
-10. **`EssentiaOutput` struct** — moderate, eliminates H10
+10. ~~**`EssentiaOutput` struct**~~ ✅ Done — eliminates H10
