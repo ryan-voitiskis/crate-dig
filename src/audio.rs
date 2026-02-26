@@ -349,6 +349,7 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
         .map_err(|e| format!("Failed to create decoder: {e}"))?;
 
     let mut all_samples: Vec<f32> = Vec::new();
+    let mut decode_warning_count: u64 = 0;
 
     loop {
         let packet = match format_reader.next_packet() {
@@ -367,8 +368,8 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
 
         let decoded = match decoder.decode(&packet) {
             Ok(d) => d,
-            Err(symphonia::core::errors::Error::DecodeError(e)) => {
-                eprintln!("[audio] decode warning: {e}");
+            Err(symphonia::core::errors::Error::DecodeError(_)) => {
+                decode_warning_count += 1;
                 continue;
             }
             Err(symphonia::core::errors::Error::ResetRequired) => {
@@ -380,6 +381,10 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), String> {
 
         let mono = decode_buffer_to_mono(&decoded);
         all_samples.extend_from_slice(&mono);
+    }
+
+    if decode_warning_count > 0 {
+        eprintln!("[audio] {path}: {decode_warning_count} decode warnings (frames skipped)");
     }
 
     if all_samples.is_empty() {
