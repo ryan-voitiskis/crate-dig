@@ -1931,7 +1931,7 @@
             "",
             "/music/coverage-nonsample.flac",
         );
-        let sampler_path = format!("{}CoverageSampler.wav", db::SAMPLER_PATH_PREFIX);
+        let sampler_path = format!("/music{}CoverageSampler.wav", db::SAMPLER_PATH_FRAGMENT);
         insert_test_track(
             &db_conn,
             "coverage-sampler",

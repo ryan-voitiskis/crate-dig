@@ -114,8 +114,6 @@ fn decode_rating_stars(rating_raw: i32) -> u8 {
     }
 }
 
-/// Legacy absolute path retained for compatibility with other modules.
-pub const SAMPLER_PATH_PREFIX: &str = "/Users/vz/Music/rekordbox/Sampler/";
 /// Rekordbox sampler files live under this path fragment across installations.
 pub const SAMPLER_PATH_FRAGMENT: &str = "/rekordbox/Sampler/";
 

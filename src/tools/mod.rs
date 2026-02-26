@@ -2053,7 +2053,7 @@ impl ReklawdboxServer {
 
         let (total_tracks, tracks) = {
             let conn = self.conn()?;
-            let sample_prefix = format!("{}%", db::escape_like(db::SAMPLER_PATH_PREFIX));
+            let sample_prefix = format!("%{}%", db::escape_like(db::SAMPLER_PATH_FRAGMENT));
             let total_tracks: usize = conn
                 .query_row(
                     "SELECT COUNT(*) FROM djmdContent

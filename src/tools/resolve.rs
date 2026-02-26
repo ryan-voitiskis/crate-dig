@@ -76,7 +76,7 @@ pub(super) fn resolve_tracks(
     let mut tracks: Vec<_> = if opts.exclude_samplers {
         tracks
             .into_iter()
-            .filter(|t| !t.file_path.starts_with(db::SAMPLER_PATH_PREFIX))
+            .filter(|t| !t.file_path.contains(db::SAMPLER_PATH_FRAGMENT))
             .collect()
     } else {
         tracks
