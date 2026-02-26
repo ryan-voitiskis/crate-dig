@@ -846,8 +846,10 @@ fn write_file_tags_dry_run_inner(entry: &WriteEntry) -> Result<FileDryRunResult,
     // WAV with riff_info-only target: diff against RIFF INFO.
     // WAV with id3v2-only or both: diff against ID3v2.
     // Non-WAV: use primary tag.
+    let riff_only = is_wav
+        && wav_targets.len() == 1
+        && wav_targets[0] == WavTarget::RiffInfo;
     let primary_tag = if is_wav {
-        let riff_only = wav_targets.len() == 1 && wav_targets[0] == WavTarget::RiffInfo;
         if riff_only {
             tagged_file.tag(TagType::RiffInfo)
         } else {
@@ -858,10 +860,14 @@ fn write_file_tags_dry_run_inner(entry: &WriteEntry) -> Result<FileDryRunResult,
             .primary_tag()
             .or_else(|| tagged_file.first_tag())
     };
-
     let mut changes = HashMap::new();
 
     for (field, new_value) in &entry.tags {
+        // Skip fields that the write path would skip for RIFF-only WAV targets
+        if riff_only && !is_riff_info_field(field) {
+            continue;
+        }
+
         let old_value = primary_tag.and_then(|t| get_field_from_tag(t, field));
 
         let effective_new: Option<String> = match new_value {
@@ -1217,5 +1223,71 @@ mod tests {
         let filter = vec!["artist".to_string(), "title".to_string()];
         let result = resolve_fields(Some(&filter));
         assert_eq!(result, vec!["artist", "title"]);
+    }
+
+    #[test]
+    fn dry_run_riff_only_excludes_unsupported_fields() {
+        // Create a minimal WAV file with ID3v2 tags for testing.
+        // Since we can't easily create a real WAV here, test the filtering
+        // logic directly: a RIFF-only entry with non-RIFF fields should
+        // produce no changes for those fields.
+        let dir = tempfile::tempdir().unwrap();
+        let wav_path = dir.path().join("test.wav");
+
+        // Write a minimal valid WAV file (44-byte header + 2 bytes of silence)
+        let wav_header: Vec<u8> = {
+            let data_size: u32 = 2; // 1 sample, 16-bit mono
+            let file_size = 36 + data_size;
+            let mut h = Vec::new();
+            h.extend_from_slice(b"RIFF");
+            h.extend_from_slice(&file_size.to_le_bytes());
+            h.extend_from_slice(b"WAVE");
+            h.extend_from_slice(b"fmt ");
+            h.extend_from_slice(&16u32.to_le_bytes()); // chunk size
+            h.extend_from_slice(&1u16.to_le_bytes());  // PCM
+            h.extend_from_slice(&1u16.to_le_bytes());  // mono
+            h.extend_from_slice(&44100u32.to_le_bytes()); // sample rate
+            h.extend_from_slice(&88200u32.to_le_bytes()); // byte rate
+            h.extend_from_slice(&2u16.to_le_bytes());  // block align
+            h.extend_from_slice(&16u16.to_le_bytes()); // bits per sample
+            h.extend_from_slice(b"data");
+            h.extend_from_slice(&data_size.to_le_bytes());
+            h.extend_from_slice(&[0u8; 2]); // 1 silent sample
+            h
+        };
+        std::fs::write(&wav_path, &wav_header).unwrap();
+
+        let entry = WriteEntry {
+            path: wav_path,
+            tags: HashMap::from([
+                ("key".to_string(), Some("Am".to_string())),
+                ("bpm".to_string(), Some("128".to_string())),
+                ("remixer".to_string(), Some("Someone".to_string())),
+            ]),
+            wav_targets: vec![WavTarget::RiffInfo],
+        };
+
+        let result = write_file_tags_dry_run(&entry);
+        match result {
+            FileDryRunResult::Preview { changes, .. } => {
+                // key, bpm, and remixer are NOT RIFF INFO fields, so they
+                // should be excluded from the diff entirely.
+                assert!(
+                    !changes.contains_key("key"),
+                    "key should be excluded from RIFF-only dry-run"
+                );
+                assert!(
+                    !changes.contains_key("bpm"),
+                    "bpm should be excluded from RIFF-only dry-run"
+                );
+                assert!(
+                    !changes.contains_key("remixer"),
+                    "remixer should be excluded from RIFF-only dry-run"
+                );
+            }
+            FileDryRunResult::Error { error, .. } => {
+                panic!("dry-run should succeed, got error: {error}");
+            }
+        }
     }
 }
