@@ -2416,7 +2416,7 @@ impl ReklawdboxServer {
         })
         .await
         .map_err(|e| err(format!("join error: {e}")))?
-        .map_err(err)?;
+        .map_err(|e| err(e.to_string()))?;
 
         let json = serde_json::to_string_pretty(&result).map_err(|e| err(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))

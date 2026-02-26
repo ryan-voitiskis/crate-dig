@@ -16,6 +16,25 @@ use lofty::probe::Probe;
 use lofty::tag::{ItemKey, Tag, TagType};
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, thiserror::Error)]
+pub enum TagError {
+    /// lofty open/read/write failures.
+    #[error("{0}")]
+    Io(String),
+    /// Validation failures (unknown field, invalid year/track/disc).
+    #[error("{0}")]
+    Validation(String),
+    /// No cover art found in file.
+    #[error("No cover art found in file")]
+    NoPicture,
+    /// No tags found in file.
+    #[error("No tags found in file")]
+    NoTags,
+    /// File doesn't support requested tag type.
+    #[error("{0}")]
+    Unsupported(String),
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -419,12 +438,12 @@ fn mime_name(mime: Option<&MimeType>) -> &'static str {
 /// - `year`: must be 4-digit YYYY or null/empty (delete)
 /// - `track`, `disc`: must be positive integer or null/empty (delete)
 /// - All other fields: accepted as-is
-pub fn validate_write_tags(tags: &HashMap<String, Option<String>>) -> Result<(), String> {
+pub fn validate_write_tags(tags: &HashMap<String, Option<String>>) -> Result<(), TagError> {
     for (field, value) in tags {
         // Check field name validity first — even for null/empty (delete) values
         let is_validated_field = matches!(field.as_str(), "year" | "track" | "disc");
         if !is_validated_field && field_to_item_key(field).is_none() {
-            return Err(format!("Unknown field \"{field}\""));
+            return Err(TagError::Validation(format!("Unknown field \"{field}\"")));
         }
 
         let Some(val) = value else { continue };
@@ -435,18 +454,18 @@ pub fn validate_write_tags(tags: &HashMap<String, Option<String>>) -> Result<(),
         match field.as_str() {
             "year" => {
                 if val.len() != 4 || val.parse::<u16>().is_err() {
-                    return Err(format!(
+                    return Err(TagError::Validation(format!(
                         "Invalid year \"{val}\": must be 4-digit YYYY or null/empty to delete"
-                    ));
+                    )));
                 }
             }
             "track" | "disc" => {
                 match val.parse::<u32>() {
                     Ok(n) if n > 0 => {}
                     _ => {
-                        return Err(format!(
+                        return Err(TagError::Validation(format!(
                             "Invalid {field} \"{val}\": must be a positive integer or null/empty to delete"
-                        ));
+                        )));
                     }
                 }
             }
@@ -612,7 +631,7 @@ pub fn write_file_tags(entry: &WriteEntry) -> FileWriteResult {
         return FileWriteResult::Error {
             path: path_str,
             status: "error".to_string(),
-            error: e,
+            error: e.to_string(),
         };
     }
 
@@ -621,21 +640,21 @@ pub fn write_file_tags(entry: &WriteEntry) -> FileWriteResult {
         Err(e) => FileWriteResult::Error {
             path: path_str,
             status: "error".to_string(),
-            error: e,
+            error: e.to_string(),
         },
     }
 }
 
-fn write_file_tags_inner(entry: &WriteEntry) -> Result<FileWriteResult, String> {
+fn write_file_tags_inner(entry: &WriteEntry) -> Result<FileWriteResult, TagError> {
     let path = &entry.path;
     let path_str = path.display().to_string();
 
     // Read file to detect format
     let tagged_file = Probe::open(path)
-        .map_err(|e| format!("Failed to open: {e}"))?
+        .map_err(|e| TagError::Io(format!("Failed to open: {e}")))?
         .options(parse_options(false))
         .read()
-        .map_err(|e| format!("Failed to read: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to read: {e}")))?;
 
     let file_type = tagged_file.file_type();
     let is_wav = file_type == FileType::Wav;
@@ -719,15 +738,15 @@ fn write_tag_layer(
     riff_info_layer: bool,
     fields_written: &mut Vec<String>,
     fields_deleted: &mut Vec<String>,
-) -> Result<(), String> {
+) -> Result<(), TagError> {
     // Re-read the file for this tag layer (lofty requires read-modify-write
     // per tag type since save_to_path reopens the file).
     // Must read cover art (`true`) so existing pictures survive the round-trip.
     let mut tagged_file = Probe::open(path)
-        .map_err(|e| format!("Failed to open: {e}"))?
+        .map_err(|e| TagError::Io(format!("Failed to open: {e}")))?
         .options(parse_options(true))
         .read()
-        .map_err(|e| format!("Failed to read: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to read: {e}")))?;
 
     // Get or create the tag
     let tag = match tagged_file.tag_mut(tag_type) {
@@ -737,7 +756,9 @@ fn write_tag_layer(
             tagged_file.insert_tag(Tag::new(tag_type));
             tagged_file
                 .tag_mut(tag_type)
-                .ok_or_else(|| format!("File does not support {tag_type:?} tags"))?
+                .ok_or_else(|| {
+                    TagError::Unsupported(format!("File does not support {tag_type:?} tags"))
+                })?
         }
     };
 
@@ -796,7 +817,7 @@ fn write_tag_layer(
 
     if any_changes {
         tag.save_to_path(path, WriteOptions::default())
-            .map_err(|e| format!("Failed to write {tag_type:?} tag: {e}"))?;
+            .map_err(|e| TagError::Io(format!("Failed to write {tag_type:?} tag: {e}")))?;
     }
 
     Ok(())
@@ -814,7 +835,7 @@ pub fn write_file_tags_dry_run(entry: &WriteEntry) -> FileDryRunResult {
         return FileDryRunResult::Error {
             path: path_str,
             status: "error".to_string(),
-            error: e,
+            error: e.to_string(),
         };
     }
 
@@ -823,20 +844,20 @@ pub fn write_file_tags_dry_run(entry: &WriteEntry) -> FileDryRunResult {
         Err(e) => FileDryRunResult::Error {
             path: path_str,
             status: "error".to_string(),
-            error: e,
+            error: e.to_string(),
         },
     }
 }
 
-fn write_file_tags_dry_run_inner(entry: &WriteEntry) -> Result<FileDryRunResult, String> {
+fn write_file_tags_dry_run_inner(entry: &WriteEntry) -> Result<FileDryRunResult, TagError> {
     let path = &entry.path;
     let path_str = path.display().to_string();
 
     let tagged_file = Probe::open(path)
-        .map_err(|e| format!("Failed to open: {e}"))?
+        .map_err(|e| TagError::Io(format!("Failed to open: {e}")))?
         .options(parse_options(false))
         .read()
-        .map_err(|e| format!("Failed to read: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to read: {e}")))?;
 
     let file_type = tagged_file.file_type();
     let is_wav = file_type == FileType::Wav;
@@ -924,15 +945,15 @@ pub fn extract_cover_art(
     path: &Path,
     output_path: Option<&Path>,
     picture_type: &str,
-) -> Result<ExtractArtResult, String> {
+) -> Result<ExtractArtResult, TagError> {
     let path_str = path.display().to_string();
     let pic_type = parse_picture_type(picture_type);
 
     let tagged_file = Probe::open(path)
-        .map_err(|e| format!("Failed to open: {e}"))?
+        .map_err(|e| TagError::Io(format!("Failed to open: {e}")))?
         .options(parse_options(true))
         .read()
-        .map_err(|e| format!("Failed to read: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to read: {e}")))?;
 
     let file_type = tagged_file.file_type();
 
@@ -945,7 +966,7 @@ pub fn extract_cover_art(
             .or_else(|| tagged_file.first_tag())
     };
 
-    let tag = tag.ok_or("No tags found in file")?;
+    let tag = tag.ok_or(TagError::NoTags)?;
 
     // Find the requested picture type, fall back to any picture
     let picture = tag
@@ -953,7 +974,7 @@ pub fn extract_cover_art(
         .iter()
         .find(|p| p.pic_type() == pic_type)
         .or_else(|| tag.pictures().first())
-        .ok_or("No cover art found in file")?;
+        .ok_or(TagError::NoPicture)?;
 
     let ext = mime_extension(picture.mime_type());
     let image_format = mime_name(picture.mime_type());
@@ -967,7 +988,7 @@ pub fn extract_cover_art(
     };
 
     fs::write(&out_path, picture.data())
-        .map_err(|e| format!("Failed to write cover art: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to write cover art: {e}")))?;
 
     Ok(ExtractArtResult {
         path: path_str,
@@ -1000,7 +1021,7 @@ pub fn embed_cover_art(
         Err(e) => FileEmbedResult::Error {
             path: target_str,
             status: "error".to_string(),
-            error: e,
+            error: e.to_string(),
         },
     }
 }
@@ -1009,17 +1030,17 @@ fn embed_cover_art_inner(
     image_path: &Path,
     target_path: &Path,
     picture_type_str: &str,
-) -> Result<(), String> {
+) -> Result<(), TagError> {
     let pic_type = parse_picture_type(picture_type_str);
 
     // Read image data and detect format via lofty
     let image_data =
-        fs::read(image_path).map_err(|e| format!("Failed to read image: {e}"))?;
+        fs::read(image_path).map_err(|e| TagError::Io(format!("Failed to read image: {e}")))?;
 
     // Detect MIME type from the data
     let mut cursor = std::io::Cursor::new(&image_data);
     let detected = Picture::from_reader(&mut cursor)
-        .map_err(|e| format!("Failed to parse image: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to parse image: {e}")))?;
 
     // Build a new picture with the desired PictureType and detected MIME
     let mut builder = Picture::unchecked(image_data)
@@ -1031,10 +1052,10 @@ fn embed_cover_art_inner(
 
     // Read the target file
     let mut tagged_file = Probe::open(target_path)
-        .map_err(|e| format!("Failed to open: {e}"))?
+        .map_err(|e| TagError::Io(format!("Failed to open: {e}")))?
         .options(parse_options(true))
         .read()
-        .map_err(|e| format!("Failed to read: {e}"))?;
+        .map_err(|e| TagError::Io(format!("Failed to read: {e}")))?;
 
     let file_type = tagged_file.file_type();
 
@@ -1046,7 +1067,9 @@ fn embed_cover_art_inner(
                 tagged_file.insert_tag(Tag::new(TagType::Id3v2));
                 tagged_file
                     .tag_mut(TagType::Id3v2)
-                    .ok_or("WAV file does not support ID3v2")?
+                    .ok_or(TagError::Unsupported(
+                        "WAV file does not support ID3v2".to_string(),
+                    ))?
             }
         };
 
@@ -1054,7 +1077,7 @@ fn embed_cover_art_inner(
         tag.push_picture(picture);
 
         tag.save_to_path(target_path, WriteOptions::default())
-            .map_err(|e| format!("Failed to write ID3v2 tag: {e}"))?;
+            .map_err(|e| TagError::Io(format!("Failed to write ID3v2 tag: {e}")))?;
     } else {
         // Single tag layer — use primary tag type
         let primary_type = file_type.primary_tag_type();
@@ -1064,7 +1087,11 @@ fn embed_cover_art_inner(
                 tagged_file.insert_tag(Tag::new(primary_type));
                 tagged_file
                     .tag_mut(primary_type)
-                    .ok_or_else(|| format!("File does not support {primary_type:?} tags"))?
+                    .ok_or_else(|| {
+                        TagError::Unsupported(format!(
+                            "File does not support {primary_type:?} tags"
+                        ))
+                    })?
             }
         };
 
@@ -1072,7 +1099,7 @@ fn embed_cover_art_inner(
         tag.push_picture(picture);
 
         tag.save_to_path(target_path, WriteOptions::default())
-            .map_err(|e| format!("Failed to write tag: {e}"))?;
+            .map_err(|e| TagError::Io(format!("Failed to write tag: {e}")))?;
     }
 
     Ok(())
