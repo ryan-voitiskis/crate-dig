@@ -625,17 +625,22 @@ impl ReklawdboxServer {
             .find(|path| std::path::Path::new(path).exists());
         if let Some(script_path) = backup_script {
             eprintln!("[reklawdbox] Running pre-op backup...");
-            let output = std::process::Command::new("bash")
-                .arg(script_path)
-                .arg("--pre-op")
-                .output();
-            match output {
-                Ok(o) if o.status.success() => eprintln!("[reklawdbox] Backup completed."),
-                Ok(o) => {
+            let script_path = script_path.to_string();
+            match tokio::task::spawn_blocking(move || {
+                std::process::Command::new("bash")
+                    .arg(&script_path)
+                    .arg("--pre-op")
+                    .output()
+            })
+            .await
+            {
+                Ok(Ok(o)) if o.status.success() => eprintln!("[reklawdbox] Backup completed."),
+                Ok(Ok(o)) => {
                     let stderr_out = String::from_utf8_lossy(&o.stderr);
                     eprintln!("[reklawdbox] Backup warning: {stderr_out}");
                 }
-                Err(e) => eprintln!("[reklawdbox] Backup skipped: {e}"),
+                Ok(Err(e)) => eprintln!("[reklawdbox] Backup skipped: {e}"),
+                Err(e) => eprintln!("[reklawdbox] Backup task failed: {e}"),
             }
         }
 
