@@ -659,12 +659,21 @@ fn score_rhythm_axis(from_regularity: Option<f64>, to_regularity: Option<f64>) -
     }
 }
 
-pub(super) fn priority_weights(priority: SetPriority) -> (f64, f64, f64, f64, f64, f64) {
+pub(super) struct PriorityWeights {
+    pub key: f64,
+    pub bpm: f64,
+    pub energy: f64,
+    pub genre: f64,
+    pub brightness: f64,
+    pub rhythm: f64,
+}
+
+pub(super) fn priority_weights(priority: SetPriority) -> PriorityWeights {
     match priority {
-        SetPriority::Balanced => (0.30, 0.20, 0.18, 0.17, 0.08, 0.07),
-        SetPriority::Harmonic => (0.48, 0.18, 0.12, 0.08, 0.08, 0.06),
-        SetPriority::Energy => (0.12, 0.18, 0.42, 0.12, 0.08, 0.08),
-        SetPriority::Genre => (0.18, 0.18, 0.12, 0.38, 0.08, 0.06),
+        SetPriority::Balanced => PriorityWeights { key: 0.30, bpm: 0.20, energy: 0.18, genre: 0.17, brightness: 0.08, rhythm: 0.07 },
+        SetPriority::Harmonic => PriorityWeights { key: 0.48, bpm: 0.18, energy: 0.12, genre: 0.08, brightness: 0.08, rhythm: 0.06 },
+        SetPriority::Energy => PriorityWeights { key: 0.12, bpm: 0.18, energy: 0.42, genre: 0.12, brightness: 0.08, rhythm: 0.08 },
+        SetPriority::Genre => PriorityWeights { key: 0.18, bpm: 0.18, energy: 0.12, genre: 0.38, brightness: 0.08, rhythm: 0.06 },
     }
 }
 
@@ -677,20 +686,20 @@ pub(super) fn composite_score(
     rhythm_score: Option<f64>,
     priority: SetPriority,
 ) -> f64 {
-    let (w_key, w_bpm, w_energy, w_genre, w_brightness, w_rhythm) = priority_weights(priority);
-    let mut weighted_sum = (w_key * key_score)
-        + (w_bpm * bpm_score)
-        + (w_energy * energy_score)
-        + (w_genre * genre_score);
-    let mut total_weight = w_key + w_bpm + w_energy + w_genre;
+    let w = priority_weights(priority);
+    let mut weighted_sum = (w.key * key_score)
+        + (w.bpm * bpm_score)
+        + (w.energy * energy_score)
+        + (w.genre * genre_score);
+    let mut total_weight = w.key + w.bpm + w.energy + w.genre;
 
     if let Some(brightness) = brightness_score {
-        weighted_sum += w_brightness * brightness;
-        total_weight += w_brightness;
+        weighted_sum += w.brightness * brightness;
+        total_weight += w.brightness;
     }
     if let Some(rhythm) = rhythm_score {
-        weighted_sum += w_rhythm * rhythm;
-        total_weight += w_rhythm;
+        weighted_sum += w.rhythm * rhythm;
+        total_weight += w.rhythm;
     }
 
     if total_weight <= f64::EPSILON {
