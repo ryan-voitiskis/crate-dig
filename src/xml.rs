@@ -5,6 +5,8 @@ use std::path::Path;
 
 use crate::types::Track;
 
+const REKORDBOX_VERSION: &str = "7.2.10";
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistDef {
     pub name: String,
@@ -145,7 +147,7 @@ pub fn generate_xml_with_playlists(
 
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str("<DJ_PLAYLISTS Version=\"1.0.0\">\n");
-    out.push_str("  <PRODUCT Name=\"rekordbox\" Version=\"7.2.10\" Company=\"AlphaTheta\"/>\n");
+    writeln!(out, "  <PRODUCT Name=\"rekordbox\" Version=\"{REKORDBOX_VERSION}\" Company=\"AlphaTheta\"/>").unwrap();
     writeln!(
         out,
         "  <COLLECTION Entries=\"{count}\">",
