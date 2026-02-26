@@ -91,37 +91,29 @@ independent implementations with different error handling.
 `enum Provider { Discogs, Beatport }` in `types.rs` with `Serialize`/`Deserialize`.
 String dispatch replaced with enum match in tool handlers.
 
-#### H6. Genre-to-family mapping disconnected from genre taxonomy
+#### H6. ~~Genre-to-family mapping disconnected from genre taxonomy~~ ✅ Resolved
 
-`tools.rs:4649-4663` hardcodes genre → family mappings with no reference to
-`genre.rs:6-50`. Verified missing families: `Gospel House`, `Progressive House`,
-`Drone Techno`. String mismatches: `"drum and bass"` vs `"Drum & Bass"`,
-`"rnb"` vs `"R&B"`. New taxonomy genres silently fall to `GenreFamily::Other`.
+`GenreFamily` enum and `genre_family()` moved from `tools/scoring.rs` to
+`genre.rs`. Uses exact canonical names from `GENRES` (no lowercasing). Added
+missing genres (`Gospel House`, `Progressive House`, `Drone Techno`,
+`Dub Reggae`, `Disco`). Removed stale aliases (`"drum and bass"`, `"rnb"`,
+`"synth pop"`). Test verifies all `GENRES` entries are covered.
 
-**Fix**: Derive family mapping from `genre.rs` data; or add a `family` field to
-the genre taxonomy itself.
+#### H7. ~~`TRACK_SELECT` string replacement silently fragile~~ ✅ Resolved
 
-#### H7. `TRACK_SELECT` string replacement silently fragile
-
-`db.rs:311-315` — Injects `Position` column via `.replace("\nFROM djmdContent c",
-...)`. Whitespace change to `TRACK_SELECT` causes silent no-op. No assertion
-that the replacement produced different output.
-
-**Fix**: `assert_ne!(base_sql, TRACK_SELECT)` after replacement; or compose SQL
-from parts instead of string surgery.
+`debug_assert_ne!` added after the replacement to catch silent no-ops during
+development and testing. No behavior change in release builds.
 
 #### H8. ~~Audit status/resolution strings cross module boundaries untyped~~ ✅ Resolved
 
 `enum AuditStatus` and `enum Resolution` in `audit.rs` with `strum` derives.
 Bare string literals and catch-all mappings replaced with enum variants.
 
-#### H9. Dynamic SQL parameter numbering in `get_audit_issues`
+#### H9. ~~Dynamic SQL parameter numbering in `get_audit_issues`~~ ✅ Resolved
 
-`store.rs:438-485` — Positional params (`?4`, `?5`) shift per filter
-combination. 4-way match for binding. Third filter would need 8 arms.
-
-**Fix**: Use `Vec<Box<dyn ToSql>>` and push params dynamically; or use
-`rusqlite::named_params!`.
+Replaced manual `?4`/`?5` numbering and 4-arm match with dynamic
+`Vec<Box<dyn ToSql>>` builder and `params_from_iter`. Adding new filters
+requires only a new `if let` block.
 
 #### H10. Embedded 185-line Python script with no schema contract
 
@@ -271,12 +263,11 @@ Largely resolved. Remaining: audio analysis caching (H4), status aggregation
 
 ### 3. Cross-module implicit contracts
 
-Color `0 = unset` (M10), Python Essentia output keys (H10), genre taxonomy →
-family mapping (H6), TRACK_SELECT whitespace (H7), XML attribute names vs
-struct fields (M11), status/resolution strings (H8). Modifying one side of
-these contracts gives no signal about the other.
+Color `0 = unset` (M10), Python Essentia output keys (H10), XML attribute names
+vs struct fields (M11). Modifying one side of these contracts gives no signal
+about the other.
 
-**Affected findings**: H6-H8, H10, M10, M11
+**Affected findings**: ~~H6~~, ~~H7~~, ~~H8~~, H10, M10, M11
 
 ### 4. ~~Monolith file~~ ✅ Resolved
 

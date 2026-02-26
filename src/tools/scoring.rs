@@ -27,14 +27,7 @@ pub(super) struct CamelotKey {
     letter: char,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum GenreFamily {
-    House,
-    Techno,
-    Bass,
-    Downtempo,
-    Other,
-}
+pub(super) use crate::genre::GenreFamily;
 
 #[derive(Debug, Clone)]
 pub(super) struct AxisScore {
@@ -761,19 +754,7 @@ fn canonicalize_genre(raw_genre: &str) -> Option<String> {
 }
 
 pub(super) fn genre_family_for(canonical_genre: &str) -> GenreFamily {
-    match canonical_genre.trim().to_ascii_lowercase().as_str() {
-        "house" | "deep house" | "tech house" | "afro house" | "garage" | "speed garage" => {
-            GenreFamily::House
-        }
-        "techno" | "deep techno" | "minimal" | "dub techno" | "ambient techno" | "hard techno"
-        | "acid" | "electro" => GenreFamily::Techno,
-        "drum & bass" | "drum and bass" | "jungle" | "dubstep" | "breakbeat" | "uk bass"
-        | "grime" | "bassline" | "broken beat" => GenreFamily::Bass,
-        "ambient" | "downtempo" | "dub" | "idm" | "experimental" => GenreFamily::Downtempo,
-        "hip hop" | "disco" | "trance" | "psytrance" | "pop" | "r&b" | "rnb" | "reggae"
-        | "dancehall" | "rock" | "synth-pop" | "synth pop" => GenreFamily::Other,
-        _ => GenreFamily::Other,
-    }
+    genre::genre_family(canonical_genre)
 }
 
 pub(super) fn key_to_camelot(raw_key: &str) -> Option<CamelotKey> {

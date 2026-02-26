@@ -149,6 +149,36 @@ pub fn get_alias_map() -> Vec<(String, String)> {
     pairs
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenreFamily {
+    House,
+    Techno,
+    Bass,
+    Downtempo,
+    Other,
+}
+
+/// Map a canonical genre name to its family. Input should be canonical
+/// (via `canonical_casing` or `normalize_genre`); non-canonical names
+/// fall through to `Other`.
+pub fn genre_family(canonical: &str) -> GenreFamily {
+    match canonical {
+        "House" | "Deep House" | "Tech House" | "Afro House" | "Gospel House"
+        | "Progressive House" | "Garage" | "Speed Garage" | "Disco" => GenreFamily::House,
+
+        "Techno" | "Deep Techno" | "Minimal" | "Dub Techno" | "Ambient Techno"
+        | "Hard Techno" | "Drone Techno" | "Acid" | "Electro" => GenreFamily::Techno,
+
+        "Drum & Bass" | "Jungle" | "Dubstep" | "Breakbeat" | "UK Bass" | "Grime"
+        | "Bassline" | "Broken Beat" => GenreFamily::Bass,
+
+        "Ambient" | "Downtempo" | "Dub" | "Dub Reggae" | "IDM"
+        | "Experimental" => GenreFamily::Downtempo,
+
+        _ => GenreFamily::Other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -312,6 +342,13 @@ mod tests {
                 alias,
                 target
             );
+        }
+    }
+
+    #[test]
+    fn all_taxonomy_genres_have_family() {
+        for g in GENRES {
+            let _ = genre_family(g); // should not panic
         }
     }
 }

@@ -314,6 +314,7 @@ fn get_playlist_tracks_with_limit_policy(
         "\nFROM djmdContent c",
         ",\n    sp.TrackNo AS Position\nFROM djmdContent c",
     );
+    debug_assert_ne!(base_sql, TRACK_SELECT, "TRACK_SELECT Position injection failed");
     let mut sql = format!(
         "{base_sql}
          INNER JOIN djmdSongPlaylist sp ON sp.ContentID = c.ID

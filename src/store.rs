@@ -431,43 +431,32 @@ pub fn get_audit_issues(
     offset: u32,
 ) -> Result<Vec<AuditIssue>, rusqlite::Error> {
     let pattern = format!("{}%", escape_like(scope));
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    param_values.push(Box::new(pattern)); // ?1
+    param_values.push(Box::new(limit)); // ?2
+    param_values.push(Box::new(offset)); // ?3
+
+    let mut conditions = String::new();
+    if let Some(s) = status {
+        param_values.push(Box::new(s.to_string()));
+        conditions.push_str(&format!(" AND status = ?{}", param_values.len()));
+    }
+    if let Some(it) = issue_type {
+        param_values.push(Box::new(it.to_string()));
+        conditions.push_str(&format!(" AND issue_type = ?{}", param_values.len()));
+    }
+
     let sql = format!(
         "SELECT id, path, issue_type, detail, status, resolution, note, created_at, resolved_at
          FROM audit_issues
-         WHERE path LIKE ?1 ESCAPE '\\'{}{}
+         WHERE path LIKE ?1 ESCAPE '\\'{conditions}
          ORDER BY path, issue_type
-         LIMIT ?2 OFFSET ?3",
-        if status.is_some() {
-            " AND status = ?4"
-        } else {
-            ""
-        },
-        if issue_type.is_some() {
-            if status.is_some() {
-                " AND issue_type = ?5"
-            } else {
-                " AND issue_type = ?4"
-            }
-        } else {
-            ""
-        },
+         LIMIT ?2 OFFSET ?3"
     );
     let mut stmt = conn.prepare(&sql)?;
-
-    let rows: Vec<AuditIssue> = match (status, issue_type) {
-        (Some(s), Some(it)) => stmt
-            .query_map(params![pattern, limit, offset, s, it], map_audit_issue)?
-            .collect::<Result<_, _>>()?,
-        (Some(s), None) => stmt
-            .query_map(params![pattern, limit, offset, s], map_audit_issue)?
-            .collect::<Result<_, _>>()?,
-        (None, Some(it)) => stmt
-            .query_map(params![pattern, limit, offset, it], map_audit_issue)?
-            .collect::<Result<_, _>>()?,
-        (None, None) => stmt
-            .query_map(params![pattern, limit, offset], map_audit_issue)?
-            .collect::<Result<_, _>>()?,
-    };
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(param_values), map_audit_issue)?
+        .collect::<Result<_, _>>()?;
     Ok(rows)
 }
 
