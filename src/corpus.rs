@@ -7,6 +7,7 @@ use serde::Deserialize;
 
 pub const REKORDBOX_DOCS_ROOT: &str = "docs/rekordbox";
 pub const REKORDBOX_MANIFEST_PATH: &str = "docs/rekordbox/manifest.yaml";
+pub const REKORDBOX_CORPUS_PATH_ENV: &str = "REKLAWDBOX_CORPUS_PATH";
 
 static REKORDBOX_INDEX: OnceLock<CorpusIndex> = OnceLock::new();
 
@@ -175,7 +176,11 @@ impl CorpusIndex {
     }
 
     pub fn load_rekordbox() -> Result<Self, CorpusError> {
-        Self::from_manifest_path(REKORDBOX_MANIFEST_PATH)
+        let path = std::env::var(REKORDBOX_CORPUS_PATH_ENV)
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .unwrap_or_else(|| REKORDBOX_MANIFEST_PATH.to_string());
+        Self::from_manifest_path(path)
     }
 
     #[cfg(test)]

@@ -631,7 +631,14 @@ impl ReklawdboxServer {
             return Ok(CallToolResult::success(vec![Content::text(json)]));
         }
 
-        let backup_script = ["scripts/backup.sh", "backup.sh"]
+        let backup_script_env = std::env::var("REKLAWDBOX_BACKUP_SCRIPT")
+            .ok()
+            .filter(|v| !v.trim().is_empty());
+        let backup_script_candidates: Vec<String> = backup_script_env
+            .into_iter()
+            .chain(["scripts/backup.sh".to_string(), "backup.sh".to_string()])
+            .collect();
+        let backup_script = backup_script_candidates
             .iter()
             .find(|path| std::path::Path::new(path).exists());
         if let Some(script_path) = backup_script {
