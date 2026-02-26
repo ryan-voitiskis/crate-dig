@@ -268,7 +268,7 @@ pub fn rating_to_stars(rating: u16) -> u8 {
         128..=178 => 3,
         179..=229 => 4,
         230..=255 => 5,
-        _ => 0,
+        _ => 5,
     }
 }
 
@@ -302,6 +302,8 @@ mod tests {
     fn stars_out_of_range_saturates_to_five_stars() {
         assert_eq!(stars_to_rating(6), 255);
         assert_eq!(stars_to_rating(u8::MAX), 255);
+        assert_eq!(rating_to_stars(300), 5);
+        assert_eq!(rating_to_stars(u16::MAX), 5);
     }
 
     #[test]
