@@ -754,8 +754,13 @@ fn write_tag_layer(
         };
 
         let should_delete = value.as_ref().is_none_or(|v| v.is_empty());
+        let current_value = get_field_from_tag(tag, field);
 
         if should_delete {
+            // Skip if already absent
+            if current_value.is_none() {
+                continue;
+            }
             // Remove primary key
             tag.remove_key(primary_key);
             // Also remove secondary keys for split-key fields
@@ -768,6 +773,10 @@ fn write_tag_layer(
             any_changes = true;
         } else {
             let val = value.as_ref().unwrap();
+            // Skip if value is unchanged
+            if current_value.as_deref() == Some(val.as_str()) {
+                continue;
+            }
             tag.insert_text(primary_key, val.clone());
             // For non-Vorbis tags, also write secondary keys for compatibility.
             // Vorbis Comments use DATE (not YEAR) per spec, and BPM is already

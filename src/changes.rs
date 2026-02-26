@@ -4,7 +4,7 @@ use std::sync::{Mutex, MutexGuard};
 use crate::color;
 use crate::types::{EditableField, FieldDiff, Track, TrackChange, TrackDiff};
 
-fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<T> {
+fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| {
         eprintln!("[changes] mutex poisoned, recovering");
         e.into_inner()
