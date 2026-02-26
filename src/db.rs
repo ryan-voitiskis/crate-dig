@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use rusqlite::{Connection, OpenFlags, params};
 
@@ -62,11 +62,20 @@ pub(crate) fn row_to_track(row: &rusqlite::Row) -> Result<Track, rusqlite::Error
     // DJPlayCount is stored as integer in real DB but as text in some versions.
     let play_count: i32 = match row.get::<_, i32>("DJPlayCount") {
         Ok(n) => n,
-        Err(_) => row
-            .get::<_, String>("DJPlayCount")
-            .unwrap_or_default()
-            .parse()
-            .unwrap_or(0),
+        Err(_) => {
+            let raw = row.get::<_, String>("DJPlayCount").unwrap_or_default();
+            match raw.parse() {
+                Ok(n) => n,
+                Err(_) => {
+                    if !raw.is_empty() {
+                        eprintln!(
+                            "[db] DJPlayCount parse failed for value {raw:?}, defaulting to 0"
+                        );
+                    }
+                    0
+                }
+            }
+        }
     };
 
     let file_type_raw: i32 = row.get("FileType")?;
@@ -516,8 +525,7 @@ pub fn get_tracks_by_ids(conn: &Connection, ids: &[String]) -> Result<Vec<Track>
     // Keep well below common SQLite variable limits (e.g. 999) to avoid prepare failures.
     const MAX_BIND_VARS_PER_QUERY: usize = 900;
 
-    let mut result = Vec::new();
-    let mut seen_ids: HashSet<String> = HashSet::new();
+    let mut tracks_by_id: HashMap<String, Track> = HashMap::new();
     for chunk in ids.chunks(MAX_BIND_VARS_PER_QUERY) {
         let placeholders: Vec<String> = (1..=chunk.len()).map(|i| format!("?{i}")).collect();
         let sql = format!(
@@ -531,11 +539,17 @@ pub fn get_tracks_by_ids(conn: &Connection, ids: &[String]) -> Result<Vec<Track>
             .collect();
         let rows = stmt.query_map(refs.as_slice(), row_to_track)?;
         for track in rows.collect::<Result<Vec<_>, _>>()? {
-            if seen_ids.insert(track.id.clone()) {
-                result.push(track);
-            }
+            tracks_by_id.entry(track.id.clone()).or_insert(track);
         }
     }
+
+    // Preserve caller order and deduplicate.
+    let mut seen = HashSet::new();
+    let result = ids
+        .iter()
+        .filter(|id| seen.insert(id.as_str()))
+        .filter_map(|id| tracks_by_id.remove(id))
+        .collect();
 
     Ok(result)
 }
@@ -948,8 +962,11 @@ mod tests {
     #[test]
     fn test_get_tracks_by_ids() {
         let conn = create_test_db();
-        let tracks = get_tracks_by_ids(&conn, &["t1".to_string(), "t3".to_string()]).unwrap();
+        // Request t3 before t1 — verify caller order is preserved.
+        let tracks = get_tracks_by_ids(&conn, &["t3".to_string(), "t1".to_string()]).unwrap();
         assert_eq!(tracks.len(), 2);
+        assert_eq!(tracks[0].id, "t3");
+        assert_eq!(tracks[1].id, "t1");
     }
 
     #[test]
