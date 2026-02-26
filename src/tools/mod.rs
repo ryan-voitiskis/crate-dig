@@ -2638,10 +2638,20 @@ pub(crate) fn resolve_single_track(
         "date_added": track.date_added,
     });
 
-    let stratum_json = stratum_cache
-        .and_then(|sc| serde_json::from_str::<serde_json::Value>(&sc.features_json).ok());
-    let essentia_data = essentia_cache
-        .and_then(|ec| serde_json::from_str::<audio::EssentiaOutput>(&ec.features_json).ok());
+    let (stratum_json, stratum_parse_error) = match stratum_cache {
+        Some(sc) => match serde_json::from_str::<serde_json::Value>(&sc.features_json) {
+            Ok(val) => (Some(val), None),
+            Err(e) => (None, Some(format!("stratum-dsp cache JSON corrupt: {e}"))),
+        },
+        None => (None, None),
+    };
+    let (essentia_data, essentia_parse_error) = match essentia_cache {
+        Some(ec) => match serde_json::from_str::<audio::EssentiaOutput>(&ec.features_json) {
+            Ok(val) => (Some(val), None),
+            Err(e) => (None, Some(format!("essentia cache JSON corrupt: {e}"))),
+        },
+        None => (None, None),
+    };
     let essentia_json = essentia_data.as_ref()
         .and_then(|e| serde_json::to_value(e).ok());
 
@@ -2657,13 +2667,22 @@ pub(crate) fn resolve_single_track(
         (None, None)
     };
 
-    let audio_analysis = if stratum_json.is_some() || essentia_json.is_some() {
-        serde_json::json!({
+    let has_analysis = stratum_json.is_some() || essentia_json.is_some()
+        || stratum_parse_error.is_some() || essentia_parse_error.is_some();
+    let audio_analysis = if has_analysis {
+        let mut obj = serde_json::json!({
             "stratum_dsp": stratum_json,
             "essentia": essentia_json,
             "bpm_agreement": bpm_agreement,
             "key_agreement": key_agreement,
-        })
+        });
+        if let Some(err) = &stratum_parse_error {
+            obj["stratum_dsp_parse_error"] = serde_json::json!(err);
+        }
+        if let Some(err) = &essentia_parse_error {
+            obj["essentia_parse_error"] = serde_json::json!(err);
+        }
+        obj
     } else {
         serde_json::Value::Null
     };
