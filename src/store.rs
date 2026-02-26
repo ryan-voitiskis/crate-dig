@@ -413,10 +413,24 @@ pub fn upsert_audit_issue(
         "INSERT INTO audit_issues (path, issue_type, detail, status, created_at)
          VALUES (?1, ?2, ?3, ?4, ?5)
          ON CONFLICT(path, issue_type)
-         DO UPDATE SET detail = ?3, status = CASE
-             WHEN audit_issues.status IN ('accepted', 'deferred') THEN audit_issues.status
-             ELSE ?4
-         END",
+         DO UPDATE SET
+             detail = ?3,
+             status = CASE
+                 WHEN audit_issues.status IN ('accepted', 'deferred') THEN audit_issues.status
+                 ELSE ?4
+             END,
+             resolution = CASE
+                 WHEN audit_issues.status IN ('accepted', 'deferred') THEN audit_issues.resolution
+                 ELSE NULL
+             END,
+             resolved_at = CASE
+                 WHEN audit_issues.status IN ('accepted', 'deferred') THEN audit_issues.resolved_at
+                 ELSE NULL
+             END,
+             note = CASE
+                 WHEN audit_issues.status IN ('accepted', 'deferred') THEN audit_issues.note
+                 ELSE NULL
+             END",
         params![path, issue_type, detail, status, created_at],
     )?;
     Ok(())
@@ -1021,6 +1035,41 @@ mod tests {
 
         let issue = get_audit_issue_by_id(&conn, 1).unwrap().unwrap();
         assert_eq!(issue.status, "accepted");
+    }
+
+    #[test]
+    fn test_audit_issue_reopen_clears_stale_resolution() {
+        let (_dir, conn) = open_temp_store();
+
+        upsert_audit_file(&conn, "/music/track.flac", "t", "m", 100).unwrap();
+        upsert_audit_issue(&conn, "/music/track.flac", "EMPTY_ARTIST", None, "open", "t1")
+            .unwrap();
+
+        // Resolve the issue
+        resolve_audit_issues(
+            &conn,
+            &[1],
+            crate::audit::Resolution::Fixed,
+            Some("fixed upstream"),
+            "t2",
+        )
+        .unwrap();
+
+        let issue = get_audit_issue_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(issue.status, "resolved");
+        assert_eq!(issue.resolution.as_deref(), Some("fixed"));
+        assert_eq!(issue.note.as_deref(), Some("fixed upstream"));
+        assert_eq!(issue.resolved_at.as_deref(), Some("t2"));
+
+        // Re-scan detects the issue again — should reopen and clear stale fields
+        upsert_audit_issue(&conn, "/music/track.flac", "EMPTY_ARTIST", Some("d2"), "open", "t3")
+            .unwrap();
+
+        let issue = get_audit_issue_by_id(&conn, 1).unwrap().unwrap();
+        assert_eq!(issue.status, "open");
+        assert!(issue.resolution.is_none(), "resolution should be cleared on reopen");
+        assert!(issue.note.is_none(), "note should be cleared on reopen");
+        assert!(issue.resolved_at.is_none(), "resolved_at should be cleared on reopen");
     }
 
     #[test]
