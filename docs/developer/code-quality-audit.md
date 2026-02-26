@@ -41,16 +41,11 @@ Split into `src/tools/` module directory: `mod.rs` (2899 lines, tool methods onl
 `safety_tier()` catch-all removed — new variants get a compile error until
 assigned a tier.
 
-#### C5. `OnceLock` caches credential errors permanently
+#### C5. ~~`OnceLock` caches credential errors permanently~~ ✅ Resolved
 
-`discogs.rs:421-441` — `CREDENTIALS` is `static OnceLock<Result<..>>`. First
-call failure is cached for process lifetime. Env vars set after startup have no
-effect. Not retryable without restart.
-
-Same pattern in `corpus.rs:11,299` — manifest load errors cached forever.
-
-**Fix**: Use `tokio::sync::OnceCell` with a retry-capable initializer, or
-return `Result` from a non-caching function and let callers cache.
+`OnceLock<Result<T, E>>` replaced with `OnceLock<T>` in both `discogs.rs` and
+`corpus.rs`. Errors are returned without caching; only successful values are
+stored via `get_or_init`. Dead `CorpusError::Load` variant removed.
 
 ---
 

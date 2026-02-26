@@ -418,26 +418,31 @@ struct Credentials {
     token: String,
 }
 
-static CREDENTIALS: OnceLock<Result<Credentials, String>> = OnceLock::new();
+static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
+
+fn load_credentials() -> Result<Credentials, String> {
+    let key = env_var_trimmed_non_empty(LEGACY_KEY_ENV)
+        .ok_or_else(|| format!("{} not set or empty", LEGACY_KEY_ENV))?;
+    let secret = env_var_trimmed_non_empty(LEGACY_SECRET_ENV)
+        .ok_or_else(|| format!("{} not set or empty", LEGACY_SECRET_ENV))?;
+    let token = env_var_trimmed_non_empty(LEGACY_TOKEN_ENV)
+        .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_ENV))?;
+    let token_secret = env_var_trimmed_non_empty(LEGACY_TOKEN_SECRET_ENV)
+        .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_SECRET_ENV))?;
+    let signature = format!("{secret}&{token_secret}");
+    Ok(Credentials {
+        consumer_key: key,
+        signature,
+        token,
+    })
+}
 
 fn get_credentials() -> Result<&'static Credentials, String> {
-    let result = CREDENTIALS.get_or_init(|| {
-        let key = env_var_trimmed_non_empty(LEGACY_KEY_ENV)
-            .ok_or_else(|| format!("{} not set or empty", LEGACY_KEY_ENV))?;
-        let secret = env_var_trimmed_non_empty(LEGACY_SECRET_ENV)
-            .ok_or_else(|| format!("{} not set or empty", LEGACY_SECRET_ENV))?;
-        let token = env_var_trimmed_non_empty(LEGACY_TOKEN_ENV)
-            .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_ENV))?;
-        let token_secret = env_var_trimmed_non_empty(LEGACY_TOKEN_SECRET_ENV)
-            .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_SECRET_ENV))?;
-        let signature = format!("{secret}&{token_secret}");
-        Ok(Credentials {
-            consumer_key: key,
-            signature,
-            token,
-        })
-    });
-    result.as_ref().map_err(|e| e.clone())
+    if let Some(creds) = CREDENTIALS.get() {
+        return Ok(creds);
+    }
+    let creds = load_credentials()?;
+    Ok(CREDENTIALS.get_or_init(|| creds))
 }
 
 fn nonce() -> String {

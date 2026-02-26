@@ -8,14 +8,13 @@ use serde::Deserialize;
 pub const REKORDBOX_DOCS_ROOT: &str = "docs/rekordbox";
 pub const REKORDBOX_MANIFEST_PATH: &str = "docs/rekordbox/manifest.yaml";
 
-static REKORDBOX_INDEX: OnceLock<Result<CorpusIndex, String>> = OnceLock::new();
+static REKORDBOX_INDEX: OnceLock<CorpusIndex> = OnceLock::new();
 
 #[derive(Debug)]
 pub enum CorpusError {
     Io(std::io::Error),
     Yaml(serde_yaml::Error),
     InvalidManifest(String),
-    Load(String),
 }
 
 impl fmt::Display for CorpusError {
@@ -24,7 +23,6 @@ impl fmt::Display for CorpusError {
             Self::Io(error) => write!(f, "manifest read failed: {error}"),
             Self::Yaml(error) => write!(f, "manifest parse failed: {error}"),
             Self::InvalidManifest(message) => write!(f, "invalid manifest: {message}"),
-            Self::Load(message) => write!(f, "corpus load failed: {message}"),
         }
     }
 }
@@ -295,13 +293,11 @@ impl CorpusIndex {
 }
 
 pub fn rekordbox_index() -> Result<&'static CorpusIndex, CorpusError> {
-    let loaded = REKORDBOX_INDEX
-        .get_or_init(|| CorpusIndex::load_rekordbox().map_err(|error| format!("{error}")));
-
-    match loaded {
-        Ok(index) => Ok(index),
-        Err(message) => Err(CorpusError::Load(message.clone())),
+    if let Some(index) = REKORDBOX_INDEX.get() {
+        return Ok(index);
     }
+    let index = CorpusIndex::load_rekordbox()?;
+    Ok(REKORDBOX_INDEX.get_or_init(|| index))
 }
 
 fn normalize_optional_filter(value: Option<&str>) -> Option<String> {
