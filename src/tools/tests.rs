@@ -1426,8 +1426,8 @@
             .get("cached_at")
             .and_then(serde_json::Value::as_str)
             .expect("cached no-match payload should include cached_at");
-        let norm_artist = discogs::normalize(artist);
-        let norm_title = discogs::normalize(title);
+        let norm_artist = crate::normalize::normalize(artist);
+        let norm_title = crate::normalize::normalize(title);
         let cache_entry = {
             let store = server
                 .internal_conn()
@@ -1500,8 +1500,8 @@
             .get("cached_at")
             .and_then(serde_json::Value::as_str)
             .expect("cached no-match payload should include cached_at");
-        let norm_artist = discogs::normalize(artist);
-        let norm_title = discogs::normalize(title);
+        let norm_artist = crate::normalize::normalize(artist);
+        let norm_title = crate::normalize::normalize(title);
         let cache_entry = {
             let store = server
                 .internal_conn()
@@ -1555,9 +1555,9 @@
         let artist = "Aníbal";
         let title_one = "Señorita";
         let title_two = "Corazón Cached";
-        let norm_artist = discogs::normalize(artist);
-        let norm_title_one = discogs::normalize(title_one);
-        let norm_title_two = discogs::normalize(title_two);
+        let norm_artist = crate::normalize::normalize(artist);
+        let norm_title_one = crate::normalize::normalize(title_one);
+        let norm_title_two = crate::normalize::normalize(title_two);
 
         let cached_one = serde_json::json!({
             "title": "Anibal - Senorita",
@@ -1680,8 +1680,8 @@
         )
         .expect("temp internal store should open");
 
-        let norm_artist = discogs::normalize("Aníbal");
-        let norm_title = discogs::normalize("Señorita");
+        let norm_artist = crate::normalize::normalize("Aníbal");
+        let norm_title = crate::normalize::normalize("Señorita");
         store::set_enrichment(
             &store_conn,
             "discogs",
@@ -1825,9 +1825,9 @@
         )
         .expect("temp internal store should open");
 
-        let norm_artist = discogs::normalize("Aníbal");
-        let norm_title_one = discogs::normalize("No Genre One");
-        let norm_title_two = discogs::normalize("No Genre Two");
+        let norm_artist = crate::normalize::normalize("Aníbal");
+        let norm_title_one = crate::normalize::normalize("No Genre One");
+        let norm_title_two = crate::normalize::normalize("No Genre Two");
 
         store::set_audio_analysis(
             &store_conn,
@@ -2025,8 +2025,8 @@
             .into_iter()
             .next()
             .expect("integration test needs at least one real track");
-        let norm_artist = discogs::normalize(&track.artist);
-        let norm_title = discogs::normalize(&track.title);
+        let norm_artist = crate::normalize::normalize(&track.artist);
+        let norm_title = crate::normalize::normalize(&track.title);
         let cached_json = serde_json::json!({"genre":"Sentinel Genre","key":"Am","bpm":128});
         let cached_json_str = cached_json.to_string();
 
@@ -2120,8 +2120,8 @@
             );
             return;
         };
-        let norm_artist = discogs::normalize(&track.artist);
-        let norm_title = discogs::normalize(&track.title);
+        let norm_artist = crate::normalize::normalize(&track.artist);
+        let norm_title = crate::normalize::normalize(&track.title);
 
         let individual_cache = {
             let store = server

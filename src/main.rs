@@ -10,6 +10,7 @@ mod discogs;
 mod eval_routing;
 mod eval_tasks;
 mod genre;
+mod normalize;
 mod store;
 mod tags;
 mod tools;

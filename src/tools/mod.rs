@@ -802,8 +802,8 @@ impl ReklawdboxServer {
             (artist, title, params.0.album)
         };
 
-        let norm_artist = discogs::normalize(&artist);
-        let norm_title = discogs::normalize(&title);
+        let norm_artist = crate::normalize::normalize(&artist);
+        let norm_title = crate::normalize::normalize(&title);
 
         if !force_refresh {
             let store = self.internal_conn()?;
@@ -896,8 +896,8 @@ impl ReklawdboxServer {
             (artist, title)
         };
 
-        let norm_artist = discogs::normalize(&artist);
-        let norm_title = discogs::normalize(&title);
+        let norm_artist = crate::normalize::normalize(&artist);
+        let norm_title = crate::normalize::normalize(&title);
 
         if !force_refresh {
             let store = self.internal_conn()?;
@@ -991,8 +991,8 @@ impl ReklawdboxServer {
         let mut discogs_auth_error: Option<String> = None;
 
         for track in &tracks {
-            let norm_artist = discogs::normalize(&track.artist);
-            let norm_title = discogs::normalize(&track.title);
+            let norm_artist = crate::normalize::normalize(&track.artist);
+            let norm_title = crate::normalize::normalize(&track.title);
 
             for provider in &providers {
                 if skip_cached && !force_refresh {
@@ -1944,8 +1944,8 @@ impl ReklawdboxServer {
                 })?
         };
 
-        let norm_artist = discogs::normalize(&track.artist);
-        let norm_title = discogs::normalize(&track.title);
+        let norm_artist = crate::normalize::normalize(&track.artist);
+        let norm_title = crate::normalize::normalize(&track.title);
 
         let essentia_installed = self.essentia_python_path().is_some();
 
@@ -2004,8 +2004,8 @@ impl ReklawdboxServer {
         let essentia_installed = self.essentia_python_path().is_some();
         let mut results = Vec::with_capacity(tracks.len());
         for track in &tracks {
-            let norm_artist = discogs::normalize(&track.artist);
-            let norm_title = discogs::normalize(&track.title);
+            let norm_artist = crate::normalize::normalize(&track.artist);
+            let norm_title = crate::normalize::normalize(&track.title);
 
             let (discogs_cache, beatport_cache, stratum_cache, essentia_cache) = {
                 let store = self.internal_conn()?;
@@ -2089,8 +2089,8 @@ impl ReklawdboxServer {
         {
             let store = self.internal_conn()?;
             for track in &tracks {
-                let norm_artist = discogs::normalize(&track.artist);
-                let norm_title = discogs::normalize(&track.title);
+                let norm_artist = crate::normalize::normalize(&track.artist);
+                let norm_title = crate::normalize::normalize(&track.title);
                 let audio_cache_key =
                     resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
 

@@ -147,16 +147,6 @@ struct DeviceSessionFinalizeResponse {
     expires_at: i64,
 }
 
-/// Normalize a string for matching: lowercase, strip non-alphanumeric.
-pub fn normalize(s: &str) -> String {
-    s.to_lowercase()
-        .chars()
-        .filter(|c| c.is_alphanumeric() || *c == ' ')
-        .collect::<String>()
-        .trim()
-        .to_string()
-}
-
 fn env_var_trimmed_non_empty(name: &str) -> Option<String> {
     std::env::var(name)
         .ok()
@@ -581,11 +571,11 @@ fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
 }
 
 fn result_title_matches_artist(result_title: &str, artist: &str) -> bool {
-    let norm_artist = normalize(artist);
+    let norm_artist = crate::normalize::normalize(artist);
     if norm_artist.len() < 3 {
         return true;
     }
-    normalize(result_title).contains(&norm_artist)
+    crate::normalize::normalize(result_title).contains(&norm_artist)
 }
 
 pub(crate) fn urlencoding(s: &str) -> String {
