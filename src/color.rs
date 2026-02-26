@@ -21,6 +21,7 @@ pub fn color_name_to_code(name: &str) -> Option<i32> {
 
 /// Returns the canonical casing of a color name, or None if unknown.
 pub fn canonical_casing(name: &str) -> Option<&'static str> {
+    let name = name.trim();
     COLORS
         .iter()
         .find(|(n, _)| n.eq_ignore_ascii_case(name))
