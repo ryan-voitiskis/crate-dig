@@ -3526,7 +3526,7 @@ impl ReklawdboxServer {
                 let skip: HashSet<audit::IssueType> = skip_issue_types
                     .unwrap_or_default()
                     .iter()
-                    .filter_map(|s| audit::IssueType::from_str(s))
+                    .filter_map(|s| s.parse::<audit::IssueType>().ok())
                     .collect();
 
                 let summary = tokio::task::spawn_blocking(move || {

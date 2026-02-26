@@ -19,22 +19,37 @@ use crate::tags::{self, FileReadResult};
 // Issue types & safety tiers
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::EnumString, strum::EnumIter)]
 pub enum IssueType {
+    #[strum(serialize = "EMPTY_ARTIST")]
     EmptyArtist,
+    #[strum(serialize = "EMPTY_TITLE")]
     EmptyTitle,
+    #[strum(serialize = "MISSING_TRACK_NUM")]
     MissingTrackNum,
+    #[strum(serialize = "MISSING_ALBUM")]
     MissingAlbum,
+    #[strum(serialize = "MISSING_YEAR")]
     MissingYear,
+    #[strum(serialize = "ARTIST_IN_TITLE")]
     ArtistInTitle,
+    #[strum(serialize = "WAV_TAG3_MISSING")]
     WavTag3Missing,
+    #[strum(serialize = "WAV_TAG_DRIFT")]
     WavTagDrift,
+    #[strum(serialize = "GENRE_SET")]
     GenreSet,
+    #[strum(serialize = "NO_TAGS")]
     NoTags,
+    #[strum(serialize = "BAD_FILENAME")]
     BadFilename,
+    #[strum(serialize = "ORIGINAL_MIX_SUFFIX")]
     OriginalMixSuffix,
+    #[strum(serialize = "TECH_SPECS_IN_DIR")]
     TechSpecsInDir,
+    #[strum(serialize = "MISSING_YEAR_IN_DIR")]
     MissingYearInDir,
+    #[strum(serialize = "FILENAME_TAG_DRIFT")]
     FilenameTagDrift,
 }
 
@@ -59,32 +74,20 @@ impl IssueType {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "EMPTY_ARTIST" => Some(Self::EmptyArtist),
-            "EMPTY_TITLE" => Some(Self::EmptyTitle),
-            "MISSING_TRACK_NUM" => Some(Self::MissingTrackNum),
-            "MISSING_ALBUM" => Some(Self::MissingAlbum),
-            "MISSING_YEAR" => Some(Self::MissingYear),
-            "ARTIST_IN_TITLE" => Some(Self::ArtistInTitle),
-            "WAV_TAG3_MISSING" => Some(Self::WavTag3Missing),
-            "WAV_TAG_DRIFT" => Some(Self::WavTagDrift),
-            "GENRE_SET" => Some(Self::GenreSet),
-            "NO_TAGS" => Some(Self::NoTags),
-            "BAD_FILENAME" => Some(Self::BadFilename),
-            "ORIGINAL_MIX_SUFFIX" => Some(Self::OriginalMixSuffix),
-            "TECH_SPECS_IN_DIR" => Some(Self::TechSpecsInDir),
-            "MISSING_YEAR_IN_DIR" => Some(Self::MissingYearInDir),
-            "FILENAME_TAG_DRIFT" => Some(Self::FilenameTagDrift),
-            _ => None,
-        }
-    }
-
     pub fn safety_tier(&self) -> SafetyTier {
         match self {
             Self::ArtistInTitle | Self::WavTag3Missing | Self::WavTagDrift => SafetyTier::Safe,
             Self::OriginalMixSuffix | Self::TechSpecsInDir => SafetyTier::RenameSafe,
-            _ => SafetyTier::Review,
+            Self::EmptyArtist
+            | Self::EmptyTitle
+            | Self::MissingTrackNum
+            | Self::MissingAlbum
+            | Self::MissingYear
+            | Self::GenreSet
+            | Self::NoTags
+            | Self::BadFilename
+            | Self::MissingYearInDir
+            | Self::FilenameTagDrift => SafetyTier::Review,
         }
     }
 }
@@ -1638,28 +1641,13 @@ mod tests {
 
     #[test]
     fn issue_type_str_round_trip() {
-        let all = [
-            IssueType::EmptyArtist,
-            IssueType::EmptyTitle,
-            IssueType::MissingTrackNum,
-            IssueType::MissingAlbum,
-            IssueType::MissingYear,
-            IssueType::ArtistInTitle,
-            IssueType::WavTag3Missing,
-            IssueType::WavTagDrift,
-            IssueType::GenreSet,
-            IssueType::NoTags,
-            IssueType::BadFilename,
-            IssueType::OriginalMixSuffix,
-            IssueType::TechSpecsInDir,
-            IssueType::MissingYearInDir,
-            IssueType::FilenameTagDrift,
-        ];
-        for it in &all {
+        use strum::IntoEnumIterator;
+        for it in IssueType::iter() {
             let s = it.as_str();
-            let back = IssueType::from_str(s)
-                .unwrap_or_else(|| panic!("No IssueType for \"{s}\""));
-            assert_eq!(*it, back);
+            let back: IssueType = s
+                .parse()
+                .unwrap_or_else(|_| panic!("No IssueType for \"{s}\""));
+            assert_eq!(it, back);
         }
     }
 
@@ -1667,6 +1655,12 @@ mod tests {
 
     #[test]
     fn safety_tiers() {
+        use strum::IntoEnumIterator;
+        // Every variant has a tier — new variants cause a compile error in safety_tier()
+        for it in IssueType::iter() {
+            let _ = it.safety_tier();
+        }
+        // Spot-check specific tiers
         assert_eq!(IssueType::ArtistInTitle.safety_tier(), SafetyTier::Safe);
         assert_eq!(IssueType::WavTag3Missing.safety_tier(), SafetyTier::Safe);
         assert_eq!(IssueType::WavTagDrift.safety_tier(), SafetyTier::Safe);
