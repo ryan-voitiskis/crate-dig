@@ -27,18 +27,6 @@ impl FileKind {
         }
     }
 
-    /// Rekordbox integer file type code (for XML export).
-    pub fn to_raw(self) -> i32 {
-        match self {
-            Self::Mp3 => 1,
-            Self::M4a => 4,
-            Self::Flac => 5,
-            Self::Wav => 11,
-            Self::Aiff => 12,
-            Self::Unknown(raw) => raw,
-        }
-    }
-
     /// Human-readable kind string matching Rekordbox XML `Kind` attribute.
     pub fn as_kind_str(&self) -> &'static str {
         match self {
@@ -321,6 +309,17 @@ mod tests {
         assert_eq!(rating_to_stars(255), 5);
     }
 
+    fn file_kind_to_raw(kind: FileKind) -> i32 {
+        match kind {
+            FileKind::Mp3 => 1,
+            FileKind::M4a => 4,
+            FileKind::Flac => 5,
+            FileKind::Wav => 11,
+            FileKind::Aiff => 12,
+            FileKind::Unknown(raw) => raw,
+        }
+    }
+
     #[test]
     fn file_kind_raw_roundtrip() {
         for kind in [
@@ -331,7 +330,7 @@ mod tests {
             FileKind::Aiff,
         ] {
             assert_eq!(
-                FileKind::from_raw(kind.to_raw()),
+                FileKind::from_raw(file_kind_to_raw(kind)),
                 kind,
                 "roundtrip failed for {kind:?}"
             );
@@ -341,7 +340,7 @@ mod tests {
     #[test]
     fn file_kind_unknown_preserves_raw() {
         let kind = FileKind::Unknown(99);
-        assert_eq!(kind.to_raw(), 99);
+        assert_eq!(file_kind_to_raw(kind), 99);
         assert_eq!(kind.as_kind_str(), "Audio File");
     }
 

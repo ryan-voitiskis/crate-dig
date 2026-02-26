@@ -74,6 +74,7 @@ impl IssueType {
         }
     }
 
+    #[cfg(test)]
     pub fn safety_tier(&self) -> SafetyTier {
         match self {
             Self::ArtistInTitle | Self::WavTag3Missing | Self::WavTagDrift => SafetyTier::Safe,
@@ -92,17 +93,18 @@ impl IssueType {
     }
 }
 
-impl fmt::Display for IssueType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SafetyTier {
     Safe,
     RenameSafe,
     Review,
+}
+
+impl fmt::Display for IssueType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -407,14 +409,14 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
     if first_two.chars().all(|c| c.is_ascii_digit()) {
         let num = first_two.to_string();
         let rest = &stem[2..];
-        let remainder = if rest.starts_with(" - ") {
+        let remainder = if let Some(stripped) = rest.strip_prefix(" - ") {
             // "NN - Title" alternate format
-            &rest[3..]
-        } else if rest.starts_with(' ') {
+            stripped
+        } else if let Some(stripped) = rest.strip_prefix(' ') {
             // "NN Artist - Title" canonical format (skip the space)
-            &rest[1..]
+            stripped
         } else if rest.starts_with("- ") {
-            rest.trim_start_matches(|c: char| c == '-' || c == ' ')
+            rest.trim_start_matches(['-', ' '])
         } else if rest.starts_with(". ") || rest.starts_with('.') {
             // "NN. Title" alternate format — keep the dot+rest so
             // parse_album_filename's ". " branch can split it.
@@ -557,77 +559,76 @@ pub fn check_tags(
     }
 
     // ARTIST_IN_TITLE
-    if !skip.contains(&IssueType::ArtistInTitle) {
-        if let (Some(artist), Some(title)) = (
+    if !skip.contains(&IssueType::ArtistInTitle)
+        && let (Some(artist), Some(title)) = (
             get_tag_value(read_result, "artist"),
             get_tag_value(read_result, "title"),
-        ) {
-            let artist_trimmed = artist.trim();
-            if !artist_trimmed.is_empty() {
-                let artist_folded = casefold_text(artist_trimmed);
-                for (sep_pos, _) in title.match_indices(" - ") {
-                    let candidate_artist = &title[..sep_pos];
-                    if casefold_text(candidate_artist) == artist_folded {
-                        let clean_title = title[sep_pos + 3..].to_string();
-                        issues.push(DetectedIssue {
-                            issue_type: IssueType::ArtistInTitle,
-                            detail: Some(
-                                serde_json::json!({
-                                    "artist": artist_trimmed,
-                                    "old_title": title,
-                                    "new_title": clean_title,
-                                })
-                                .to_string(),
-                            ),
-                        });
-                        break;
-                    }
+        )
+    {
+        let artist_trimmed = artist.trim();
+        if !artist_trimmed.is_empty() {
+            let artist_folded = casefold_text(artist_trimmed);
+            for (sep_pos, _) in title.match_indices(" - ") {
+                let candidate_artist = &title[..sep_pos];
+                if casefold_text(candidate_artist) == artist_folded {
+                    let clean_title = title[sep_pos + 3..].to_string();
+                    issues.push(DetectedIssue {
+                        issue_type: IssueType::ArtistInTitle,
+                        detail: Some(
+                            serde_json::json!({
+                                "artist": artist_trimmed,
+                                "old_title": title,
+                                "new_title": clean_title,
+                            })
+                            .to_string(),
+                        ),
+                    });
+                    break;
                 }
             }
         }
     }
 
     // WAV-specific checks
-    if is_wav(read_result) {
-        if let FileReadResult::Wav {
+    if is_wav(read_result)
+        && let FileReadResult::Wav {
             tag3_missing,
             id3v2,
             riff_info,
             ..
         } = read_result
-        {
-            // WAV_TAG3_MISSING
-            if !skip.contains(&IssueType::WavTag3Missing) && !tag3_missing.is_empty() {
-                issues.push(DetectedIssue {
-                    issue_type: IssueType::WavTag3Missing,
-                    detail: Some(
-                        serde_json::json!({ "fields": tag3_missing }).to_string(),
-                    ),
-                });
-            }
+    {
+        // WAV_TAG3_MISSING
+        if !skip.contains(&IssueType::WavTag3Missing) && !tag3_missing.is_empty() {
+            issues.push(DetectedIssue {
+                issue_type: IssueType::WavTag3Missing,
+                detail: Some(
+                    serde_json::json!({ "fields": tag3_missing }).to_string(),
+                ),
+            });
+        }
 
-            // WAV_TAG_DRIFT
-            if !skip.contains(&IssueType::WavTagDrift) {
-                let mut drifted = Vec::new();
-                for field in &["artist", "title", "album", "genre", "year", "comment"] {
-                    let v2 = id3v2.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
-                    let ri = riff_info.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
-                    if let (Some(v2_val), Some(ri_val)) = (v2, ri) {
-                        if v2_val != ri_val {
-                            drifted.push(serde_json::json!({
-                                "field": field,
-                                "id3v2": v2_val,
-                                "riff_info": ri_val,
-                            }));
-                        }
-                    }
+        // WAV_TAG_DRIFT
+        if !skip.contains(&IssueType::WavTagDrift) {
+            let mut drifted = Vec::new();
+            for field in &["artist", "title", "album", "genre", "year", "comment"] {
+                let v2 = id3v2.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
+                let ri = riff_info.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
+                if let (Some(v2_val), Some(ri_val)) = (v2, ri)
+                    && v2_val != ri_val
+                {
+                    drifted.push(serde_json::json!({
+                        "field": field,
+                        "id3v2": v2_val,
+                        "riff_info": ri_val,
+                    }));
                 }
-                if !drifted.is_empty() {
-                    issues.push(DetectedIssue {
-                        issue_type: IssueType::WavTagDrift,
-                        detail: Some(serde_json::json!({ "drifted": drifted }).to_string()),
-                    });
-                }
+            }
+            if !drifted.is_empty() {
+                issues.push(DetectedIssue {
+                    issue_type: IssueType::WavTagDrift,
+                    detail: Some(serde_json::json!({ "drifted": drifted }).to_string()),
+                });
             }
         }
     }
@@ -673,43 +674,39 @@ pub fn check_filename(
     }
 
     // TECH_SPECS_IN_DIR
-    if !skip.contains(&IssueType::TechSpecsInDir) {
-        if let Some((_, dir_name)) = effective_album_dir_name(path) {
-            let dir_lower = dir_name.to_ascii_lowercase();
-            let has_tech_specs = TECH_SPEC_PATTERNS
-                .iter()
-                .any(|pat| dir_lower.contains(pat));
-            if has_tech_specs {
-                let clean = normalize_dir_name(dir_name);
-                issues.push(DetectedIssue {
-                    issue_type: IssueType::TechSpecsInDir,
-                    detail: Some(
-                        serde_json::json!({
-                            "old_dir": dir_name,
-                            "new_dir": clean,
-                        })
-                        .to_string(),
-                    ),
-                });
-            }
+    if !skip.contains(&IssueType::TechSpecsInDir)
+        && let Some((_, dir_name)) = effective_album_dir_name(path)
+    {
+        let dir_lower = dir_name.to_ascii_lowercase();
+        let has_tech_specs = TECH_SPEC_PATTERNS
+            .iter()
+            .any(|pat| dir_lower.contains(pat));
+        if has_tech_specs {
+            let clean = normalize_dir_name(dir_name);
+            issues.push(DetectedIssue {
+                issue_type: IssueType::TechSpecsInDir,
+                detail: Some(
+                    serde_json::json!({
+                        "old_dir": dir_name,
+                        "new_dir": clean,
+                    })
+                    .to_string(),
+                ),
+            });
         }
     }
 
     // MISSING_YEAR_IN_DIR — album context only
-    if !skip.contains(&IssueType::MissingYearInDir) && *context == AuditContext::AlbumTrack {
-        // Already classified as album track, but the original (un-normalized) dir
-        // might be missing the year suffix — we check the actual dir name with
-        // tech specs stripped but year required.
-        if let Some((_, dir_name)) = effective_album_dir_name(path) {
-            if !has_year_suffix(dir_name) && !has_year_suffix(&normalize_dir_name(dir_name)) {
-                issues.push(DetectedIssue {
-                    issue_type: IssueType::MissingYearInDir,
-                    detail: Some(
-                        serde_json::json!({ "dir": dir_name }).to_string(),
-                    ),
-                });
-            }
-        }
+    if !skip.contains(&IssueType::MissingYearInDir)
+        && *context == AuditContext::AlbumTrack
+        && let Some((_, dir_name)) = effective_album_dir_name(path)
+        && !has_year_suffix(dir_name)
+        && !has_year_suffix(&normalize_dir_name(dir_name))
+    {
+        issues.push(DetectedIssue {
+            issue_type: IssueType::MissingYearInDir,
+            detail: Some(serde_json::json!({ "dir": dir_name }).to_string()),
+        });
     }
 
     // Parse filename and check drift / bad filename

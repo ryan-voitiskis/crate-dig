@@ -1194,7 +1194,7 @@ impl ReklawdboxServer {
         let stratum_cached = if skip_cached {
             let store = self.internal_conn()?;
             check_analysis_cache(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime)
-                .map_err(|e| err(e))?
+                .map_err(err)?
         } else {
             None
         };
@@ -1203,11 +1203,11 @@ impl ReklawdboxServer {
             let val = serde_json::from_str(&json_str).map_err(|e| err(format!("Cache parse error: {e}")))?;
             (val, true)
         } else {
-            let analysis = analyze_stratum(&file_path).await.map_err(|e| err(e))?;
+            let analysis = analyze_stratum(&file_path).await.map_err(err)?;
             let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
             let store = self.internal_conn()?;
             cache_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
-                .map_err(|e| err(e))?;
+                .map_err(err)?;
             (serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?, false)
         };
 
@@ -1222,7 +1222,7 @@ impl ReklawdboxServer {
             let essentia_cached = if skip_cached {
                 let store = self.internal_conn()?;
                 check_analysis_cache(&store, &file_path, audio::ANALYZER_ESSENTIA, file_size, file_mtime)
-                    .map_err(|e| err(e))?
+                    .map_err(err)?
             } else {
                 None
             };
@@ -1237,7 +1237,7 @@ impl ReklawdboxServer {
                         let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
                         let store = self.internal_conn()?;
                         cache_analysis(&store, &file_path, audio::ANALYZER_ESSENTIA, file_size, file_mtime, version, &features_json)
-                            .map_err(|e| err(e))?;
+                            .map_err(err)?;
                         essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
                         essentia_cache_hit = Some(false);
                     }
@@ -1386,7 +1386,7 @@ impl ReklawdboxServer {
                         let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
                         let store = self.internal_conn()?;
                         cache_analysis(&store, &file_path, audio::ANALYZER_STRATUM, file_size, file_mtime, &analysis.analyzer_version, &features_json)
-                            .map_err(|e| err(e))?;
+                            .map_err(err)?;
                         stratum_dsp = Some(serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?);
                         analyzed += 1;
                     }
@@ -1463,7 +1463,7 @@ impl ReklawdboxServer {
                         let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
                         let store = self.internal_conn()?;
                         cache_analysis(&store, &row.file_path, audio::ANALYZER_ESSENTIA, row.file_size, row.file_mtime, version, &features_json)
-                            .map_err(|e| err(e))?;
+                            .map_err(err)?;
                         row.essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
                         row.essentia_cache_hit = Some(false);
                         essentia_analyzed += 1;
@@ -2538,7 +2538,7 @@ impl ReklawdboxServer {
                 })
                 .await
                 .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(|e| err(e))?;
+                .map_err(err)?;
 
                 let json =
                     serde_json::to_string_pretty(&summary).map_err(|e| err(format!("{e}")))?;
@@ -2569,7 +2569,7 @@ impl ReklawdboxServer {
                 })
                 .await
                 .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(|e| err(e))?;
+                .map_err(err)?;
 
                 let json =
                     serde_json::to_string_pretty(&issues).map_err(|e| err(format!("{e}")))?;
@@ -2593,7 +2593,7 @@ impl ReklawdboxServer {
                 })
                 .await
                 .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(|e| err(e))?;
+                .map_err(err)?;
 
                 let json = serde_json::json!({ "resolved": count });
                 let text =
@@ -2609,7 +2609,7 @@ impl ReklawdboxServer {
                 })
                 .await
                 .map_err(|e| err(format!("join error: {e}")))?
-                .map_err(|e| err(e))?;
+                .map_err(err)?;
 
                 let json =
                     serde_json::to_string_pretty(&summary).map_err(|e| err(format!("{e}")))?;

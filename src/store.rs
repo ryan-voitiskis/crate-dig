@@ -92,6 +92,7 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
+#[allow(dead_code)]
 pub struct CachedEnrichment {
     pub provider: String,
     pub query_artist: String,
@@ -147,6 +148,7 @@ pub fn set_enrichment(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub struct CachedAudioAnalysis {
     pub file_path: String,
     pub analyzer: String,
@@ -204,6 +206,7 @@ pub fn set_audio_analysis(
     Ok(())
 }
 
+#[allow(dead_code)]
 pub struct BrokerDiscogsSession {
     pub broker_url: String,
     pub session_token: String,
@@ -271,6 +274,7 @@ pub fn clear_broker_discogs_session(
 // Audit state
 // ---------------------------------------------------------------------------
 
+#[allow(dead_code)]
 pub struct AuditFile {
     pub path: String,
     pub last_audited: String,
@@ -311,6 +315,27 @@ pub fn upsert_audit_file(
     Ok(())
 }
 
+pub fn get_audit_files_in_scope(
+    conn: &Connection,
+    scope: &str,
+) -> Result<Vec<AuditFile>, rusqlite::Error> {
+    let pattern = format!("{}%", escape_like(scope));
+    let mut stmt = conn.prepare(
+        "SELECT path, last_audited, file_mtime, file_size
+         FROM audit_files WHERE path LIKE ?1 ESCAPE '\\'",
+    )?;
+    let rows = stmt.query_map(params![pattern], |row| {
+        Ok(AuditFile {
+            path: row.get(0)?,
+            last_audited: row.get(1)?,
+            file_mtime: row.get(2)?,
+            file_size: row.get(3)?,
+        })
+    })?;
+    rows.collect()
+}
+
+#[cfg(test)]
 pub fn get_audit_file(
     conn: &Connection,
     path: &str,
@@ -334,26 +359,7 @@ pub fn get_audit_file(
     }
 }
 
-pub fn get_audit_files_in_scope(
-    conn: &Connection,
-    scope: &str,
-) -> Result<Vec<AuditFile>, rusqlite::Error> {
-    let pattern = format!("{}%", escape_like(scope));
-    let mut stmt = conn.prepare(
-        "SELECT path, last_audited, file_mtime, file_size
-         FROM audit_files WHERE path LIKE ?1 ESCAPE '\\'",
-    )?;
-    let rows = stmt.query_map(params![pattern], |row| {
-        Ok(AuditFile {
-            path: row.get(0)?,
-            last_audited: row.get(1)?,
-            file_mtime: row.get(2)?,
-            file_size: row.get(3)?,
-        })
-    })?;
-    rows.collect()
-}
-
+#[cfg(test)]
 pub fn delete_audit_file(conn: &Connection, path: &str) -> Result<(), rusqlite::Error> {
     conn.execute("DELETE FROM audit_files WHERE path = ?1", params![path])?;
     Ok(())
@@ -446,6 +452,7 @@ fn map_audit_issue(row: &rusqlite::Row) -> Result<AuditIssue, rusqlite::Error> {
     })
 }
 
+#[cfg(test)]
 pub fn get_audit_issue_by_id(
     conn: &Connection,
     id: i64,
