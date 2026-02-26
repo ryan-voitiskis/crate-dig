@@ -986,13 +986,13 @@ pub fn scan(
     let mut new_issues: HashMap<String, usize> = HashMap::new();
     let mut auto_resolved: HashMap<String, usize> = HashMap::new();
 
-    // 4. Process files in batches
+    // 4. Process files in batches (transaction auto-rolls-back on early exit)
     let mut batch_count = 0usize;
     let now = now_iso();
 
-    // Start a transaction for the first batch
-    conn.execute_batch("BEGIN TRANSACTION;")
-        .map_err(|e| format!("DB error: {e}"))?;
+    let mut tx = conn
+        .unchecked_transaction()
+        .map_err(|e| format!("DB error starting transaction: {e}"))?;
 
     for file_path in &disk_files {
         let path_str = file_path.display().to_string();
@@ -1041,14 +1041,14 @@ pub fn scan(
             }
 
             // Upsert audit_file
-            store::upsert_audit_file(conn, &path_str, &now, &mtime, size)
+            store::upsert_audit_file(&tx, &path_str, &now, &mtime, size)
                 .map_err(|e| format!("DB error upserting file: {e}"))?;
 
             // Upsert detected issues
             let detected_types: Vec<&str> = detected.iter().map(|d| d.issue_type.as_str()).collect();
             for issue in &detected {
                 store::upsert_audit_issue(
-                    conn,
+                    &tx,
                     &path_str,
                     issue.issue_type.as_str(),
                     issue.detail.as_deref(),
@@ -1073,7 +1073,7 @@ pub fn scan(
                 }
 
                 let resolved_count = store::mark_issues_resolved_for_path(
-                    conn,
+                    &tx,
                     &path_str,
                     &types_still_open,
                     &now,
@@ -1089,14 +1089,17 @@ pub fn scan(
 
         batch_count += 1;
         if batch_count >= BATCH_SIZE {
-            conn.execute_batch("COMMIT; BEGIN TRANSACTION;")
+            tx.commit()
                 .map_err(|e| format!("DB error committing batch: {e}"))?;
+            tx = conn
+                .unchecked_transaction()
+                .map_err(|e| format!("DB error starting transaction: {e}"))?;
             batch_count = 0;
         }
     }
 
     // Commit final batch
-    conn.execute_batch("COMMIT;")
+    tx.commit()
         .map_err(|e| format!("DB error committing final batch: {e}"))?;
 
     // 5. Build summary from DB
