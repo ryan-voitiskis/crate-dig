@@ -8,6 +8,7 @@ use rmcp::model::{CallToolResult, Content, ServerCapabilities, ServerInfo};
 use rmcp::{ErrorData as McpError, ServerHandler, tool, tool_handler, tool_router};
 use rusqlite::Connection;
 
+mod analysis;
 mod audio_scan;
 mod corpus_helpers;
 mod enrichment;
@@ -16,6 +17,7 @@ mod params;
 mod resolve;
 mod scoring;
 
+use analysis::*;
 use audio_scan::*;
 use corpus_helpers::*;
 use enrichment::*;
@@ -1178,59 +1180,28 @@ impl ReklawdboxServer {
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
 
-        let mut stratum_dsp: Option<serde_json::Value> = None;
-        let mut stratum_cache_hit = false;
-
-        if skip_cached {
+        // Stratum-dsp: check cache then analyze
+        let stratum_cached = if skip_cached {
             let store = self.internal_conn()?;
-            if let Some(cached_entry) = store::get_audio_analysis(&store, &file_path, "stratum-dsp")
-                .map_err(|e| err(format!("Cache read error: {e}")))?
-                && cached_entry.file_size == file_size && cached_entry.file_mtime == file_mtime
-            {
-                stratum_dsp = Some(
-                    serde_json::from_str(&cached_entry.features_json)
-                        .map_err(|e| err(format!("Cache parse error: {e}")))?,
-                );
-                stratum_cache_hit = true;
-            }
-        }
+            check_analysis_cache(&store, &file_path, "stratum-dsp", file_size, file_mtime)
+                .map_err(|e| err(e))?
+        } else {
+            None
+        };
 
-        if stratum_dsp.is_none() {
-            let path_clone = file_path.clone();
-            let (samples, sample_rate) =
-                tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone))
-                    .await
-                    .map_err(|e| err(format!("Decode task failed: {e}")))?
-                    .map_err(|e| err(format!("Decode error: {e}")))?;
+        let (stratum_dsp, stratum_cache_hit) = if let Some(json_str) = stratum_cached {
+            let val = serde_json::from_str(&json_str).map_err(|e| err(format!("Cache parse error: {e}")))?;
+            (val, true)
+        } else {
+            let analysis = analyze_stratum(&file_path).await.map_err(|e| err(e))?;
+            let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
+            let store = self.internal_conn()?;
+            cache_analysis(&store, &file_path, "stratum-dsp", file_size, file_mtime, &analysis.analyzer_version, &features_json)
+                .map_err(|e| err(e))?;
+            (serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?, false)
+        };
 
-            let analysis =
-                tokio::task::spawn_blocking(move || audio::analyze(&samples, sample_rate))
-                    .await
-                    .map_err(|e| err(format!("Analysis task failed: {e}")))?
-                    .map_err(|e| err(format!("Analysis error: {e}")))?;
-
-            let features_json =
-                serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
-            {
-                let store = self.internal_conn()?;
-                store::set_audio_analysis(
-                    &store,
-                    &file_path,
-                    "stratum-dsp",
-                    file_size,
-                    file_mtime,
-                    &analysis.analyzer_version,
-                    &features_json,
-                )
-                .map_err(|e| err(format!("Cache write error: {e}")))?;
-            }
-
-            stratum_dsp = Some(serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?);
-        }
-
-        let stratum_dsp =
-            stratum_dsp.ok_or_else(|| err("Missing stratum-dsp result".to_string()))?;
-
+        // Essentia: check cache then analyze
         let essentia_python = self.essentia_python_path();
         let essentia_available = essentia_python.is_some();
         let mut essentia: Option<serde_json::Value> = None;
@@ -1238,46 +1209,29 @@ impl ReklawdboxServer {
         let mut essentia_error: Option<String> = None;
 
         if let Some(python_path) = essentia_python.as_deref() {
-            if skip_cached {
+            let essentia_cached = if skip_cached {
                 let store = self.internal_conn()?;
-                if let Some(cached_entry) =
-                    store::get_audio_analysis(&store, &file_path, "essentia")
-                        .map_err(|e| err(format!("Cache read error: {e}")))?
-                    && cached_entry.file_size == file_size && cached_entry.file_mtime == file_mtime
-                {
-                    essentia = Some(
-                        serde_json::from_str(&cached_entry.features_json)
-                            .map_err(|e| err(format!("Cache parse error: {e}")))?,
-                    );
-                    essentia_cache_hit = Some(true);
-                }
-            }
+                check_analysis_cache(&store, &file_path, "essentia", file_size, file_mtime)
+                    .map_err(|e| err(e))?
+            } else {
+                None
+            };
 
-            if essentia.is_none() {
-                match audio::run_essentia(python_path, &file_path).await {
+            if let Some(json_str) = essentia_cached {
+                essentia = Some(serde_json::from_str(&json_str).map_err(|e| err(format!("Cache parse error: {e}")))?);
+                essentia_cache_hit = Some(true);
+            } else {
+                match analyze_essentia(python_path, &file_path).await {
                     Ok(features) => {
-                        let analysis_version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
-                        let features_json =
-                            serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
-                        {
-                            let store = self.internal_conn()?;
-                            store::set_audio_analysis(
-                                &store,
-                                &file_path,
-                                "essentia",
-                                file_size,
-                                file_mtime,
-                                analysis_version,
-                                &features_json,
-                            )
-                            .map_err(|e| err(format!("Cache write error: {e}")))?;
-                        }
+                        let version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
+                        let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
+                        let store = self.internal_conn()?;
+                        cache_analysis(&store, &file_path, "essentia", file_size, file_mtime, version, &features_json)
+                            .map_err(|e| err(e))?;
                         essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
                         essentia_cache_hit = Some(false);
                     }
-                    Err(e) => {
-                        essentia_error = Some(e);
-                    }
+                    Err(e) => essentia_error = Some(e),
                 }
             }
         }
@@ -1382,113 +1336,59 @@ impl ReklawdboxServer {
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
 
+            // Stratum-dsp: check cache then analyze
             let mut stratum_dsp: Option<serde_json::Value> = None;
             let mut stratum_cache_hit = false;
 
             if skip_cached {
                 let store = self.internal_conn()?;
-                if let Some(cached_entry) =
-                    store::get_audio_analysis(&store, &file_path, "stratum-dsp")
-                        .map_err(|e| err(format!("Cache read error: {e}")))?
-                    && cached_entry.file_size == file_size && cached_entry.file_mtime == file_mtime
-                {
-                    match serde_json::from_str::<serde_json::Value>(&cached_entry.features_json)
-                    {
-                        Ok(cached_json) => {
-                            stratum_dsp = Some(cached_json);
+                match check_analysis_cache(&store, &file_path, "stratum-dsp", file_size, file_mtime) {
+                    Ok(Some(json_str)) => match serde_json::from_str(&json_str) {
+                        Ok(val) => {
+                            stratum_dsp = Some(val);
                             stratum_cache_hit = true;
                             cached += 1;
                         }
                         Err(e) => {
                             failed.push(serde_json::json!({
-                                "track_id": track.id,
-                                "artist": track.artist,
-                                "title": track.title,
-                                "analyzer": "stratum-dsp",
+                                "track_id": track.id, "artist": track.artist,
+                                "title": track.title, "analyzer": "stratum-dsp",
                                 "error": format!("Cache parse error: {e}"),
                             }));
                             continue;
                         }
+                    },
+                    Ok(None) => {}
+                    Err(e) => {
+                        failed.push(serde_json::json!({
+                            "track_id": track.id, "artist": track.artist,
+                            "title": track.title, "analyzer": "stratum-dsp",
+                            "error": e,
+                        }));
+                        continue;
                     }
                 }
             }
 
             if stratum_dsp.is_none() {
-                let path_clone = file_path.clone();
-                let decode_result =
-                    tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone))
-                        .await;
-                let (samples, sample_rate) = match decode_result {
-                    Ok(Ok(value)) => value,
-                    Ok(Err(e)) => {
-                        failed.push(serde_json::json!({
-                            "track_id": track.id,
-                            "artist": track.artist,
-                            "title": track.title,
-                            "analyzer": "stratum-dsp",
-                            "error": format!("Decode error: {e}"),
-                        }));
-                        continue;
+                match analyze_stratum(&file_path).await {
+                    Ok(analysis) => {
+                        let features_json = serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
+                        let store = self.internal_conn()?;
+                        cache_analysis(&store, &file_path, "stratum-dsp", file_size, file_mtime, &analysis.analyzer_version, &features_json)
+                            .map_err(|e| err(e))?;
+                        stratum_dsp = Some(serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?);
+                        analyzed += 1;
                     }
                     Err(e) => {
                         failed.push(serde_json::json!({
-                            "track_id": track.id,
-                            "artist": track.artist,
-                            "title": track.title,
-                            "analyzer": "stratum-dsp",
-                            "error": format!("Decode task failed: {e}"),
+                            "track_id": track.id, "artist": track.artist,
+                            "title": track.title, "analyzer": "stratum-dsp",
+                            "error": e,
                         }));
                         continue;
                     }
-                };
-
-                let analysis_result =
-                    tokio::task::spawn_blocking(move || audio::analyze(&samples, sample_rate))
-                        .await;
-
-                let analysis = match analysis_result {
-                    Ok(Ok(analysis)) => analysis,
-                    Ok(Err(e)) => {
-                        failed.push(serde_json::json!({
-                            "track_id": track.id,
-                            "artist": track.artist,
-                            "title": track.title,
-                            "analyzer": "stratum-dsp",
-                            "error": format!("Analysis error: {e}"),
-                        }));
-                        continue;
-                    }
-                    Err(e) => {
-                        failed.push(serde_json::json!({
-                            "track_id": track.id,
-                            "artist": track.artist,
-                            "title": track.title,
-                            "analyzer": "stratum-dsp",
-                            "error": format!("Analysis task failed: {e}"),
-                        }));
-                        continue;
-                    }
-                };
-
-                let features_json =
-                    serde_json::to_string(&analysis).map_err(|e| err(format!("{e}")))?;
-                {
-                    let store = self.internal_conn()?;
-                    store::set_audio_analysis(
-                        &store,
-                        &file_path,
-                        "stratum-dsp",
-                        file_size,
-                        file_mtime,
-                        &analysis.analyzer_version,
-                        &features_json,
-                    )
-                    .map_err(|e| err(format!("Cache write error: {e}")))?;
                 }
-
-                stratum_dsp =
-                    Some(serde_json::to_value(&analysis).map_err(|e| err(format!("{e}")))?);
-                analyzed += 1;
             }
 
             rows.push(BatchTrackAnalysis {
@@ -1507,6 +1407,7 @@ impl ReklawdboxServer {
             });
         }
 
+        // Essentia pass
         let essentia_python = self.essentia_python_path();
         let essentia_available = essentia_python.is_some();
 
@@ -1514,55 +1415,45 @@ impl ReklawdboxServer {
             for row in &mut rows {
                 if skip_cached {
                     let store = self.internal_conn()?;
-                    if let Some(cached_entry) =
-                        store::get_audio_analysis(&store, &row.file_path, "essentia")
-                            .map_err(|e| err(format!("Cache read error: {e}")))?
-                        && cached_entry.file_size == row.file_size
-                            && cached_entry.file_mtime == row.file_mtime
-                    {
-                        match serde_json::from_str::<serde_json::Value>(
-                            &cached_entry.features_json,
-                        ) {
-                            Ok(cached_json) => {
-                                row.essentia = Some(cached_json);
+                    match check_analysis_cache(&store, &row.file_path, "essentia", row.file_size, row.file_mtime) {
+                        Ok(Some(json_str)) => match serde_json::from_str(&json_str) {
+                            Ok(val) => {
+                                row.essentia = Some(val);
                                 row.essentia_cache_hit = Some(true);
                                 essentia_cached += 1;
                                 continue;
                             }
                             Err(e) => {
-                                row.essentia_error = Some(format!("Cache parse error: {e}"));
+                                let msg = format!("Cache parse error: {e}");
+                                row.essentia_error = Some(msg.clone());
                                 essentia_failed += 1;
                                 failed.push(serde_json::json!({
-                                    "track_id": &row.track_id,
-                                    "artist": &row.artist,
-                                    "title": &row.title,
-                                    "analyzer": "essentia",
-                                    "error": format!("Cache parse error: {e}"),
+                                    "track_id": &row.track_id, "artist": &row.artist,
+                                    "title": &row.title, "analyzer": "essentia", "error": msg,
                                 }));
                                 continue;
                             }
+                        },
+                        Ok(None) => {}
+                        Err(e) => {
+                            row.essentia_error = Some(e.clone());
+                            essentia_failed += 1;
+                            failed.push(serde_json::json!({
+                                "track_id": &row.track_id, "artist": &row.artist,
+                                "title": &row.title, "analyzer": "essentia", "error": e,
+                            }));
+                            continue;
                         }
                     }
                 }
 
-                match audio::run_essentia(python_path, &row.file_path).await {
+                match analyze_essentia(python_path, &row.file_path).await {
                     Ok(features) => {
-                        let analysis_version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
-                        let features_json =
-                            serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
-                        {
-                            let store = self.internal_conn()?;
-                            store::set_audio_analysis(
-                                &store,
-                                &row.file_path,
-                                "essentia",
-                                row.file_size,
-                                row.file_mtime,
-                                analysis_version,
-                                &features_json,
-                            )
-                            .map_err(|e| err(format!("Cache write error: {e}")))?;
-                        }
+                        let version = if features.analyzer_version.is_empty() { "unknown" } else { &features.analyzer_version };
+                        let features_json = serde_json::to_string(&features).map_err(|e| err(format!("{e}")))?;
+                        let store = self.internal_conn()?;
+                        cache_analysis(&store, &row.file_path, "essentia", row.file_size, row.file_mtime, version, &features_json)
+                            .map_err(|e| err(e))?;
                         row.essentia = Some(serde_json::to_value(&features).map_err(|e| err(format!("{e}")))?);
                         row.essentia_cache_hit = Some(false);
                         essentia_analyzed += 1;
@@ -1571,11 +1462,8 @@ impl ReklawdboxServer {
                         row.essentia_error = Some(e.clone());
                         essentia_failed += 1;
                         failed.push(serde_json::json!({
-                            "track_id": &row.track_id,
-                            "artist": &row.artist,
-                            "title": &row.title,
-                            "analyzer": "essentia",
-                            "error": e,
+                            "track_id": &row.track_id, "artist": &row.artist,
+                            "title": &row.title, "analyzer": "essentia", "error": e,
                         }));
                     }
                 }
