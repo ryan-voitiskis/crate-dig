@@ -1744,7 +1744,7 @@ impl ReklawdboxServer {
             &ScoringContext::default(),
         );
 
-        let result = serde_json::json!({
+        let mut result = serde_json::json!({
             "from": {
                 "track_id": from_profile.track.id,
                 "title": from_profile.track.title,
@@ -1765,6 +1765,14 @@ impl ReklawdboxServer {
             },
             "scores": scores.to_json(),
         });
+        result["key_relation"] = serde_json::json!(scores.key_relation);
+        result["bpm_adjustment_pct"] = serde_json::json!(round_score(scores.bpm_adjustment_pct));
+        if let Some(ref ek) = scores.effective_to_key {
+            result["effective_key"] = serde_json::json!(ek);
+        }
+        if scores.pitch_shift_semitones != 0 {
+            result["pitch_shift_semitones"] = serde_json::json!(scores.pitch_shift_semitones);
+        }
 
         let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
@@ -1902,11 +1910,20 @@ impl ReklawdboxServer {
                 .transitions
                 .iter()
                 .map(|transition| {
-                    serde_json::json!({
+                    let mut t = serde_json::json!({
                         "from_index": transition.from_index,
                         "to_index": transition.to_index,
                         "scores": transition.scores.to_json(),
-                    })
+                    });
+                    t["key_relation"] = serde_json::json!(transition.scores.key_relation);
+                    t["bpm_adjustment_pct"] = serde_json::json!(round_score(transition.scores.bpm_adjustment_pct));
+                    if let Some(ref ek) = transition.scores.effective_to_key {
+                        t["effective_key"] = serde_json::json!(ek);
+                    }
+                    if transition.scores.pitch_shift_semitones != 0 {
+                        t["pitch_shift_semitones"] = serde_json::json!(transition.scores.pitch_shift_semitones);
+                    }
+                    t
                 })
                 .collect();
 

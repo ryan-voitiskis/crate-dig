@@ -46,6 +46,8 @@ pub(super) struct TransitionScores {
     pub(super) composite: f64,
     pub(super) effective_to_key: Option<String>,
     pub(super) pitch_shift_semitones: i32,
+    pub(super) key_relation: String,
+    pub(super) bpm_adjustment_pct: f64,
 }
 
 impl TransitionScores {
@@ -59,6 +61,8 @@ impl TransitionScores {
             "rhythm": { "value": round_score(self.rhythm.value), "label": self.rhythm.label },
             "composite": round_score(self.composite),
         });
+        json["key_relation"] = serde_json::json!(self.key_relation);
+        json["bpm_adjustment_pct"] = serde_json::json!(round_score(self.bpm_adjustment_pct));
         if let Some(ref ek) = self.effective_to_key {
             json["effective_to_key"] = serde_json::json!(ek);
         }
@@ -457,6 +461,13 @@ pub(super) fn score_transition_profiles(
         }
     }
 
+    let key_relation = key.label.clone();
+    let bpm_adjustment_pct = if from.bpm > 0.0 {
+        (from.bpm - to.bpm).abs() / from.bpm * 100.0
+    } else {
+        0.0
+    };
+
     TransitionScores {
         key,
         bpm,
@@ -467,6 +478,8 @@ pub(super) fn score_transition_profiles(
         composite,
         effective_to_key,
         pitch_shift_semitones,
+        key_relation,
+        bpm_adjustment_pct,
     }
 }
 

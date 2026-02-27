@@ -491,6 +491,14 @@
                     transition["scores"]["composite"].as_f64().is_some(),
                     "each transition should include numeric composite score"
                 );
+                assert!(
+                    transition["key_relation"].is_string(),
+                    "each transition should include key_relation"
+                );
+                assert!(
+                    transition["bpm_adjustment_pct"].is_number(),
+                    "each transition should include bpm_adjustment_pct"
+                );
             }
         }
 
@@ -3412,6 +3420,13 @@
         assert_eq!(payload["scores"]["brightness"]["value"], 0.5);
         assert_eq!(payload["scores"]["rhythm"]["value"], 0.5);
         assert_eq!(payload["scores"]["composite"], 0.965);
+
+        // Enriched top-level fields (commit 7)
+        assert!(payload["key_relation"].is_string(), "key_relation should be present");
+        assert!(payload["key_relation"].as_str().unwrap().contains("Camelot adjacent"));
+        assert!(payload["bpm_adjustment_pct"].is_number(), "bpm_adjustment_pct should be present");
+        let bpm_pct = payload["bpm_adjustment_pct"].as_f64().unwrap();
+        assert!(bpm_pct > 1.0 && bpm_pct < 2.0, "122→123.5 is ~1.23%; got {bpm_pct}");
     }
 
     // ==================== serde/schema contract tests for #[serde(flatten)] ====================
