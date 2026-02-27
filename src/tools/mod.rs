@@ -1733,6 +1733,7 @@ impl ReklawdboxServer {
         };
 
         let master_tempo = p.master_tempo.unwrap_or(true);
+        let harmonic_style = Some(p.harmonic_style.unwrap_or(HarmonicStyle::Balanced));
         let scores = score_transition_profiles(
             &from_profile,
             &to_profile,
@@ -1740,7 +1741,7 @@ impl ReklawdboxServer {
             p.energy_phase,
             priority,
             master_tempo,
-            p.harmonic_style,
+            harmonic_style,
             &ScoringContext::default(),
         );
 
@@ -1872,7 +1873,7 @@ impl ReklawdboxServer {
         );
 
         let master_tempo = p.master_tempo.unwrap_or(true);
-        let harmonic_style = p.harmonic_style;
+        let harmonic_style = Some(p.harmonic_style.unwrap_or(HarmonicStyle::Balanced));
         let bpm_drift_pct = p.bpm_drift_pct.unwrap_or(6.0);
         let mut candidates = Vec::with_capacity(effective_candidates);
         for candidate_index in 0..effective_candidates {
