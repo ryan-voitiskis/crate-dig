@@ -295,8 +295,14 @@ pub struct BuildSetParams {
     pub energy_curve: Option<EnergyCurveInput>,
     #[schemars(description = "Optional track ID to force as the opening track")]
     pub start_track_id: Option<String>,
-    #[schemars(description = "Number of set candidates to generate (default 2, max 3)")]
+    #[schemars(
+        description = "Deprecated — use beam_width. Number of set candidates to generate (default 3, max 8)."
+    )]
     pub candidates: Option<u8>,
+    #[schemars(
+        description = "Beam search width: controls how many candidate paths are explored. 1 = greedy (fast), higher = broader search (default 3, max 8). Supersedes 'candidates'."
+    )]
+    pub beam_width: Option<u8>,
     #[schemars(
         description = "Master Tempo mode (default true). When false, accounts for pitch shift from BPM adjustment when scoring key compatibility."
     )]
@@ -309,6 +315,38 @@ pub struct BuildSetParams {
         description = "Maximum BPM drift from start track as a percentage (default 6.0). The last track may deviate up to this percentage from the opening BPM; intermediate tracks get a proportional fraction."
     )]
     pub bpm_drift_pct: Option<f64>,
+    #[schemars(
+        description = "BPM range as [start_bpm, end_bpm]. When set, plans a BPM trajectory from start to end across the set's energy curve, and outputs per-track play_at_bpm, pitch_adjustment_pct, and effective_key."
+    )]
+    pub bpm_range: Option<(f64, f64)>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QueryTransitionCandidatesParams {
+    #[schemars(description = "Source track ID to transition from")]
+    pub from_track_id: String,
+    #[schemars(description = "Pool of candidate track IDs to rank")]
+    pub pool_track_ids: Option<Vec<String>>,
+    #[schemars(description = "Playlist ID to use as the candidate pool")]
+    pub playlist_id: Option<String>,
+    #[schemars(
+        description = "Target BPM for the next track. When set, scores how well each candidate fits this BPM target."
+    )]
+    pub target_bpm: Option<f64>,
+    #[schemars(description = "Energy phase preference (warmup, build, peak, release)")]
+    pub energy_phase: Option<EnergyPhase>,
+    #[schemars(description = "Weighting axis (balanced, harmonic, energy, genre)")]
+    pub priority: Option<SetPriority>,
+    #[schemars(
+        description = "Master Tempo mode (default true). When false, accounts for pitch shift from BPM adjustment when scoring key compatibility."
+    )]
+    pub master_tempo: Option<bool>,
+    #[schemars(
+        description = "Harmonic mixing style: conservative (strict key matching), balanced (default), adventurous (creative key clashes allowed)."
+    )]
+    pub harmonic_style: Option<HarmonicStyle>,
+    #[schemars(description = "Max results to return (default 10, max 50)")]
+    pub limit: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

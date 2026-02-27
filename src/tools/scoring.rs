@@ -195,6 +195,7 @@ pub(super) fn build_candidate_plan(
     master_tempo: bool,
     harmonic_style: Option<HarmonicStyle>,
     bpm_drift_pct: f64,
+    target_bpms: Option<&[f64]>,
 ) -> CandidatePlan {
     let mut ordered_ids = vec![start_track_id.to_string()];
     let mut transitions = Vec::new();
@@ -223,6 +224,12 @@ pub(super) fn build_candidate_plan(
             .checked_sub(1)
             .and_then(|idx| phases.get(idx).copied());
         let ctx = ScoringContext { genre_run_length };
+        let step = ordered_ids.len();
+        let play_bpms = target_bpms.and_then(|bpms| {
+            let from_bpm = bpms.get(step - 1).copied()?;
+            let to_bpm = bpms.get(step).copied()?;
+            Some((from_bpm, to_bpm))
+        });
         let mut scored_next: Vec<(String, TransitionScores)> = remaining
             .iter()
             .filter_map(|candidate_id| {
@@ -238,6 +245,7 @@ pub(super) fn build_candidate_plan(
                             master_tempo,
                             harmonic_style,
                             &ctx,
+                            play_bpms,
                         ),
                     )
                 })
@@ -320,6 +328,222 @@ fn transition_pick_rank(
     preferred_rank.min(available_options - 1)
 }
 
+// ---------------------------------------------------------------------------
+// Beam search
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+struct BeamState {
+    ordered_ids: Vec<String>,
+    remaining: HashSet<String>,
+    genre_run_length: u32,
+    cumulative_score: f64,
+    transitions: Vec<CandidateTransition>,
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn build_candidate_plan_beam(
+    profiles_by_id: &HashMap<String, TrackProfile>,
+    start_track_id: &str,
+    target_tracks: usize,
+    phases: &[EnergyPhase],
+    priority: SetPriority,
+    beam_width: usize,
+    master_tempo: bool,
+    harmonic_style: Option<HarmonicStyle>,
+    bpm_drift_pct: f64,
+    target_bpms: Option<&[f64]>,
+) -> Vec<CandidatePlan> {
+    let mut remaining_init: HashSet<String> = profiles_by_id.keys().cloned().collect();
+    remaining_init.remove(start_track_id);
+
+    let start_bpm = profiles_by_id
+        .get(start_track_id)
+        .map(|p| p.bpm)
+        .unwrap_or(0.0);
+
+    let initial = BeamState {
+        ordered_ids: vec![start_track_id.to_string()],
+        remaining: remaining_init,
+        genre_run_length: 0,
+        cumulative_score: 0.0,
+        transitions: Vec::new(),
+    };
+
+    let mut beams = vec![initial];
+
+    for step in 1..target_tracks {
+        let mut expansions: Vec<BeamState> = Vec::new();
+
+        for beam in &beams {
+            if beam.remaining.is_empty() {
+                // No more tracks to add; carry forward as-is
+                expansions.push(beam.clone());
+                continue;
+            }
+
+            let from_id = beam.ordered_ids.last().unwrap();
+            let Some(from_profile) = profiles_by_id.get(from_id) else {
+                expansions.push(beam.clone());
+                continue;
+            };
+
+            let to_phase = phases.get(step).copied();
+            let from_phase = step.checked_sub(1).and_then(|idx| phases.get(idx).copied());
+            let ctx = ScoringContext {
+                genre_run_length: beam.genre_run_length,
+            };
+
+            let play_bpms = target_bpms.and_then(|bpms| {
+                let from_bpm = bpms.get(step - 1).copied()?;
+                let to_bpm = bpms.get(step).copied()?;
+                Some((from_bpm, to_bpm))
+            });
+
+            for candidate_id in &beam.remaining {
+                let Some(to_profile) = profiles_by_id.get(candidate_id) else {
+                    continue;
+                };
+
+                let mut scores = score_transition_profiles(
+                    from_profile,
+                    to_profile,
+                    from_phase,
+                    to_phase,
+                    priority,
+                    master_tempo,
+                    harmonic_style,
+                    &ctx,
+                    play_bpms,
+                );
+
+                // BPM trajectory coherence penalty (same as greedy)
+                if start_bpm > 0.0 && target_tracks > 1 {
+                    let max_position = (target_tracks - 1) as f64;
+                    let budget_pct = bpm_drift_pct * (step as f64 / max_position);
+                    let budget_bpm = start_bpm * budget_pct / 100.0;
+                    let drift = (to_profile.bpm - start_bpm).abs();
+                    if drift > budget_bpm {
+                        scores.composite *= 0.7;
+                    }
+                }
+
+                let new_cumulative = beam.cumulative_score + scores.composite;
+
+                let new_genre_run = if to_profile.genre_family == from_profile.genre_family
+                    && from_profile.genre_family != GenreFamily::Other
+                {
+                    beam.genre_run_length + 1
+                } else {
+                    0
+                };
+
+                let mut new_ordered = beam.ordered_ids.clone();
+                new_ordered.push(candidate_id.clone());
+                let mut new_remaining = beam.remaining.clone();
+                new_remaining.remove(candidate_id);
+                let mut new_transitions = beam.transitions.clone();
+                new_transitions.push(CandidateTransition {
+                    from_index: step - 1,
+                    to_index: step,
+                    scores,
+                });
+
+                expansions.push(BeamState {
+                    ordered_ids: new_ordered,
+                    remaining: new_remaining,
+                    genre_run_length: new_genre_run,
+                    cumulative_score: new_cumulative,
+                    transitions: new_transitions,
+                });
+            }
+        }
+
+        // Sort by mean composite (cumulative / transition_count) descending,
+        // break ties by ordered_ids for determinism
+        expansions.sort_by(|a, b| {
+            let a_mean = if a.transitions.is_empty() {
+                0.0
+            } else {
+                a.cumulative_score / a.transitions.len() as f64
+            };
+            let b_mean = if b.transitions.is_empty() {
+                0.0
+            } else {
+                b.cumulative_score / b.transitions.len() as f64
+            };
+            b_mean
+                .partial_cmp(&a_mean)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.ordered_ids.cmp(&b.ordered_ids))
+        });
+
+        // Keep top K
+        expansions.truncate(beam_width);
+        beams = expansions;
+    }
+
+    // Deduplicate identical plans (by ordered_ids)
+    let mut seen_plans: HashSet<Vec<String>> = HashSet::new();
+    beams
+        .into_iter()
+        .filter(|beam| seen_plans.insert(beam.ordered_ids.clone()))
+        .map(|beam| CandidatePlan {
+            ordered_ids: beam.ordered_ids,
+            transitions: beam.transitions,
+        })
+        .collect()
+}
+
+/// Compute a per-position target BPM trajectory based on energy phases.
+///
+/// - **Warmup** → `start_bpm`
+/// - **Build** → linear ramp from `start_bpm` to `end_bpm`
+/// - **Peak** → `end_bpm`
+/// - **Release** → linear ramp from `end_bpm` back toward `start_bpm`
+pub(super) fn compute_bpm_trajectory(
+    phases: &[EnergyPhase],
+    start_bpm: f64,
+    end_bpm: f64,
+) -> Vec<f64> {
+    if phases.is_empty() {
+        return Vec::new();
+    }
+
+    // Find span indices for build and release phases
+    let build_start = phases.iter().position(|p| *p == EnergyPhase::Build);
+    let build_end = phases.iter().rposition(|p| *p == EnergyPhase::Build);
+    let release_start = phases.iter().position(|p| *p == EnergyPhase::Release);
+    let release_end = phases.iter().rposition(|p| *p == EnergyPhase::Release);
+
+    phases
+        .iter()
+        .enumerate()
+        .map(|(i, phase)| match phase {
+            EnergyPhase::Warmup => start_bpm,
+            EnergyPhase::Build => {
+                let (bs, be) = (build_start.unwrap(), build_end.unwrap());
+                if bs == be {
+                    (start_bpm + end_bpm) / 2.0
+                } else {
+                    let progress = (i - bs) as f64 / (be - bs) as f64;
+                    start_bpm + (end_bpm - start_bpm) * progress
+                }
+            }
+            EnergyPhase::Peak => end_bpm,
+            EnergyPhase::Release => {
+                let (rs, re) = (release_start.unwrap(), release_end.unwrap());
+                if rs == re {
+                    (end_bpm + start_bpm) / 2.0
+                } else {
+                    let progress = (i - rs) as f64 / (re - rs) as f64;
+                    end_bpm + (start_bpm - end_bpm) * progress
+                }
+            }
+        })
+        .collect()
+}
+
 pub(super) fn build_track_profile(
     track: crate::types::Track,
     store_conn: &Connection,
@@ -386,29 +610,72 @@ pub(super) fn score_transition_profiles(
     master_tempo: bool,
     harmonic_style: Option<HarmonicStyle>,
     ctx: &ScoringContext,
+    play_bpms: Option<(f64, f64)>,
 ) -> TransitionScores {
-    // When master_tempo is off, pitch-shifting changes the effective key.
-    // Calculate the semitone shift implied by the BPM difference.
-    let (effective_to_key, pitch_shift_semitones) = if !master_tempo && from.bpm > 0.0 && to.bpm > 0.0 {
-        let shift = (12.0 * (from.bpm / to.bpm).log2()).round() as i32;
-        if shift != 0 {
-            let transposed = to.camelot_key.map(|k| transpose_camelot_key(k, shift));
-            (transposed.map(format_camelot), shift)
+    // When play_bpms is set, both tracks are pitched to target BPMs.
+    // Compute effective keys based on the pitch shift from native BPM to play BPM.
+    // When play_bpms is None, fall back to the existing master_tempo logic.
+    let (effective_to_key, pitch_shift_semitones, scoring_from_key, scoring_to_key, bpm) =
+        if let Some((from_play_bpm, to_play_bpm)) = play_bpms {
+            // Compute effective keys for both tracks based on play BPMs
+            let from_shift = if from.bpm > 0.0 && from_play_bpm > 0.0 {
+                (12.0 * (from_play_bpm / from.bpm).log2()).round() as i32
+            } else {
+                0
+            };
+            let to_shift = if to.bpm > 0.0 && to_play_bpm > 0.0 {
+                (12.0 * (to_play_bpm / to.bpm).log2()).round() as i32
+            } else {
+                0
+            };
+
+            let eff_from_key = if !master_tempo && from_shift != 0 {
+                from.camelot_key.map(|k| transpose_camelot_key(k, from_shift))
+            } else {
+                from.camelot_key
+            };
+            let eff_to_key = if !master_tempo && to_shift != 0 {
+                to.camelot_key.map(|k| transpose_camelot_key(k, to_shift))
+            } else {
+                to.camelot_key
+            };
+
+            let eff_to_display = if !master_tempo && to_shift != 0 {
+                eff_to_key.map(format_camelot)
+            } else {
+                None
+            };
+
+            // BPM axis scores how close the candidate's native BPM is to its target
+            let bpm_score = score_bpm_axis(to_play_bpm, to.bpm);
+
+            (eff_to_display, to_shift, eff_from_key, eff_to_key, bpm_score)
         } else {
-            (None, 0)
-        }
-    } else {
-        (None, 0)
-    };
+            // Original master_tempo logic
+            let (eff_to_key, shift) = if !master_tempo && from.bpm > 0.0 && to.bpm > 0.0 {
+                let shift = (12.0 * (from.bpm / to.bpm).log2()).round() as i32;
+                if shift != 0 {
+                    let transposed = to.camelot_key.map(|k| transpose_camelot_key(k, shift));
+                    (transposed.map(format_camelot), shift)
+                } else {
+                    (None, 0)
+                }
+            } else {
+                (None, 0)
+            };
 
-    let scoring_to_key = if let Some(ref ek) = effective_to_key {
-        parse_camelot_key(ek)
-    } else {
-        to.camelot_key
-    };
+            let scoring_to = if let Some(ref ek) = eff_to_key {
+                parse_camelot_key(ek)
+            } else {
+                to.camelot_key
+            };
 
-    let key = score_key_axis(from.camelot_key, scoring_to_key);
-    let bpm = score_bpm_axis(from.bpm, to.bpm);
+            let bpm_score = score_bpm_axis(from.bpm, to.bpm);
+
+            (eff_to_key, shift, from.camelot_key, scoring_to, bpm_score)
+        };
+
+    let key = score_key_axis(scoring_from_key, scoring_to_key);
     let energy = score_energy_axis(
         from.energy,
         to.energy,
@@ -455,8 +722,14 @@ pub(super) fn score_transition_profiles(
     }
 
     let key_relation = key.label.clone();
-    let bpm_adjustment_pct = if from.bpm > 0.0 {
-        (from.bpm - to.bpm).abs() / from.bpm * 100.0
+    let bpm_adjustment_pct = if let Some((_, to_play_bpm)) = play_bpms {
+        if to.bpm > 0.0 {
+            (to_play_bpm - to.bpm).abs() / to.bpm * 100.0
+        } else {
+            0.0
+        }
+    } else if to.bpm > 0.0 {
+        (from.bpm - to.bpm).abs() / to.bpm * 100.0
     } else {
         0.0
     };

@@ -1743,6 +1743,7 @@ impl ReklawdboxServer {
             master_tempo,
             harmonic_style,
             &ScoringContext::default(),
+            None,
         );
 
         let mut result = serde_json::json!({
@@ -1780,7 +1781,187 @@ impl ReklawdboxServer {
     }
 
     #[tool(
-        description = "Generate 2-3 candidate set orderings from a track pool using greedy heuristic sequencing."
+        description = "Rank pool tracks as transition candidates from a reference track. Scores each candidate using key, BPM, energy, genre, brightness, and rhythm compatibility. Optionally target a specific BPM for trajectory-aware scoring."
+    )]
+    async fn query_transition_candidates(
+        &self,
+        params: Parameters<QueryTransitionCandidatesParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+
+        if p.pool_track_ids.is_none() && p.playlist_id.is_none() {
+            return Err(McpError::invalid_params(
+                "At least one of pool_track_ids or playlist_id must be provided".to_string(),
+                None,
+            ));
+        }
+
+        let priority = p.priority.unwrap_or(SetPriority::Balanced);
+        let master_tempo = p.master_tempo.unwrap_or(true);
+        let harmonic_style = Some(p.harmonic_style.unwrap_or(HarmonicStyle::Balanced));
+        let limit = p.limit.unwrap_or(10).min(50) as usize;
+
+        // Load from-track
+        let from_track = {
+            let conn = self.conn()?;
+            db::get_track(&conn, &p.from_track_id)
+                .map_err(|e| internal(format!("DB error: {e}")))?
+                .ok_or_else(|| {
+                    McpError::invalid_params(
+                        format!("From track '{}' not found", p.from_track_id),
+                        None,
+                    )
+                })?
+        };
+
+        // Load pool tracks
+        let pool_tracks = {
+            let conn = self.conn()?;
+            if let Some(ref ids) = p.pool_track_ids {
+                db::get_tracks_by_ids(&conn, ids)
+                    .map_err(|e| internal(format!("DB error: {e}")))?
+            } else if let Some(ref playlist_id) = p.playlist_id {
+                db::get_playlist_tracks(&conn, playlist_id, None)
+                    .map_err(|e| internal(format!("DB error: {e}")))?
+            } else {
+                vec![]
+            }
+        };
+
+        if pool_tracks.is_empty() {
+            return Err(McpError::invalid_params(
+                "No tracks found in the specified pool".to_string(),
+                None,
+            ));
+        }
+
+        // Build profiles
+        let from_profile = {
+            let store = self.internal_conn()?;
+            build_track_profile(from_track, &store)
+                .map_err(|e| internal(format!("Failed to build source track profile: {e}")))?
+        };
+
+        let mut pool_profiles: Vec<TrackProfile> = Vec::new();
+        let mut skipped_profiles = 0u32;
+        {
+            let store = self.internal_conn()?;
+            for track in pool_tracks {
+                if track.id == p.from_track_id {
+                    continue; // exclude from-track from pool
+                }
+                match build_track_profile(track, &store) {
+                    Ok(profile) => pool_profiles.push(profile),
+                    Err(_) => {
+                        skipped_profiles += 1;
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // Score each candidate
+        let ctx = ScoringContext::default();
+        let reference_bpm = p.target_bpm.unwrap_or(from_profile.bpm);
+        let play_bpms = p.target_bpm.map(|target| (from_profile.bpm, target));
+
+        let mut scored: Vec<(TrackProfile, TransitionScores)> = pool_profiles
+            .into_iter()
+            .map(|to_profile| {
+                let scores = score_transition_profiles(
+                    &from_profile,
+                    &to_profile,
+                    p.energy_phase,
+                    p.energy_phase,
+                    priority,
+                    master_tempo,
+                    harmonic_style,
+                    &ctx,
+                    play_bpms,
+                );
+                (to_profile, scores)
+            })
+            .collect();
+
+        // Sort by composite descending
+        scored.sort_by(|a, b| {
+            b.1.composite
+                .partial_cmp(&a.1.composite)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.track.id.cmp(&b.0.track.id))
+        });
+        let total_pool_size = scored.len();
+        scored.truncate(limit);
+
+        // Build output
+        let candidates_json: Vec<serde_json::Value> = scored
+            .iter()
+            .map(|(profile, scores)| {
+                let mut candidate = serde_json::json!({
+                    "track_id": profile.track.id,
+                    "title": profile.track.title,
+                    "artist": profile.track.artist,
+                    "native_bpm": round_score(profile.bpm),
+                    "native_key": profile.key_display,
+                    "bpm_difference_pct": round_score(scores.bpm_adjustment_pct),
+                    "key_relation": scores.key_relation,
+                    "scores": scores.to_json(),
+                });
+
+                // play_at_bpm and pitch fields only meaningful when targeting a specific BPM
+                if let Some(target) = p.target_bpm {
+                    candidate["play_at_bpm"] = serde_json::json!(round_score(target));
+                    candidate["pitch_adjustment_pct"] =
+                        serde_json::json!(round_score(scores.bpm_adjustment_pct));
+
+                    let pitch_shift =
+                        if !master_tempo && profile.bpm > 0.0 && target > 0.0 {
+                            (12.0 * (target / profile.bpm).log2()).round() as i32
+                        } else {
+                            0
+                        };
+                    if pitch_shift != 0 {
+                        candidate["pitch_shift_semitones"] =
+                            serde_json::json!(pitch_shift);
+                    }
+                    if !master_tempo && pitch_shift != 0
+                        && let Some(ek) = profile
+                            .camelot_key
+                            .map(|k| format_camelot(transpose_camelot_key(k, pitch_shift)))
+                    {
+                        candidate["effective_key"] = serde_json::json!(ek);
+                    }
+                }
+
+                candidate
+            })
+            .collect();
+
+        let mut result = serde_json::json!({
+            "from": {
+                "track_id": from_profile.track.id,
+                "title": from_profile.track.title,
+                "artist": from_profile.track.artist,
+                "native_bpm": round_score(from_profile.bpm),
+                "key": from_profile.key_display,
+                "energy": round_score(from_profile.energy),
+                "genre": from_profile.track.genre,
+            },
+            "reference_bpm": round_score(reference_bpm),
+            "master_tempo": master_tempo,
+            "candidates": candidates_json,
+            "total_pool_size": total_pool_size,
+        });
+        if skipped_profiles > 0 {
+            result["skipped_profiles"] = serde_json::json!(skipped_profiles);
+        }
+
+        let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    #[tool(
+        description = "Generate candidate set orderings from a track pool using beam search sequencing. Use beam_width to control search breadth (1=greedy, higher=more candidates). Use bpm_range for BPM trajectory planning."
     )]
     async fn build_set(
         &self,
@@ -1813,7 +1994,11 @@ impl ReklawdboxServer {
             ));
         }
 
-        let requested_candidates = p.candidates.unwrap_or(2).clamp(1, 3) as usize;
+        // Resolve effective beam width: beam_width supersedes candidates
+        let effective_beam_width = p
+            .beam_width
+            .unwrap_or_else(|| p.candidates.unwrap_or(3))
+            .clamp(1, 8) as usize;
         let requested_target = p.target_tracks as usize;
         let priority = p.priority.unwrap_or(SetPriority::Balanced);
 
@@ -1860,14 +2045,15 @@ impl ReklawdboxServer {
                 McpError::invalid_params(format!("Invalid energy_curve: {e}"), None)
             })?,
         };
-        let effective_candidates = if profiles_by_id.len() <= actual_target {
-            1
-        } else {
-            requested_candidates
-        };
+
+        // Compute BPM trajectory if bpm_range is set
+        let bpm_trajectory = p.bpm_range.map(|(start, end)| {
+            compute_bpm_trajectory(&phases, start, end)
+        });
+
         let start_tracks = select_start_track_ids(
             &profiles_by_id,
-            effective_candidates,
+            if profiles_by_id.len() <= actual_target { 1 } else { effective_beam_width },
             phases[0],
             p.start_track_id.as_deref(),
         );
@@ -1875,34 +2061,108 @@ impl ReklawdboxServer {
         let master_tempo = p.master_tempo.unwrap_or(true);
         let harmonic_style = Some(p.harmonic_style.unwrap_or(HarmonicStyle::Balanced));
         let bpm_drift_pct = p.bpm_drift_pct.unwrap_or(6.0);
-        let mut candidates = Vec::with_capacity(effective_candidates);
-        for candidate_index in 0..effective_candidates {
-            let start_track_id = start_tracks[candidate_index % start_tracks.len()].clone();
-            let plan = build_candidate_plan(
-                &profiles_by_id,
-                &start_track_id,
-                actual_target,
-                &phases,
-                priority,
-                candidate_index,
-                master_tempo,
-                harmonic_style,
-                bpm_drift_pct,
-            );
 
+        // Route: beam_width=1 → greedy (backward compat), beam_width≥2 → beam search
+        let plans: Vec<CandidatePlan> = if effective_beam_width <= 1 {
+            // Greedy path — use variation via start tracks
+            let effective_candidates = if profiles_by_id.len() <= actual_target {
+                1
+            } else {
+                start_tracks.len()
+            };
+            (0..effective_candidates)
+                .map(|i| {
+                    let start_id = start_tracks[i % start_tracks.len()].clone();
+                    build_candidate_plan(
+                        &profiles_by_id,
+                        &start_id,
+                        actual_target,
+                        &phases,
+                        priority,
+                        i,
+                        master_tempo,
+                        harmonic_style,
+                        bpm_drift_pct,
+                        bpm_trajectory.as_deref(),
+                    )
+                })
+                .collect()
+        } else {
+            // Beam search path
+            let mut all_plans = Vec::new();
+            for start_id in &start_tracks {
+                let mut beam_plans = build_candidate_plan_beam(
+                    &profiles_by_id,
+                    start_id,
+                    actual_target,
+                    &phases,
+                    priority,
+                    effective_beam_width,
+                    master_tempo,
+                    harmonic_style,
+                    bpm_drift_pct,
+                    bpm_trajectory.as_deref(),
+                );
+                all_plans.append(&mut beam_plans);
+            }
+            // Deduplicate across start tracks
+            let mut seen_ids: HashSet<Vec<String>> = HashSet::new();
+            all_plans.retain(|plan| seen_ids.insert(plan.ordered_ids.clone()));
+            // Sort by mean composite descending, keep top beam_width
+            all_plans.sort_by(|a, b| {
+                let a_mean = if a.transitions.is_empty() { 0.0 } else {
+                    a.transitions.iter().map(|t| t.scores.composite).sum::<f64>() / a.transitions.len() as f64
+                };
+                let b_mean = if b.transitions.is_empty() { 0.0 } else {
+                    b.transitions.iter().map(|t| t.scores.composite).sum::<f64>() / b.transitions.len() as f64
+                };
+                b_mean.partial_cmp(&a_mean).unwrap_or(std::cmp::Ordering::Equal)
+            });
+            all_plans.truncate(effective_beam_width);
+            all_plans
+        };
+
+        let mut candidates = Vec::with_capacity(plans.len());
+        for (candidate_index, plan) in plans.into_iter().enumerate() {
             let tracks_json: Vec<serde_json::Value> = plan
                 .ordered_ids
                 .iter()
-                .filter_map(|track_id| profiles_by_id.get(track_id))
-                .map(|profile| {
-                    serde_json::json!({
-                        "track_id": profile.track.id,
-                        "title": profile.track.title,
-                        "artist": profile.track.artist,
-                        "key": profile.key_display,
-                        "bpm": profile.bpm,
-                        "energy": profile.energy,
-                        "genre": profile.track.genre,
+                .enumerate()
+                .filter_map(|(pos, track_id)| {
+                    profiles_by_id.get(track_id).map(|profile| {
+                        let mut track_json = serde_json::json!({
+                            "track_id": profile.track.id,
+                            "title": profile.track.title,
+                            "artist": profile.track.artist,
+                            "key": profile.key_display,
+                            "bpm": profile.bpm,
+                            "energy": profile.energy,
+                            "genre": profile.track.genre,
+                        });
+
+                        // Enrich with BPM trajectory fields when bpm_range is set
+                        if let Some(ref trajectory) = bpm_trajectory
+                            && let Some(&target_bpm) = trajectory.get(pos)
+                        {
+                            track_json["play_at_bpm"] = serde_json::json!(round_score(target_bpm));
+                            let pct = if profile.bpm > 0.0 {
+                                (target_bpm - profile.bpm).abs() / profile.bpm * 100.0
+                            } else {
+                                0.0
+                            };
+                            track_json["pitch_adjustment_pct"] = serde_json::json!(round_score(pct));
+
+                            if !master_tempo && profile.bpm > 0.0 {
+                                let shift = (12.0 * (target_bpm / profile.bpm).log2()).round() as i32;
+                                if shift != 0
+                                    && let Some(ek) = profile.camelot_key.map(|k| format_camelot(transpose_camelot_key(k, shift)))
+                                {
+                                    track_json["effective_key"] = serde_json::json!(ek);
+                                }
+                            }
+                        }
+
+                        track_json
                     })
                 })
                 .collect();
@@ -1954,20 +2214,36 @@ impl ReklawdboxServer {
             let set_score = round_score(mean_composite * 10.0);
 
             let id = ((b'A' + (candidate_index as u8)) as char).to_string();
-            candidates.push(serde_json::json!({
+            let mut candidate_json = serde_json::json!({
                 "id": id,
                 "tracks": tracks_json,
                 "transitions": transitions_json,
                 "set_score": set_score,
                 "estimated_duration_minutes": estimated_duration_minutes,
-            }));
+            });
+
+            if let Some(ref trajectory) = bpm_trajectory {
+                candidate_json["bpm_trajectory"] = serde_json::json!(
+                    trajectory.iter().map(|b| round_score(*b)).collect::<Vec<f64>>()
+                );
+            }
+
+            candidates.push(candidate_json);
         }
 
-        let result = serde_json::json!({
+        let mut result = serde_json::json!({
             "candidates": candidates,
             "pool_size": profiles_by_id.len(),
             "tracks_used": actual_target,
+            "beam_width": effective_beam_width,
         });
+
+        if let Some(ref trajectory) = bpm_trajectory {
+            result["bpm_trajectory"] = serde_json::json!(
+                trajectory.iter().map(|b| round_score(*b)).collect::<Vec<f64>>()
+            );
+        }
+
         let json = serde_json::to_string_pretty(&result).map_err(|e| internal(format!("{e}")))?;
         Ok(CallToolResult::success(vec![Content::text(json)]))
     }

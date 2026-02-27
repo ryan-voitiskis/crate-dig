@@ -447,9 +447,11 @@
                 )),
                 start_track_id: None,
                 candidates: Some(3),
+                beam_width: None,
                 master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
+                bpm_range: None,
             }))
             .await
             .expect("build_set should succeed for fixture pool");
@@ -564,9 +566,11 @@
                 ])),
                 start_track_id: None,
                 candidates: Some(2),
+                beam_width: None,
                 master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
+                bpm_range: None,
             }))
             .await
             .expect("build_set should succeed for single-track pool");
@@ -642,9 +646,11 @@
                 energy_curve: Some(EnergyCurveInput::Preset(EnergyCurvePreset::Flat)),
                 start_track_id: None,
                 candidates: Some(2),
+                beam_width: None,
                 master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
+                bpm_range: None,
             }))
             .await
             .expect("build_set should succeed when all tracks share the same key");
@@ -655,7 +661,13 @@
         let candidates = payload["candidates"]
             .as_array()
             .expect("candidates should be an array");
-        assert_eq!(candidates.len(), 1);
+        // With beam search (beam_width=2 from candidates), beam explores different
+        // orderings of the same 3-track pool, yielding 1 or 2 candidates.
+        assert!(
+            !candidates.is_empty() && candidates.len() <= 2,
+            "same-key pool with beam_width=2 should produce 1-2 candidates; got {}",
+            candidates.len()
+        );
         assert_eq!(
             candidates[0]["transitions"]
                 .as_array()
@@ -692,9 +704,11 @@
                 )),
                 start_track_id: None,
                 candidates: Some(1),
+                beam_width: None,
                 master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
+                bpm_range: None,
             }))
             .await
             .expect("build_set should succeed when pool is smaller than target");
@@ -3022,13 +3036,13 @@
         to.camelot_key = parse_camelot_key("8A"); // same key naturally
 
         // With master_tempo ON: same key → perfect (1.0)
-        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, true, None, &ScoringContext::default());
+        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, true, None, &ScoringContext::default(), None);
         assert_eq!(scores_mt_on.key.value, 1.0, "master_tempo on: same key should be perfect");
         assert_eq!(scores_mt_on.pitch_shift_semitones, 0);
         assert!(scores_mt_on.effective_to_key.is_none());
 
         // With master_tempo OFF: pitch shift changes effective key
-        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, false, None, &ScoringContext::default());
+        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, false, None, &ScoringContext::default(), None);
         assert_eq!(scores_mt_off.pitch_shift_semitones, -1, "128→135 BPM should yield -1 semitone shift");
         assert_eq!(scores_mt_off.effective_to_key, Some("1A".to_string()), "8A shifted -1 semitone = 1A");
         assert_eq!(scores_mt_off.key.value, 0.1, "8A→1A is a clash (score 0.1)");
@@ -3082,13 +3096,13 @@
         // Conservative + peak phase + key=0.55 (< 0.8 threshold) → penalty
         let conservative = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
         );
 
         // Same without harmonic_style → no penalty (baseline)
         let baseline = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
 
         assert!(
@@ -3106,7 +3120,7 @@
         // Adventurous + peak phase + key=0.55 → no penalty (threshold is 0.1)
         let adventurous = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
         );
         assert_eq!(
             adventurous.composite, baseline.composite,
@@ -3118,11 +3132,11 @@
         let to2 = make_test_profile("hs-to2", "10A", 128.0, 0.6, "House");
         let balanced_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Balanced), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Balanced), &ScoringContext::default(), None,
         );
         let baseline_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         // key=0.45, threshold=0.45 → NOT below threshold → no penalty
         assert_eq!(
@@ -3140,11 +3154,11 @@
         // Adventurous at Peak: threshold=0.1, key=0.1 → NOT below → no penalty
         let adv_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
         );
         let baseline_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         assert_eq!(
             adv_peak.composite, baseline_peak.composite,
@@ -3154,11 +3168,11 @@
         // Adventurous at Warmup: threshold=0.45, key=0.1 → below → penalty
         let adv_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
         );
         let baseline_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         assert!(
             adv_warmup.composite < baseline_warmup.composite,
@@ -3174,11 +3188,11 @@
         // Conservative is phase-independent: always 0.8 threshold
         let cons_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
         );
         let cons_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
         );
         // Both should be penalized (key=0.1 < 0.8)
         assert!(cons_peak.composite < baseline_peak.composite);
@@ -3337,7 +3351,7 @@
         let tight = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 3.0,
+            SetPriority::Harmonic, 0, true, None, 3.0, None,
         );
         assert_eq!(tight.ordered_ids[1], "bpm-close");
 
@@ -3345,7 +3359,7 @@
         let moderate = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 6.0,
+            SetPriority::Harmonic, 0, true, None, 6.0, None,
         );
         assert_eq!(moderate.ordered_ids[1], "bpm-close");
         // Far still included (only penalized, not excluded)
@@ -3355,7 +3369,7 @@
         let generous = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 50.0,
+            SetPriority::Harmonic, 0, true, None, 50.0, None,
         );
         assert_eq!(generous.ordered_ids[1], "bpm-close");
         assert!(generous.ordered_ids.contains(&"bpm-far".to_string()));
@@ -3702,6 +3716,50 @@
         assert!(p.track_ids.is_none());
     }
 
+    #[test]
+    fn build_set_params_bpm_range_deserializes_from_json_array() {
+        let json = serde_json::json!({
+            "track_ids": ["a", "b"],
+            "target_tracks": 4,
+            "beam_width": 3,
+            "bpm_range": [124.0, 131.0],
+        });
+        let p: BuildSetParams = serde_json::from_value(json).expect("bpm_range should deserialize from JSON array");
+        assert_eq!(p.bpm_range, Some((124.0, 131.0)));
+        assert_eq!(p.beam_width, Some(3));
+        assert!(p.candidates.is_none());
+    }
+
+    #[test]
+    fn build_set_params_without_new_fields_deserializes() {
+        let json = serde_json::json!({
+            "track_ids": ["a"],
+            "target_tracks": 2,
+            "candidates": 2,
+        });
+        let p: BuildSetParams = serde_json::from_value(json).expect("legacy fields should still work");
+        assert_eq!(p.candidates, Some(2));
+        assert!(p.beam_width.is_none());
+        assert!(p.bpm_range.is_none());
+    }
+
+    #[test]
+    fn query_transition_candidates_params_deserializes_from_json() {
+        let json = serde_json::json!({
+            "from_track_id": "t1",
+            "pool_track_ids": ["t2", "t3"],
+            "target_bpm": 130.0,
+            "limit": 5,
+        });
+        let p: QueryTransitionCandidatesParams = serde_json::from_value(json)
+            .expect("QueryTransitionCandidatesParams should deserialize");
+        assert_eq!(p.from_track_id, "t1");
+        assert_eq!(p.pool_track_ids.as_ref().unwrap().len(), 2);
+        assert_eq!(p.target_bpm, Some(130.0));
+        assert_eq!(p.limit, Some(5));
+        assert!(p.playlist_id.is_none());
+    }
+
     /// Verify that schemars inlines flattened fields at the top level of the
     /// JSON Schema. MCP clients read the schema to build tool UIs — a nested
     /// `filters` wrapper object would break them.
@@ -3759,4 +3817,566 @@
             &[&filter_fields[..], &["track_ids", "playlist_id", "max_tracks"]].concat(),
             &["filters"],
         );
+    }
+
+    // ==================== BPM trajectory tests ====================
+
+    #[test]
+    fn bpm_trajectory_warmup_build_peak_release() {
+        let phases = vec![
+            EnergyPhase::Warmup,
+            EnergyPhase::Build,
+            EnergyPhase::Build,
+            EnergyPhase::Build,
+            EnergyPhase::Peak,
+            EnergyPhase::Peak,
+            EnergyPhase::Release,
+            EnergyPhase::Release,
+        ];
+        let trajectory = compute_bpm_trajectory(&phases, 124.0, 132.0);
+        assert_eq!(trajectory.len(), 8);
+        // Warmup = start
+        assert_eq!(trajectory[0], 124.0);
+        // Build ramp: 3 positions (indices 1,2,3), progress 0/2, 1/2, 2/2
+        assert_eq!(trajectory[1], 124.0);
+        assert_eq!(trajectory[2], 128.0);
+        assert_eq!(trajectory[3], 132.0);
+        // Peak = end
+        assert_eq!(trajectory[4], 132.0);
+        assert_eq!(trajectory[5], 132.0);
+        // Release ramp: 2 positions (indices 6,7), progress 0/1, 1/1
+        assert_eq!(trajectory[6], 132.0);
+        assert_eq!(trajectory[7], 124.0);
+    }
+
+    #[test]
+    fn bpm_trajectory_flat_curve() {
+        let phases = vec![EnergyPhase::Peak; 5];
+        let trajectory = compute_bpm_trajectory(&phases, 126.0, 133.0);
+        assert_eq!(trajectory.len(), 5);
+        for bpm in &trajectory {
+            assert_eq!(*bpm, 133.0);
+        }
+    }
+
+    #[test]
+    fn bpm_trajectory_single_position() {
+        let trajectory = compute_bpm_trajectory(&[EnergyPhase::Peak], 128.0, 132.0);
+        assert_eq!(trajectory.len(), 1);
+        assert_eq!(trajectory[0], 132.0);
+    }
+
+    #[test]
+    fn bpm_trajectory_empty() {
+        let trajectory = compute_bpm_trajectory(&[], 128.0, 132.0);
+        assert!(trajectory.is_empty());
+    }
+
+    #[test]
+    fn bpm_trajectory_single_build_single_release() {
+        // A single build phase should use midpoint, same for single release
+        let phases = vec![EnergyPhase::Build, EnergyPhase::Peak, EnergyPhase::Release];
+        let trajectory = compute_bpm_trajectory(&phases, 120.0, 130.0);
+        assert_eq!(trajectory[0], 125.0); // midpoint for single build
+        assert_eq!(trajectory[1], 130.0); // peak
+        assert_eq!(trajectory[2], 125.0); // midpoint for single release
+    }
+
+    // ==================== play_bpms scoring tests ====================
+
+    #[test]
+    fn play_bpms_none_preserves_existing_behavior() {
+        let from = make_test_profile("pb-from", "8A", 128.0, 0.6, "House");
+        let to = make_test_profile("pb-to", "9A", 130.0, 0.7, "House");
+
+        let without = score_transition_profiles(
+            &from, &to, None, None,
+            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+        );
+        // play_bpms=None should give same result as before
+        assert!(without.composite > 0.0);
+        assert!(without.effective_to_key.is_none());
+        assert_eq!(without.pitch_shift_semitones, 0);
+    }
+
+    #[test]
+    fn play_bpms_affects_bpm_adjustment_pct() {
+        let from = make_test_profile("pbadj-from", "8A", 128.0, 0.6, "House");
+        let to = make_test_profile("pbadj-to", "9A", 126.0, 0.7, "House");
+
+        // With play_bpms: target_bpm=130 for to-track (native 126)
+        let with_play = score_transition_profiles(
+            &from, &to, None, None,
+            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            Some((128.0, 130.0)),
+        );
+        // bpm_adjustment_pct = |130 - 126| / 126 * 100 ≈ 3.17%
+        assert!(
+            (with_play.bpm_adjustment_pct - 3.174).abs() < 0.1,
+            "bpm_adjustment_pct should reflect target vs native; got {}",
+            with_play.bpm_adjustment_pct
+        );
+    }
+
+    #[test]
+    fn play_bpms_affects_key_transposition() {
+        // When master_tempo is OFF and play_bpms causes pitch shift,
+        // both tracks should get effective keys
+        let from = make_test_profile("pbkey-from", "8A", 128.0, 0.6, "House");
+        let to = make_test_profile("pbkey-to", "8A", 128.0, 0.7, "House");
+
+        // Play both at their native BPM → no shift, same key, perfect
+        let no_shift = score_transition_profiles(
+            &from, &to, None, None,
+            SetPriority::Balanced, false, None, &ScoringContext::default(),
+            Some((128.0, 128.0)),
+        );
+        assert_eq!(no_shift.key.value, 1.0, "same play BPM, same native key = perfect");
+
+        // Play to-track at much higher BPM with master_tempo OFF → key shifts
+        let big_shift = score_transition_profiles(
+            &from, &to, None, None,
+            SetPriority::Balanced, false, None, &ScoringContext::default(),
+            Some((128.0, 136.0)),
+        );
+        // 136/128 = 1.0625, log2 ≈ 0.0875, *12 ≈ 1.05, rounds to 1 semitone
+        assert_ne!(big_shift.pitch_shift_semitones, 0, "large BPM shift should transpose key");
+    }
+
+    // ==================== Beam search tests ====================
+
+    fn make_beam_test_profiles() -> HashMap<String, TrackProfile> {
+        let tracks = vec![
+            make_test_profile("b1", "8A", 126.0, 0.4, "Deep House"),
+            make_test_profile("b2", "9A", 127.0, 0.5, "Deep House"),
+            make_test_profile("b3", "10A", 128.0, 0.6, "House"),
+            make_test_profile("b4", "11A", 129.0, 0.7, "House"),
+            make_test_profile("b5", "12A", 130.0, 0.8, "Tech House"),
+        ];
+        tracks.into_iter().map(|p| (p.track.id.clone(), p)).collect()
+    }
+
+    #[test]
+    fn beam_search_width_1_matches_greedy() {
+        let profiles = make_beam_test_profiles();
+        let phases = resolve_energy_curve(None, 4).unwrap();
+
+        let greedy = build_candidate_plan(
+            &profiles, "b1", 4, &phases,
+            SetPriority::Balanced, 0, true, Some(HarmonicStyle::Balanced), 6.0, None,
+        );
+        let beam_plans = build_candidate_plan_beam(
+            &profiles, "b1", 4, &phases,
+            SetPriority::Balanced, 1, true, Some(HarmonicStyle::Balanced), 6.0, None,
+        );
+
+        assert_eq!(beam_plans.len(), 1, "beam width 1 should produce exactly 1 plan");
+        assert_eq!(
+            greedy.ordered_ids, beam_plans[0].ordered_ids,
+            "beam width 1 should match greedy ordering"
+        );
+    }
+
+    #[test]
+    fn beam_search_wider_produces_multiple_plans() {
+        let profiles = make_beam_test_profiles();
+        let phases = resolve_energy_curve(None, 4).unwrap();
+
+        let plans = build_candidate_plan_beam(
+            &profiles, "b1", 4, &phases,
+            SetPriority::Balanced, 4, true, Some(HarmonicStyle::Balanced), 6.0, None,
+        );
+
+        assert!(
+            plans.len() > 1,
+            "beam width 4 with 5-track pool should produce multiple plans; got {}",
+            plans.len()
+        );
+
+        // All plans should have the correct length
+        for plan in &plans {
+            assert_eq!(plan.ordered_ids.len(), 4);
+            assert_eq!(plan.transitions.len(), 3);
+            assert_eq!(plan.ordered_ids[0], "b1", "all plans should start with b1");
+        }
+
+        // Plans should be distinct
+        let unique: HashSet<&Vec<String>> = plans.iter().map(|p| &p.ordered_ids).collect();
+        assert_eq!(unique.len(), plans.len(), "all plans should be distinct");
+    }
+
+    #[test]
+    fn beam_search_empty_pool() {
+        let profiles: HashMap<String, TrackProfile> = HashMap::new();
+        let plans = build_candidate_plan_beam(
+            &profiles, "missing", 4, &[EnergyPhase::Peak; 4],
+            SetPriority::Balanced, 3, true, None, 6.0, None,
+        );
+        assert_eq!(plans.len(), 1, "empty pool should still produce one plan");
+        assert_eq!(plans[0].ordered_ids, vec!["missing"]);
+        assert!(plans[0].transitions.is_empty());
+    }
+
+    #[test]
+    fn beam_search_k_larger_than_pool() {
+        let mut profiles = HashMap::new();
+        profiles.insert("only1".to_string(), make_test_profile("only1", "8A", 128.0, 0.5, "House"));
+        profiles.insert("only2".to_string(), make_test_profile("only2", "9A", 128.5, 0.6, "House"));
+
+        let plans = build_candidate_plan_beam(
+            &profiles, "only1", 2, &[EnergyPhase::Peak; 2],
+            SetPriority::Balanced, 10, true, None, 6.0, None,
+        );
+
+        assert_eq!(plans.len(), 1, "only one possible plan with 2-track pool");
+        assert_eq!(plans[0].ordered_ids.len(), 2);
+    }
+
+    #[test]
+    fn beam_search_with_bpm_trajectory() {
+        let profiles = make_beam_test_profiles();
+        let phases = vec![
+            EnergyPhase::Warmup,
+            EnergyPhase::Build,
+            EnergyPhase::Peak,
+            EnergyPhase::Peak,
+        ];
+        let target_bpms = compute_bpm_trajectory(&phases, 126.0, 130.0);
+
+        let plans = build_candidate_plan_beam(
+            &profiles, "b1", 4, &phases,
+            SetPriority::Balanced, 3, true, Some(HarmonicStyle::Balanced), 6.0,
+            Some(&target_bpms),
+        );
+
+        assert!(!plans.is_empty(), "beam search with trajectory should produce plans");
+        for plan in &plans {
+            assert_eq!(plan.ordered_ids.len(), 4);
+            assert_eq!(plan.ordered_ids[0], "b1");
+        }
+    }
+
+    // ==================== query_transition_candidates tests ====================
+
+    #[tokio::test]
+    async fn query_transition_candidates_ranks_pool() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+        let from_id = track_ids[0].clone();
+        let pool_ids: Vec<String> = track_ids[1..].to_vec();
+
+        let result = server
+            .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
+                from_track_id: from_id.clone(),
+                pool_track_ids: Some(pool_ids),
+                playlist_id: None,
+                target_bpm: None,
+                energy_phase: Some(EnergyPhase::Build),
+                priority: Some(SetPriority::Balanced),
+                master_tempo: None,
+                harmonic_style: None,
+                limit: None,
+            }))
+            .await
+            .expect("query_transition_candidates should succeed");
+
+        let payload = extract_json(&result);
+        assert_eq!(payload["from"]["track_id"], from_id);
+        assert!(payload["master_tempo"].as_bool().unwrap());
+
+        let candidates = payload["candidates"]
+            .as_array()
+            .expect("candidates should be an array");
+        assert!(!candidates.is_empty(), "should return at least one candidate");
+
+        // Verify sorted by composite descending
+        let composites: Vec<f64> = candidates
+            .iter()
+            .map(|c| c["scores"]["composite"].as_f64().unwrap())
+            .collect();
+        for window in composites.windows(2) {
+            assert!(
+                window[0] >= window[1],
+                "candidates should be sorted by composite descending"
+            );
+        }
+
+        // Each candidate should have required fields
+        for c in candidates {
+            assert!(c["track_id"].is_string());
+            assert!(c["native_bpm"].is_number());
+            assert!(c["native_key"].is_string());
+            assert!(c["bpm_difference_pct"].is_number());
+            assert!(c["key_relation"].is_string());
+            assert!(c["scores"]["composite"].is_number());
+            // Without target_bpm, play_at_bpm and pitch fields should be absent
+            assert!(c.get("play_at_bpm").is_none() || c["play_at_bpm"].is_null(),
+                "play_at_bpm should not be present without target_bpm");
+            assert!(c.get("pitch_adjustment_pct").is_none() || c["pitch_adjustment_pct"].is_null(),
+                "pitch_adjustment_pct should not be present without target_bpm");
+        }
+    }
+
+    #[tokio::test]
+    async fn query_transition_candidates_with_target_bpm() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+
+        let result = server
+            .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
+                from_track_id: track_ids[0].clone(),
+                pool_track_ids: Some(track_ids[1..].to_vec()),
+                playlist_id: None,
+                target_bpm: Some(130.0),
+                energy_phase: None,
+                priority: None,
+                master_tempo: None,
+                harmonic_style: None,
+                limit: Some(3),
+            }))
+            .await
+            .expect("query_transition_candidates with target_bpm should succeed");
+
+        let payload = extract_json(&result);
+        assert_eq!(payload["reference_bpm"], 130.0);
+
+        let candidates = payload["candidates"].as_array().unwrap();
+        assert!(candidates.len() <= 3, "limit should be respected");
+
+        // All candidates should report play_at_bpm equal to target_bpm
+        for c in candidates {
+            assert_eq!(
+                c["play_at_bpm"].as_f64().unwrap(),
+                130.0,
+                "play_at_bpm should equal target_bpm for all candidates"
+            );
+            assert!(
+                c["pitch_adjustment_pct"].as_f64().unwrap() >= 0.0,
+                "pitch_adjustment_pct should be non-negative"
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn query_transition_candidates_master_tempo_off() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+
+        let result = server
+            .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
+                from_track_id: track_ids[0].clone(),
+                pool_track_ids: Some(track_ids[1..].to_vec()),
+                playlist_id: None,
+                target_bpm: Some(135.0), // significant BPM shift to trigger key transposition
+                energy_phase: None,
+                priority: None,
+                master_tempo: Some(false),
+                harmonic_style: None,
+                limit: None,
+            }))
+            .await
+            .expect("query_transition_candidates with master_tempo off should succeed");
+
+        let payload = extract_json(&result);
+        assert_eq!(payload["master_tempo"], false);
+        let candidates = payload["candidates"].as_array().unwrap();
+        assert!(!candidates.is_empty());
+        // With target_bpm=135 and native BPMs 123.5-130, master_tempo off should
+        // produce pitch_shift_semitones on at least some candidates
+        let has_shift = candidates
+            .iter()
+            .any(|c| c.get("pitch_shift_semitones").is_some());
+        assert!(
+            has_shift,
+            "with master_tempo off and large BPM shift, some candidates should have pitch_shift_semitones"
+        );
+    }
+
+    #[tokio::test]
+    async fn query_transition_candidates_rejects_missing_pool() {
+        let db_conn = create_single_track_test_db("orphan-track", "/tmp/orphan.flac");
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+        let err = server
+            .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
+                from_track_id: "orphan-track".to_string(),
+                pool_track_ids: None,
+                playlist_id: None,
+                target_bpm: None,
+                energy_phase: None,
+                priority: None,
+                master_tempo: None,
+                harmonic_style: None,
+                limit: None,
+            }))
+            .await
+            .expect_err("should reject when neither pool_track_ids nor playlist_id is set");
+
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("pool_track_ids") || msg.contains("playlist_id"),
+            "error should mention required pool source; got: {msg}"
+        );
+    }
+
+    // ==================== build_set beam + trajectory integration tests ====================
+
+    #[tokio::test]
+    async fn build_set_beam_search_produces_multiple_candidates() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+        let result = server
+            .build_set(Parameters(BuildSetParams {
+                track_ids,
+                target_tracks: 4,
+                priority: Some(SetPriority::Balanced),
+                energy_curve: None,
+                start_track_id: None,
+                candidates: None,
+                beam_width: Some(5),
+                master_tempo: None,
+                harmonic_style: None,
+                bpm_drift_pct: None,
+                bpm_range: None,
+            }))
+            .await
+            .expect("build_set with beam_width=5 should succeed");
+
+        let payload = extract_json(&result);
+        assert_eq!(payload["beam_width"], 5);
+        let candidates = payload["candidates"]
+            .as_array()
+            .expect("candidates should be an array");
+        assert!(
+            candidates.len() > 1,
+            "beam_width=5 should produce multiple candidates; got {}",
+            candidates.len()
+        );
+
+        for candidate in candidates {
+            let tracks = candidate["tracks"].as_array().unwrap();
+            assert_eq!(tracks.len(), 4);
+            assert!(candidate["set_score"].is_number());
+        }
+    }
+
+    #[tokio::test]
+    async fn build_set_with_bpm_range_includes_trajectory_fields() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+        let result = server
+            .build_set(Parameters(BuildSetParams {
+                track_ids,
+                target_tracks: 4,
+                priority: Some(SetPriority::Balanced),
+                energy_curve: None,
+                start_track_id: None,
+                candidates: None,
+                beam_width: Some(3),
+                master_tempo: None,
+                harmonic_style: None,
+                bpm_drift_pct: None,
+                bpm_range: Some((124.0, 131.0)),
+            }))
+            .await
+            .expect("build_set with bpm_range should succeed");
+
+        let payload = extract_json(&result);
+
+        // Top-level bpm_trajectory array
+        let trajectory = payload["bpm_trajectory"]
+            .as_array()
+            .expect("bpm_trajectory should be present at set level");
+        assert_eq!(trajectory.len(), 4, "trajectory should match target_tracks");
+
+        // Per-candidate bpm_trajectory
+        let candidates = payload["candidates"].as_array().unwrap();
+        assert!(!candidates.is_empty());
+
+        for candidate in candidates {
+            let tracks = candidate["tracks"].as_array().unwrap();
+            for track in tracks {
+                assert!(
+                    track["play_at_bpm"].is_number(),
+                    "tracks should include play_at_bpm when bpm_range is set"
+                );
+                assert!(
+                    track["pitch_adjustment_pct"].is_number(),
+                    "tracks should include pitch_adjustment_pct when bpm_range is set"
+                );
+            }
+
+            let candidate_trajectory = candidate["bpm_trajectory"]
+                .as_array()
+                .expect("candidate should include bpm_trajectory");
+            assert_eq!(candidate_trajectory.len(), 4);
+        }
+    }
+
+    #[tokio::test]
+    async fn build_set_beam_width_1_backward_compatible() {
+        let (db_conn, track_ids) = create_build_set_test_db();
+        let store_dir = tempfile::tempdir().expect("temp store dir");
+        let store_path = store_dir.path().join("internal.sqlite3");
+        let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
+        seed_build_set_cache(&store_conn);
+
+        let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+
+        // Using legacy `candidates` field (beam_width=None) should use candidates as beam_width
+        let result = server
+            .build_set(Parameters(BuildSetParams {
+                track_ids: track_ids.clone(),
+                target_tracks: 4,
+                priority: Some(SetPriority::Balanced),
+                energy_curve: None,
+                start_track_id: None,
+                candidates: Some(1),
+                beam_width: None,
+                master_tempo: None,
+                harmonic_style: None,
+                bpm_drift_pct: None,
+                bpm_range: None,
+            }))
+            .await
+            .expect("build_set with candidates=1 should succeed");
+
+        let payload = extract_json(&result);
+        assert_eq!(payload["beam_width"], 1, "candidates=1 should route to greedy");
+        let candidates = payload["candidates"].as_array().unwrap();
+        // With beam_width=1, the pool is large enough for variation via start tracks
+        assert!(!candidates.is_empty());
+
+        for candidate in candidates {
+            let tracks = candidate["tracks"].as_array().unwrap();
+            assert_eq!(tracks.len(), 4);
+        }
     }
