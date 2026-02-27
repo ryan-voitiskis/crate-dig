@@ -439,32 +439,39 @@ pub(super) fn score_key_axis(from: Option<CamelotKey>, to: Option<CamelotKey>) -
     }
 }
 
-fn score_bpm_axis(from_bpm: f64, to_bpm: f64) -> AxisScore {
+pub(super) fn score_bpm_axis(from_bpm: f64, to_bpm: f64) -> AxisScore {
+    if from_bpm <= 0.0 {
+        return AxisScore {
+            value: 0.5,
+            label: "Unknown BPM".to_string(),
+        };
+    }
     let delta = (from_bpm - to_bpm).abs();
-    if delta <= 2.0 {
+    let pct = delta / from_bpm * 100.0;
+    if pct <= 1.5 {
         AxisScore {
             value: 1.0,
-            label: format!("Seamless (delta {:.1})", delta),
+            label: format!("Seamless ({:.1}%, {:.1} BPM)", pct, delta),
         }
-    } else if delta <= 4.0 {
+    } else if pct <= 3.0 {
         AxisScore {
-            value: 0.8,
-            label: format!("Comfortable pitch adjust (delta {:.1})", delta),
+            value: 0.85,
+            label: format!("Comfortable ({:.1}%, {:.1} BPM)", pct, delta),
         }
-    } else if delta <= 6.0 {
+    } else if pct <= 5.0 {
         AxisScore {
-            value: 0.5,
-            label: format!("Noticeable (delta {:.1})", delta),
+            value: 0.6,
+            label: format!("Noticeable ({:.1}%, {:.1} BPM)", pct, delta),
         }
-    } else if delta <= 8.0 {
+    } else if pct <= 8.0 {
         AxisScore {
             value: 0.3,
-            label: format!("Needs creative transition (delta {:.1})", delta),
+            label: format!("Creative transition needed ({:.1}%, {:.1} BPM)", pct, delta),
         }
     } else {
         AxisScore {
             value: 0.1,
-            label: format!("Likely jarring (delta {:.1})", delta),
+            label: format!("Jarring ({:.1}%, {:.1} BPM)", pct, delta),
         }
     }
 }

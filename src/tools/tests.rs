@@ -2892,6 +2892,39 @@
     }
 
     #[test]
+    fn bpm_percentage_scoring_thresholds() {
+        // ≤1.5% → 1.0 "Seamless"
+        let seamless = score_bpm_axis(128.0, 129.5); // 1.17%
+        assert_eq!(seamless.value, 1.0);
+        assert!(seamless.label.contains("Seamless"));
+
+        // ≤3.0% → 0.85 "Comfortable"
+        let comfortable = score_bpm_axis(130.0, 126.5); // 2.69%
+        assert_eq!(comfortable.value, 0.85);
+        assert!(comfortable.label.contains("Comfortable"));
+
+        // ≤5.0% → 0.6 "Noticeable"
+        let noticeable = score_bpm_axis(120.0, 125.5); // 4.58%
+        assert_eq!(noticeable.value, 0.6);
+        assert!(noticeable.label.contains("Noticeable"));
+
+        // ≤8.0% → 0.3 "Creative transition needed"
+        let creative = score_bpm_axis(128.0, 138.0); // 7.81%
+        assert_eq!(creative.value, 0.3);
+        assert!(creative.label.contains("Creative transition needed"));
+
+        // >8.0% → 0.1 "Jarring"
+        let jarring = score_bpm_axis(120.0, 132.0); // 10.0%
+        assert_eq!(jarring.value, 0.1);
+        assert!(jarring.label.contains("Jarring"));
+
+        // Guard: from_bpm <= 0 → 0.5 "Unknown BPM"
+        let unknown = score_bpm_axis(0.0, 128.0);
+        assert_eq!(unknown.value, 0.5);
+        assert_eq!(unknown.label, "Unknown BPM");
+    }
+
+    #[test]
     fn composite_scoring_changes_by_priority_axis() {
         let approx = |left: f64, right: f64| (left - right).abs() < 1e-9;
 
