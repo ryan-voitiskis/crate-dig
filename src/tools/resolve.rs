@@ -2,7 +2,7 @@ use rusqlite::Connection;
 
 use rmcp::ErrorData as McpError;
 
-use super::internal;
+use super::mcp_internal_error;
 use super::params::{ResolveTracksDataParams, SearchFilterParams};
 use crate::db;
 
@@ -10,9 +10,9 @@ pub(super) struct ResolveTracksOpts {
     /// Default max_tracks when track_ids are absent and max_tracks param is None.
     /// When track_ids IS present and this is Some, defaults to ids.len().
     /// None = no auto-default (used by cache_coverage).
-    pub default_max: Option<u32>,
+    pub default_max_tracks: Option<u32>,
     /// Hard cap on effective max. Some(200) for bounded tools, None for unbounded.
-    pub cap: Option<u32>,
+    pub max_tracks_cap: Option<u32>,
     /// Post-filter to exclude sampler tracks (used by cache_coverage).
     pub exclude_samplers: bool,
 }
@@ -28,45 +28,45 @@ pub(super) fn resolve_tracks(
     max_tracks_param: Option<u32>,
     opts: &ResolveTracksOpts,
 ) -> Result<Vec<crate::types::Track>, McpError> {
-    let effective_max: Option<usize> = match opts.default_max {
+    let effective_max: Option<usize> = match opts.default_max_tracks {
         Some(default_when_no_ids) => {
             let default = track_ids.map_or(default_when_no_ids, |ids| ids.len() as u32);
             let mut max = max_tracks_param.unwrap_or(default);
-            if let Some(cap) = opts.cap {
-                max = max.min(cap);
+            if let Some(max_tracks_cap) = opts.max_tracks_cap {
+                max = max.min(max_tracks_cap);
             }
             Some(max as usize)
         }
         None => max_tracks_param.map(|m| {
-            if let Some(cap) = opts.cap {
-                m.min(cap) as usize
+            if let Some(max_tracks_cap) = opts.max_tracks_cap {
+                m.min(max_tracks_cap) as usize
             } else {
                 m as usize
             }
         }),
     };
 
-    let bounded = opts.cap.is_some();
+    let bounded = opts.max_tracks_cap.is_some();
 
     let tracks = if let Some(ids) = track_ids {
-        db::get_tracks_by_ids(conn, ids).map_err(|e| internal(format!("DB error: {e}")))?
+        db::get_tracks_by_ids(conn, ids).map_err(|e| mcp_internal_error(format!("DB error: {e}")))?
     } else if let Some(pid) = playlist_id {
         let db_limit = if bounded { effective_max.map(|m| m as u32) } else { None };
         if bounded {
             db::get_playlist_tracks(conn, pid, db_limit)
-                .map_err(|e| internal(format!("DB error: {e}")))?
+                .map_err(|e| mcp_internal_error(format!("DB error: {e}")))?
         } else {
             db::get_playlist_tracks_unbounded(conn, pid, db_limit)
-                .map_err(|e| internal(format!("DB error: {e}")))?
+                .map_err(|e| mcp_internal_error(format!("DB error: {e}")))?
         }
     } else {
         let limit = effective_max.map(|m| m as u32);
         let search = filters.into_search_params(true, limit, None);
         if bounded {
-            db::search_tracks(conn, &search).map_err(|e| internal(format!("DB error: {e}")))?
+            db::search_tracks(conn, &search).map_err(|e| mcp_internal_error(format!("DB error: {e}")))?
         } else {
             db::search_tracks_unbounded(conn, &search)
-                .map_err(|e| internal(format!("DB error: {e}")))?
+                .map_err(|e| mcp_internal_error(format!("DB error: {e}")))?
         }
     };
 

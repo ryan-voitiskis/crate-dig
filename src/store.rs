@@ -11,15 +11,15 @@ pub fn default_path() -> PathBuf {
 }
 
 pub fn open(path: &str) -> Result<Connection, rusqlite::Error> {
-    let p = std::path::Path::new(path);
-    if let Some(parent) = p.parent() {
+    let store_path = std::path::Path::new(path);
+    if let Some(parent) = store_path.parent() {
         std::fs::create_dir_all(parent).map_err(|err| {
             rusqlite::Error::SqliteFailure(
                 ffi::Error::new(ffi::SQLITE_CANTOPEN),
                 Some(format!(
                     "failed to create parent directory {} for {}: {}",
                     parent.display(),
-                    p.display(),
+                    store_path.display(),
                     err
                 )),
             )
@@ -93,7 +93,7 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 #[allow(dead_code)]
-pub struct CachedEnrichment {
+pub struct EnrichmentCacheEntry {
     pub provider: String,
     pub query_artist: String,
     pub query_title: String,
@@ -107,14 +107,14 @@ pub fn get_enrichment(
     provider: &str,
     artist: &str,
     title: &str,
-) -> Result<Option<CachedEnrichment>, rusqlite::Error> {
+) -> Result<Option<EnrichmentCacheEntry>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT provider, query_artist, query_title, match_quality, response_json, created_at
          FROM enrichment_cache
          WHERE provider = ?1 AND query_artist = ?2 AND query_title = ?3",
     )?;
     let mut rows = stmt.query_map(params![provider, artist, title], |row| {
-        Ok(CachedEnrichment {
+        Ok(EnrichmentCacheEntry {
             provider: row.get(0)?,
             query_artist: row.get(1)?,
             query_title: row.get(2)?,
@@ -419,8 +419,8 @@ pub fn get_audit_issues(
         param_values.push(Box::new(s.to_string()));
         conditions.push_str(&format!(" AND status = ?{}", param_values.len()));
     }
-    if let Some(it) = issue_type {
-        param_values.push(Box::new(it.to_string()));
+    if let Some(issue_type_filter) = issue_type {
+        param_values.push(Box::new(issue_type_filter.to_string()));
         conditions.push_str(&format!(" AND issue_type = ?{}", param_values.len()));
     }
 
@@ -554,7 +554,7 @@ pub fn delete_missing_audit_files(
 ) -> Result<usize, rusqlite::Error> {
     const BATCH_SIZE: usize = 500;
     let pattern = format!("{}%", escape_like(scope));
-    let mut count = 0usize;
+    let mut deleted_count = 0usize;
     let mut last_path = String::new();
 
     loop {
@@ -588,7 +588,7 @@ pub fn delete_missing_audit_files(
             for (i, path) in to_delete.iter().enumerate() {
                 del_stmt.raw_bind_parameter(i + 1, *path)?;
             }
-            count += del_stmt.raw_execute()?;
+            deleted_count += del_stmt.raw_execute()?;
         }
 
         last_path = batch_paths
@@ -597,7 +597,7 @@ pub fn delete_missing_audit_files(
             .clone();
     }
 
-    Ok(count)
+    Ok(deleted_count)
 }
 
 #[cfg(test)]

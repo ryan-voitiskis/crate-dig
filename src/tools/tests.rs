@@ -148,7 +148,7 @@
 
     fn sample_real_tracks(server: &ReklawdboxServer, limit: u32) -> Vec<crate::types::Track> {
         let conn = server
-            .conn()
+            .rekordbox_conn()
             .expect("real DB connection should be available for integration test");
         db::search_tracks(
             &conn,
@@ -274,10 +274,10 @@
     }
 
     fn canonical_genre_name(raw_genre: &str) -> String {
-        if let Some(canonical) = genre::canonical_casing(raw_genre) {
+        if let Some(canonical) = genre::canonical_genre_name(raw_genre) {
             return canonical.to_string();
         }
-        if let Some(alias_target) = genre::normalize_genre(raw_genre) {
+        if let Some(alias_target) = genre::canonical_genre_from_alias(raw_genre) {
             return alias_target.to_string();
         }
         raw_genre.to_string()
@@ -441,14 +441,14 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids,
                 target_tracks: 4,
-                priority: Some(SetPriority::Balanced),
+                priority: Some(SequencingPriority::Balanced),
                 energy_curve: Some(EnergyCurveInput::Preset(
                     EnergyCurvePreset::WarmupBuildPeakRelease,
                 )),
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: Some(3),
                 beam_width: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,
@@ -481,7 +481,7 @@
                 .as_f64()
                 .expect("set_score should be numeric");
             assert!(
-                (set_score - round_score(set_score)).abs() < 1e-9,
+                (set_score - round_to_3_decimals(set_score)).abs() < 1e-9,
                 "set_score should be rounded to 3 decimal places"
             );
             assert!(
@@ -533,7 +533,7 @@
     }
 
     #[tokio::test]
-    async fn build_set_custom_curve_and_small_pool_are_handled() {
+    async fn build_set_adapts_energy_curve_to_single_track_pool() {
         let db_conn = create_single_track_test_db("single-set-1", "/tmp/single-set-1.flac");
         db_conn
             .execute(
@@ -557,17 +557,17 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids: vec!["single-set-1".to_string()],
                 target_tracks: 4,
-                priority: Some(SetPriority::Energy),
+                priority: Some(SequencingPriority::Energy),
                 energy_curve: Some(EnergyCurveInput::Custom(vec![
                     EnergyPhase::Warmup,
                     EnergyPhase::Build,
                     EnergyPhase::Peak,
                     EnergyPhase::Release,
                 ])),
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: Some(2),
                 beam_width: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,
@@ -606,7 +606,7 @@
     }
 
     #[tokio::test]
-    async fn build_set_handles_all_same_key_pool() {
+    async fn build_set_produces_candidates_from_homogeneous_key_pool() {
         let db_conn = create_single_track_test_db("same-key-1", "/tmp/same-key-1.flac");
         insert_test_track(
             &db_conn,
@@ -642,12 +642,12 @@
                     "same-key-3".to_string(),
                 ],
                 target_tracks: 3,
-                priority: Some(SetPriority::Harmonic),
-                energy_curve: Some(EnergyCurveInput::Preset(EnergyCurvePreset::Flat)),
-                start_track_id: None,
+                priority: Some(SequencingPriority::Harmonic),
+                energy_curve: Some(EnergyCurveInput::Preset(EnergyCurvePreset::FlatEnergy)),
+                opening_track_id: None,
                 candidates: Some(2),
                 beam_width: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,
@@ -698,14 +698,14 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids: selected,
                 target_tracks: 6,
-                priority: Some(SetPriority::Balanced),
+                priority: Some(SequencingPriority::Balanced),
                 energy_curve: Some(EnergyCurveInput::Preset(
                     EnergyCurvePreset::WarmupBuildPeakRelease,
                 )),
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: Some(1),
                 beam_width: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,
@@ -758,7 +758,7 @@
 
     #[test]
     #[cfg(unix)]
-    fn probe_essentia_python_rejects_success_without_version_output() {
+    fn probe_essentia_python_fails_when_no_version_string() {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().expect("temp dir should create");
@@ -784,7 +784,7 @@
 
     #[test]
     #[cfg(unix)]
-    fn validate_essentia_python_times_out() {
+    fn probe_essentia_python_returns_error_on_timeout() {
         use std::os::unix::fs::PermissionsExt;
 
         let dir = tempfile::tempdir().expect("temp dir should create");
@@ -814,7 +814,7 @@
     }
 
     #[test]
-    fn lookup_output_with_cache_metadata_normalizes_non_object_payloads() {
+    fn lookup_output_wraps_non_object_in_result_envelope() {
         let output = lookup_output_with_cache_metadata(serde_json::Value::Null, false, None);
         assert_eq!(output["result"], serde_json::Value::Null);
         assert_eq!(output["cache_hit"], false);
@@ -1162,7 +1162,7 @@
     }
 
     #[tokio::test]
-    async fn write_xml_with_playlists_and_staged_changes_exports_union_once() {
+    async fn write_xml_deduplicates_playlist_and_staged_tracks() {
         let db_conn = create_single_track_test_db("staged-track-1", "/tmp/staged-track-1.flac");
         insert_test_track(
             &db_conn,
@@ -1376,7 +1376,7 @@
 
     #[tokio::test]
     async fn lookup_discogs_without_auth_returns_actionable_remediation() {
-        if matches!(discogs::BrokerConfig::from_env(), discogs::BrokerConfigResult::Ok(_)) || discogs::legacy_credentials_configured() {
+        if matches!(discogs::BrokerConfig::from_env(), discogs::BrokerConfigStatus::Ok(_)) || discogs::legacy_credentials_configured() {
             eprintln!("Skipping auth-remediation test: local Discogs env is already configured");
             return;
         }
@@ -1461,11 +1461,11 @@
             .get("cached_at")
             .and_then(serde_json::Value::as_str)
             .expect("cached no-match payload should include cached_at");
-        let norm_artist = crate::normalize::normalize(artist);
-        let norm_title = crate::normalize::normalize(title);
+        let norm_artist = crate::normalize::normalize_for_matching(artist);
+        let norm_title = crate::normalize::normalize_for_matching(title);
         let cache_entry = {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
                 .expect("cache read should succeed")
@@ -1535,11 +1535,11 @@
             .get("cached_at")
             .and_then(serde_json::Value::as_str)
             .expect("cached no-match payload should include cached_at");
-        let norm_artist = crate::normalize::normalize(artist);
-        let norm_title = crate::normalize::normalize(title);
+        let norm_artist = crate::normalize::normalize_for_matching(artist);
+        let norm_title = crate::normalize::normalize_for_matching(title);
         let cache_entry = {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
                 .expect("cache read should succeed")
@@ -1590,9 +1590,9 @@
         let artist = "Aníbal";
         let title_one = "Señorita";
         let title_two = "Corazón Cached";
-        let norm_artist = crate::normalize::normalize(artist);
-        let norm_title_one = crate::normalize::normalize(title_one);
-        let norm_title_two = crate::normalize::normalize(title_two);
+        let norm_artist = crate::normalize::normalize_for_matching(artist);
+        let norm_title_one = crate::normalize::normalize_for_matching(title_one);
+        let norm_title_two = crate::normalize::normalize_for_matching(title_two);
 
         let cached_one = serde_json::json!({
             "title": "Anibal - Senorita",
@@ -1685,7 +1685,7 @@
         assert_eq!(second_payload["summary"]["failed"], 0);
 
         let store = server
-            .internal_conn()
+            .cache_store_conn()
             .expect("internal store should be available");
         let entry_one = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title_one)
             .expect("cache read should succeed")
@@ -1715,8 +1715,8 @@
         )
         .expect("temp internal store should open");
 
-        let norm_artist = crate::normalize::normalize("Aníbal");
-        let norm_title = crate::normalize::normalize("Señorita");
+        let norm_artist = crate::normalize::normalize_for_matching("Aníbal");
+        let norm_title = crate::normalize::normalize_for_matching("Señorita");
         store::set_enrichment(
             &store_conn,
             "discogs",
@@ -1860,9 +1860,9 @@
         )
         .expect("temp internal store should open");
 
-        let norm_artist = crate::normalize::normalize("Aníbal");
-        let norm_title_one = crate::normalize::normalize("No Genre One");
-        let norm_title_two = crate::normalize::normalize("No Genre Two");
+        let norm_artist = crate::normalize::normalize_for_matching("Aníbal");
+        let norm_title_one = crate::normalize::normalize_for_matching("No Genre One");
+        let norm_title_two = crate::normalize::normalize_for_matching("No Genre Two");
 
         store::set_audio_analysis(
             &store_conn,
@@ -2060,14 +2060,14 @@
             .into_iter()
             .next()
             .expect("integration test needs at least one real track");
-        let norm_artist = crate::normalize::normalize(&track.artist);
-        let norm_title = crate::normalize::normalize(&track.title);
+        let norm_artist = crate::normalize::normalize_for_matching(&track.artist);
+        let norm_title = crate::normalize::normalize_for_matching(&track.title);
         let cached_json = serde_json::json!({"genre":"Sentinel Genre","key":"Am","bpm":128});
         let cached_json_str = cached_json.to_string();
 
         {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store::set_enrichment(
                 &store,
@@ -2155,12 +2155,12 @@
             );
             return;
         };
-        let norm_artist = crate::normalize::normalize(&track.artist);
-        let norm_title = crate::normalize::normalize(&track.title);
+        let norm_artist = crate::normalize::normalize_for_matching(&track.artist);
+        let norm_title = crate::normalize::normalize_for_matching(&track.title);
 
         let individual_cache = {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
                 .expect("cache read should succeed")
@@ -2189,7 +2189,7 @@
 
         {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store
                 .execute(
@@ -2217,7 +2217,7 @@
 
         let batch_cache = {
             let store = server
-                .internal_conn()
+                .cache_store_conn()
                 .expect("internal store should be available");
             store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
                 .expect("cache read should succeed")
@@ -2345,7 +2345,7 @@
                 entry.expected_genre
             );
             assert!(
-                genre::normalize_genre(&entry.expected_genre).is_none(),
+                genre::canonical_genre_from_alias(&entry.expected_genre).is_none(),
                 "expected_genre '{}' must be canonical, not alias",
                 entry.expected_genre
             );
@@ -2561,7 +2561,7 @@
             "styles": ["Deep House", "Garage House", "Some Unknown Style"],
             "fuzzy_match": false,
         });
-        let discogs_cache = store::CachedEnrichment {
+        let discogs_cache = store::EnrichmentCacheEntry {
             provider: "discogs".to_string(),
             query_artist: "test artist".to_string(),
             query_title: "track t3".to_string(),
@@ -2578,7 +2578,7 @@
             "track_name": "Track t3",
             "artists": ["Test Artist"],
         });
-        let beatport_cache = store::CachedEnrichment {
+        let beatport_cache = store::EnrichmentCacheEntry {
             provider: "beatport".to_string(),
             query_artist: "test artist".to_string(),
             query_title: "track t3".to_string(),
@@ -2809,7 +2809,7 @@
         let track = make_test_track("t8", "House", 126.0, "Am");
 
         // Cache entry exists but response_json is None (no match)
-        let discogs_cache = store::CachedEnrichment {
+        let discogs_cache = store::EnrichmentCacheEntry {
             provider: "discogs".to_string(),
             query_artist: "test artist".to_string(),
             query_title: "track t8".to_string(),
@@ -2833,27 +2833,27 @@
     }
 
     #[test]
-    fn standard_key_to_camelot_converts_major_minor_and_flats() {
+    fn musical_key_to_camelot_converts_major_minor_and_flats() {
         assert_eq!(
-            standard_key_to_camelot("Am").map(format_camelot).as_deref(),
+            musical_key_to_camelot("Am").map(format_camelot).as_deref(),
             Some("8A")
         );
         assert_eq!(
-            standard_key_to_camelot("C").map(format_camelot).as_deref(),
+            musical_key_to_camelot("C").map(format_camelot).as_deref(),
             Some("8B")
         );
         assert_eq!(
-            standard_key_to_camelot("F#m")
+            musical_key_to_camelot("F#m")
                 .map(format_camelot)
                 .as_deref(),
             Some("11A")
         );
         assert_eq!(
-            standard_key_to_camelot("Bb").map(format_camelot).as_deref(),
+            musical_key_to_camelot("Bb").map(format_camelot).as_deref(),
             Some("6B")
         );
         assert_eq!(
-            standard_key_to_camelot("Dbm")
+            musical_key_to_camelot("Dbm")
                 .map(format_camelot)
                 .as_deref(),
             Some("12A")
@@ -2862,7 +2862,7 @@
             key_to_camelot("8a").map(format_camelot).as_deref(),
             Some("8A")
         );
-        assert_eq!(standard_key_to_camelot("not-a-key"), None);
+        assert_eq!(musical_key_to_camelot("not-a-key"), None);
     }
 
     #[test]
@@ -3036,13 +3036,13 @@
         to.camelot_key = parse_camelot_key("8A"); // same key naturally
 
         // With master_tempo ON: same key → perfect (1.0)
-        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, true, None, &ScoringContext::default(), None);
+        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SequencingPriority::Balanced, true, None, &ScoringContext::default(), None);
         assert_eq!(scores_mt_on.key.value, 1.0, "master_tempo on: same key should be perfect");
         assert_eq!(scores_mt_on.pitch_shift_semitones, 0);
         assert!(scores_mt_on.effective_to_key.is_none());
 
         // With master_tempo OFF: pitch shift changes effective key
-        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, false, None, &ScoringContext::default(), None);
+        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SequencingPriority::Balanced, false, None, &ScoringContext::default(), None);
         assert_eq!(scores_mt_off.pitch_shift_semitones, -1, "128→135 BPM should yield -1 semitone shift");
         assert_eq!(scores_mt_off.effective_to_key, Some("1A".to_string()), "8A shifted -1 semitone = 1A");
         assert_eq!(scores_mt_off.key.value, 0.1, "8A→1A is a clash (score 0.1)");
@@ -3088,7 +3088,7 @@
     }
 
     #[test]
-    fn harmonic_style_modulation_gate() {
+    fn harmonic_style_conservative_penalizes_poor_transitions() {
         // Two tracks where key score = 0.55 (energy diagonal: 8A → 9B)
         let from = make_test_profile("hs-from", "8A", 128.0, 0.7, "House");
         let to = make_test_profile("hs-to", "9B", 128.0, 0.7, "House");
@@ -3096,13 +3096,13 @@
         // Conservative + peak phase + key=0.55 (< 0.8 threshold) → penalty
         let conservative = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Conservative), &ScoringContext::default(), None,
         );
 
         // Same without harmonic_style → no penalty (baseline)
         let baseline = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
 
         assert!(
@@ -3120,7 +3120,7 @@
         // Adventurous + peak phase + key=0.55 → no penalty (threshold is 0.1)
         let adventurous = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Adventurous), &ScoringContext::default(), None,
         );
         assert_eq!(
             adventurous.composite, baseline.composite,
@@ -3132,11 +3132,11 @@
         let to2 = make_test_profile("hs-to2", "10A", 128.0, 0.6, "House");
         let balanced_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Balanced), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Balanced), &ScoringContext::default(), None,
         );
         let baseline_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         // key=0.45, threshold=0.45 → NOT below threshold → no penalty
         assert_eq!(
@@ -3154,11 +3154,11 @@
         // Adventurous at Peak: threshold=0.1, key=0.1 → NOT below → no penalty
         let adv_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Adventurous), &ScoringContext::default(), None,
         );
         let baseline_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         assert_eq!(
             adv_peak.composite, baseline_peak.composite,
@@ -3168,11 +3168,11 @@
         // Adventurous at Warmup: threshold=0.45, key=0.1 → below → penalty
         let adv_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Adventurous), &ScoringContext::default(), None,
         );
         let baseline_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         assert!(
             adv_warmup.composite < baseline_warmup.composite,
@@ -3188,11 +3188,11 @@
         // Conservative is phase-independent: always 0.8 threshold
         let cons_peak = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Conservative), &ScoringContext::default(), None,
         );
         let cons_warmup = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Warmup), Some(EnergyPhase::Warmup),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, Some(HarmonicMixingStyle::Conservative), &ScoringContext::default(), None,
         );
         // Both should be penalized (key=0.1 < 0.8)
         assert!(cons_peak.composite < baseline_peak.composite);
@@ -3211,7 +3211,7 @@
                 0.0,
                 Some(0.0),
                 Some(0.0),
-                SetPriority::Balanced
+                SequencingPriority::Balanced
             ),
             0.30
         ));
@@ -3223,7 +3223,7 @@
                 0.0,
                 Some(0.0),
                 Some(0.0),
-                SetPriority::Harmonic
+                SequencingPriority::Harmonic
             ),
             0.48
         ));
@@ -3235,12 +3235,12 @@
                 0.0,
                 Some(0.0),
                 Some(0.0),
-                SetPriority::Energy
+                SequencingPriority::Energy
             ),
             0.12
         ));
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, Some(0.0), Some(0.0), SetPriority::Genre),
+            composite_score(1.0, 0.0, 0.0, 0.0, Some(0.0), Some(0.0), SequencingPriority::Genre),
             0.18
         ));
 
@@ -3252,17 +3252,17 @@
                 1.0,
                 Some(0.0),
                 Some(0.0),
-                SetPriority::Balanced
+                SequencingPriority::Balanced
             ),
             0.17
         ));
         assert!(approx(
-            composite_score(0.0, 0.0, 0.0, 1.0, Some(0.0), Some(0.0), SetPriority::Genre),
+            composite_score(0.0, 0.0, 0.0, 1.0, Some(0.0), Some(0.0), SequencingPriority::Genre),
             0.38
         ));
 
         assert!(approx(
-            composite_score(1.0, 0.0, 0.0, 0.0, None, None, SetPriority::Balanced),
+            composite_score(1.0, 0.0, 0.0, 0.0, None, None, SequencingPriority::Balanced),
             0.30 / 0.85
         ));
     }
@@ -3351,7 +3351,7 @@
         let tight = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 3.0, None,
+            SequencingPriority::Harmonic, 0, true, None, 3.0, None,
         );
         assert_eq!(tight.ordered_ids[1], "bpm-close");
 
@@ -3359,7 +3359,7 @@
         let moderate = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 6.0, None,
+            SequencingPriority::Harmonic, 0, true, None, 6.0, None,
         );
         assert_eq!(moderate.ordered_ids[1], "bpm-close");
         // Far still included (only penalized, not excluded)
@@ -3369,7 +3369,7 @@
         let generous = build_candidate_plan(
             &profiles, "bpm-start", 3,
             &[EnergyPhase::Build, EnergyPhase::Build, EnergyPhase::Build],
-            SetPriority::Harmonic, 0, true, None, 50.0, None,
+            SequencingPriority::Harmonic, 0, true, None, 50.0, None,
         );
         assert_eq!(generous.ordered_ids[1], "bpm-close");
         assert!(generous.ordered_ids.contains(&"bpm-far".to_string()));
@@ -3474,11 +3474,11 @@
             create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
         let result = server
             .score_transition(Parameters(ScoreTransitionParams {
-                from_track_id: "from-track".to_string(),
-                to_track_id: "to-track".to_string(),
+                source_track_id: "from-track".to_string(),
+                target_track_id: "to-track".to_string(),
                 energy_phase: Some(EnergyPhase::Build),
-                priority: Some(SetPriority::Balanced),
-                master_tempo: None,
+                priority: Some(SequencingPriority::Balanced),
+                use_master_tempo: None,
                 harmonic_style: None,
             }))
             .await
@@ -3555,11 +3555,11 @@
         // With harmonic_style: None → Balanced default → penalty on Clash
         let penalized = server
             .score_transition(Parameters(ScoreTransitionParams {
-                from_track_id: "clash-from".to_string(),
-                to_track_id: "clash-to".to_string(),
+                source_track_id: "clash-from".to_string(),
+                target_track_id: "clash-to".to_string(),
                 energy_phase: Some(EnergyPhase::Build),
-                priority: Some(SetPriority::Balanced),
-                master_tempo: None,
+                priority: Some(SequencingPriority::Balanced),
+                use_master_tempo: None,
                 harmonic_style: None,
             }))
             .await
@@ -3569,12 +3569,12 @@
         // Explicitly pass Adventurous → no penalty on Clash at Build phase (threshold 0.1)
         let unpenalized = server
             .score_transition(Parameters(ScoreTransitionParams {
-                from_track_id: "clash-from".to_string(),
-                to_track_id: "clash-to".to_string(),
+                source_track_id: "clash-from".to_string(),
+                target_track_id: "clash-to".to_string(),
                 energy_phase: Some(EnergyPhase::Build),
-                priority: Some(SetPriority::Balanced),
-                master_tempo: None,
-                harmonic_style: Some(HarmonicStyle::Adventurous),
+                priority: Some(SequencingPriority::Balanced),
+                use_master_tempo: None,
+                harmonic_style: Some(HarmonicMixingStyle::Adventurous),
             }))
             .await
             .expect("score_transition should succeed");
@@ -3753,8 +3753,8 @@
         });
         let p: QueryTransitionCandidatesParams = serde_json::from_value(json)
             .expect("QueryTransitionCandidatesParams should deserialize");
-        assert_eq!(p.from_track_id, "t1");
-        assert_eq!(p.pool_track_ids.as_ref().unwrap().len(), 2);
+        assert_eq!(p.source_track_id, "t1");
+        assert_eq!(p.candidate_track_ids.as_ref().unwrap().len(), 2);
         assert_eq!(p.target_bpm, Some(130.0));
         assert_eq!(p.limit, Some(5));
         assert!(p.playlist_id.is_none());
@@ -3891,7 +3891,7 @@
 
         let without = score_transition_profiles(
             &from, &to, None, None,
-            SetPriority::Balanced, true, None, &ScoringContext::default(), None,
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(), None,
         );
         // play_bpms=None should give same result as before
         assert!(without.composite > 0.0);
@@ -3907,7 +3907,7 @@
         // With play_bpms: target_bpm=130 for to-track (native 126)
         let with_play = score_transition_profiles(
             &from, &to, None, None,
-            SetPriority::Balanced, true, None, &ScoringContext::default(),
+            SequencingPriority::Balanced, true, None, &ScoringContext::default(),
             Some((128.0, 130.0)),
         );
         // bpm_adjustment_pct = |130 - 126| / 126 * 100 ≈ 3.17%
@@ -3928,7 +3928,7 @@
         // Play both at their native BPM → no shift, same key, perfect
         let no_shift = score_transition_profiles(
             &from, &to, None, None,
-            SetPriority::Balanced, false, None, &ScoringContext::default(),
+            SequencingPriority::Balanced, false, None, &ScoringContext::default(),
             Some((128.0, 128.0)),
         );
         assert_eq!(no_shift.key.value, 1.0, "same play BPM, same native key = perfect");
@@ -3936,7 +3936,7 @@
         // Play to-track at much higher BPM with master_tempo OFF → key shifts
         let big_shift = score_transition_profiles(
             &from, &to, None, None,
-            SetPriority::Balanced, false, None, &ScoringContext::default(),
+            SequencingPriority::Balanced, false, None, &ScoringContext::default(),
             Some((128.0, 136.0)),
         );
         // 136/128 = 1.0625, log2 ≈ 0.0875, *12 ≈ 1.05, rounds to 1 semitone
@@ -3963,11 +3963,11 @@
 
         let greedy = build_candidate_plan(
             &profiles, "b1", 4, &phases,
-            SetPriority::Balanced, 0, true, Some(HarmonicStyle::Balanced), 6.0, None,
+            SequencingPriority::Balanced, 0, true, Some(HarmonicMixingStyle::Balanced), 6.0, None,
         );
         let beam_plans = build_candidate_plan_beam(
             &profiles, "b1", 4, &phases,
-            SetPriority::Balanced, 1, true, Some(HarmonicStyle::Balanced), 6.0, None,
+            SequencingPriority::Balanced, 1, true, Some(HarmonicMixingStyle::Balanced), 6.0, None,
         );
 
         assert_eq!(beam_plans.len(), 1, "beam width 1 should produce exactly 1 plan");
@@ -3984,7 +3984,7 @@
 
         let plans = build_candidate_plan_beam(
             &profiles, "b1", 4, &phases,
-            SetPriority::Balanced, 4, true, Some(HarmonicStyle::Balanced), 6.0, None,
+            SequencingPriority::Balanced, 4, true, Some(HarmonicMixingStyle::Balanced), 6.0, None,
         );
 
         assert!(
@@ -4010,7 +4010,7 @@
         let profiles: HashMap<String, TrackProfile> = HashMap::new();
         let plans = build_candidate_plan_beam(
             &profiles, "missing", 4, &[EnergyPhase::Peak; 4],
-            SetPriority::Balanced, 3, true, None, 6.0, None,
+            SequencingPriority::Balanced, 3, true, None, 6.0, None,
         );
         assert_eq!(plans.len(), 1, "empty pool should still produce one plan");
         assert_eq!(plans[0].ordered_ids, vec!["missing"]);
@@ -4018,14 +4018,14 @@
     }
 
     #[test]
-    fn beam_search_k_larger_than_pool() {
+    fn beam_search_width_exceeding_pool_size() {
         let mut profiles = HashMap::new();
         profiles.insert("only1".to_string(), make_test_profile("only1", "8A", 128.0, 0.5, "House"));
         profiles.insert("only2".to_string(), make_test_profile("only2", "9A", 128.5, 0.6, "House"));
 
         let plans = build_candidate_plan_beam(
             &profiles, "only1", 2, &[EnergyPhase::Peak; 2],
-            SetPriority::Balanced, 10, true, None, 6.0, None,
+            SequencingPriority::Balanced, 10, true, None, 6.0, None,
         );
 
         assert_eq!(plans.len(), 1, "only one possible plan with 2-track pool");
@@ -4045,7 +4045,7 @@
 
         let plans = build_candidate_plan_beam(
             &profiles, "b1", 4, &phases,
-            SetPriority::Balanced, 3, true, Some(HarmonicStyle::Balanced), 6.0,
+            SequencingPriority::Balanced, 3, true, Some(HarmonicMixingStyle::Balanced), 6.0,
             Some(&target_bpms),
         );
 
@@ -4072,13 +4072,13 @@
 
         let result = server
             .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
-                from_track_id: from_id.clone(),
-                pool_track_ids: Some(pool_ids),
+                source_track_id: from_id.clone(),
+                candidate_track_ids: Some(pool_ids),
                 playlist_id: None,
                 target_bpm: None,
                 energy_phase: Some(EnergyPhase::Build),
-                priority: Some(SetPriority::Balanced),
-                master_tempo: None,
+                priority: Some(SequencingPriority::Balanced),
+                use_master_tempo: None,
                 harmonic_style: None,
                 limit: None,
             }))
@@ -4134,13 +4134,13 @@
 
         let result = server
             .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
-                from_track_id: track_ids[0].clone(),
-                pool_track_ids: Some(track_ids[1..].to_vec()),
+                source_track_id: track_ids[0].clone(),
+                candidate_track_ids: Some(track_ids[1..].to_vec()),
                 playlist_id: None,
                 target_bpm: Some(130.0),
                 energy_phase: None,
                 priority: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 limit: Some(3),
             }))
@@ -4179,13 +4179,13 @@
 
         let result = server
             .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
-                from_track_id: track_ids[0].clone(),
-                pool_track_ids: Some(track_ids[1..].to_vec()),
+                source_track_id: track_ids[0].clone(),
+                candidate_track_ids: Some(track_ids[1..].to_vec()),
                 playlist_id: None,
                 target_bpm: Some(135.0), // significant BPM shift to trigger key transposition
                 energy_phase: None,
                 priority: None,
-                master_tempo: Some(false),
+                use_master_tempo: Some(false),
                 harmonic_style: None,
                 limit: None,
             }))
@@ -4217,13 +4217,13 @@
         let server = create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
         let err = server
             .query_transition_candidates(Parameters(QueryTransitionCandidatesParams {
-                from_track_id: "orphan-track".to_string(),
-                pool_track_ids: None,
+                source_track_id: "orphan-track".to_string(),
+                candidate_track_ids: None,
                 playlist_id: None,
                 target_bpm: None,
                 energy_phase: None,
                 priority: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 limit: None,
             }))
@@ -4252,12 +4252,12 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids,
                 target_tracks: 4,
-                priority: Some(SetPriority::Balanced),
+                priority: Some(SequencingPriority::Balanced),
                 energy_curve: None,
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: None,
                 beam_width: Some(5),
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,
@@ -4296,12 +4296,12 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids,
                 target_tracks: 4,
-                priority: Some(SetPriority::Balanced),
+                priority: Some(SequencingPriority::Balanced),
                 energy_curve: None,
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: None,
                 beam_width: Some(3),
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: Some((124.0, 131.0)),
@@ -4356,12 +4356,12 @@
             .build_set(Parameters(BuildSetParams {
                 track_ids: track_ids.clone(),
                 target_tracks: 4,
-                priority: Some(SetPriority::Balanced),
+                priority: Some(SequencingPriority::Balanced),
                 energy_curve: None,
-                start_track_id: None,
+                opening_track_id: None,
                 candidates: Some(1),
                 beam_width: None,
-                master_tempo: None,
+                use_master_tempo: None,
                 harmonic_style: None,
                 bpm_drift_pct: None,
                 bpm_range: None,

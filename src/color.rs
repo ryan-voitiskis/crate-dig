@@ -20,7 +20,7 @@ pub fn color_name_to_code(name: &str) -> Option<i32> {
 }
 
 /// Returns the canonical casing of a color name, or None if unknown.
-pub fn canonical_casing(name: &str) -> Option<&'static str> {
+pub fn canonical_color_name(name: &str) -> Option<&'static str> {
     let name = name.trim();
     COLORS
         .iter()
@@ -29,7 +29,7 @@ pub fn canonical_casing(name: &str) -> Option<&'static str> {
 }
 
 pub fn is_valid_color(name: &str) -> bool {
-    canonical_casing(name).is_some()
+    canonical_color_name(name).is_some()
 }
 
 #[cfg(test)]
@@ -70,12 +70,12 @@ mod tests {
     }
 
     #[test]
-    fn canonical_casing_normalizes() {
-        assert_eq!(canonical_casing("rose"), Some("Rose"));
-        assert_eq!(canonical_casing("RED"), Some("Red"));
-        assert_eq!(canonical_casing("green"), Some("Green"));
-        assert_eq!(canonical_casing("TURQUOISE"), Some("Turquoise"));
-        assert_eq!(canonical_casing("Purple"), None);
+    fn canonical_color_name_normalizes() {
+        assert_eq!(canonical_color_name("rose"), Some("Rose"));
+        assert_eq!(canonical_color_name("RED"), Some("Red"));
+        assert_eq!(canonical_color_name("green"), Some("Green"));
+        assert_eq!(canonical_color_name("TURQUOISE"), Some("Turquoise"));
+        assert_eq!(canonical_color_name("Purple"), None);
     }
 
     #[test]

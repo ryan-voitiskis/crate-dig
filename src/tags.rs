@@ -247,7 +247,7 @@ fn parse_options(read_cover_art: bool) -> ParseOptions {
 }
 
 /// Friendly format name from `FileType`.
-fn format_name(ft: FileType) -> &'static str {
+fn file_type_name(ft: FileType) -> &'static str {
     match ft {
         FileType::Wav => "wav",
         FileType::Flac => "flac",
@@ -504,7 +504,7 @@ pub fn read_file_tags(
     };
 
     let file_type = tagged_file.file_type();
-    let fmt = format_name(file_type);
+    let fmt = file_type_name(file_type);
     let fields_list = resolve_fields(fields);
 
     match file_type {
@@ -588,14 +588,14 @@ fn read_single_tags(
 
     let (tag_type_str, tags, cover_art) = match tag {
         Some(t) => {
-            let tt = tag_type_name(t.tag_type());
+            let tag_type_str = tag_type_name(t.tag_type());
             let tags_map = read_tag_fields(t, fields);
-            let art = if include_cover_art {
+            let cover_art_meta = if include_cover_art {
                 read_cover_art_meta(t)
             } else {
                 None
             };
-            (tt, tags_map, art)
+            (tag_type_str, tags_map, cover_art_meta)
         }
         None => {
             // No tags at all — return all fields as None
@@ -793,21 +793,21 @@ fn write_tag_layer(
             fields_deleted.push(field.clone());
             any_changes = true;
         } else {
-            let val = value.as_ref().unwrap();
+            let new_value = value.as_ref().unwrap();
             // Skip if value is unchanged
-            if current_value.as_deref() == Some(val.as_str()) {
+            if current_value.as_deref() == Some(new_value.as_str()) {
                 continue;
             }
-            tag.insert_text(primary_key, val.clone());
+            tag.insert_text(primary_key, new_value.clone());
             // For non-Vorbis tags, also write secondary keys for compatibility.
             // Vorbis Comments use DATE (not YEAR) per spec, and BPM is already
             // the correct key — secondary writes would create duplicate fields.
             if tag_type != TagType::VorbisComments {
                 if field == "year" {
-                    tag.insert_text(ItemKey::Year, val.clone());
+                    tag.insert_text(ItemKey::Year, new_value.clone());
                 }
                 if field == "bpm" {
-                    tag.insert_text(ItemKey::Bpm, val.clone());
+                    tag.insert_text(ItemKey::Bpm, new_value.clone());
                 }
             }
             fields_written.push(field.clone());

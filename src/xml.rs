@@ -5,7 +5,7 @@ use std::path::Path;
 
 use crate::types::Track;
 
-const REKORDBOX_VERSION: &str = "7.2.10";
+const TARGET_REKORDBOX_VERSION: &str = "7.2.10";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlaylistDef {
@@ -32,7 +32,7 @@ pub fn xml_escape(s: &str) -> String {
 
 /// Convert a file system path to a Rekordbox Location URI.
 /// e.g. `/Users/vz/Music/file name.flac` → `file://localhost/Users/vz/Music/file%20name.flac`
-pub fn path_to_location(file_path: &str) -> String {
+pub fn path_to_rekordbox_location_uri(file_path: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
     let (uri_path, is_file_uri_input) =
@@ -74,9 +74,9 @@ pub fn path_to_location(file_path: &str) -> String {
     format!("file://localhost{encoded}")
 }
 
-fn write_track(out: &mut String, track: &Track, track_id: usize) {
+fn write_collection_track(out: &mut String, track: &Track, track_id: usize) {
     let rating = crate::types::stars_to_rating(track.rating);
-    let location = path_to_location(&track.file_path);
+    let location = path_to_rekordbox_location_uri(&track.file_path);
     let kind = track.file_kind.as_kind_str();
 
     write!(
@@ -147,7 +147,7 @@ pub fn generate_xml_with_playlists(
 
     out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
     out.push_str("<DJ_PLAYLISTS Version=\"1.0.0\">\n");
-    writeln!(out, "  <PRODUCT Name=\"rekordbox\" Version=\"{REKORDBOX_VERSION}\" Company=\"AlphaTheta\"/>").unwrap();
+    writeln!(out, "  <PRODUCT Name=\"rekordbox\" Version=\"{TARGET_REKORDBOX_VERSION}\" Company=\"AlphaTheta\"/>").unwrap();
     writeln!(
         out,
         "  <COLLECTION Entries=\"{count}\">",
@@ -158,7 +158,7 @@ pub fn generate_xml_with_playlists(
     for (i, track) in tracks.iter().enumerate() {
         let xml_track_id = i + 1;
         track_id_map.insert(track.id.clone(), xml_track_id);
-        write_track(&mut out, track, xml_track_id);
+        write_collection_track(&mut out, track, xml_track_id);
     }
 
     out.push_str("  </COLLECTION>\n");
@@ -182,13 +182,13 @@ pub fn generate_xml_with_playlists(
             .unwrap();
 
             for track_id in &playlist.track_ids {
-                let key = track_id_map.get(track_id).ok_or_else(|| {
+                let xml_track_id = track_id_map.get(track_id).ok_or_else(|| {
                     format!(
                         "Playlist '{}' references unknown track ID '{}'",
                         playlist.name, track_id
                     )
                 })?;
-                writeln!(out, "        <TRACK Key=\"{key}\"/>").unwrap();
+                writeln!(out, "        <TRACK Key=\"{xml_track_id}\"/>").unwrap();
             }
 
             out.push_str("      </NODE>\n");
@@ -268,45 +268,45 @@ mod tests {
     }
 
     #[test]
-    fn test_path_to_location() {
+    fn test_path_to_rekordbox_location_uri() {
         assert_eq!(
-            path_to_location("/Users/vz/Music/track.flac"),
+            path_to_rekordbox_location_uri("/Users/vz/Music/track.flac"),
             "file://localhost/Users/vz/Music/track.flac"
         );
         assert_eq!(
-            path_to_location("/Users/vz/Music/my track.flac"),
+            path_to_rekordbox_location_uri("/Users/vz/Music/my track.flac"),
             "file://localhost/Users/vz/Music/my%20track.flac"
         );
     }
 
     #[test]
-    fn test_path_to_location_special_chars() {
+    fn test_path_to_rekordbox_location_uri_special_chars() {
         assert_eq!(
-            path_to_location("/Users/vz/Music/Drum & Bass/track.flac"),
+            path_to_rekordbox_location_uri("/Users/vz/Music/Drum & Bass/track.flac"),
             "file://localhost/Users/vz/Music/Drum%20%26%20Bass/track.flac"
         );
     }
 
     #[test]
-    fn test_path_to_location_windows_path() {
+    fn test_path_to_rekordbox_location_uri_windows_path() {
         assert_eq!(
-            path_to_location(r"C:\Users\vz\Music\my track.flac"),
+            path_to_rekordbox_location_uri(r"C:\Users\vz\Music\my track.flac"),
             "file://localhost/C:/Users/vz/Music/my%20track.flac"
         );
     }
 
     #[test]
-    fn test_path_to_location_encodes_literal_percent_triplets_in_raw_paths() {
+    fn test_path_to_rekordbox_location_uri_encodes_literal_percent_triplets_in_raw_paths() {
         assert_eq!(
-            path_to_location("/Users/vz/Music/my%20track.flac"),
+            path_to_rekordbox_location_uri("/Users/vz/Music/my%20track.flac"),
             "file://localhost/Users/vz/Music/my%2520track.flac"
         );
     }
 
     #[test]
-    fn test_path_to_location_accepts_file_uri_input() {
+    fn test_path_to_rekordbox_location_uri_accepts_file_uri_input() {
         assert_eq!(
-            path_to_location("file://localhost/Users/vz/Music/my%20track.flac"),
+            path_to_rekordbox_location_uri("file://localhost/Users/vz/Music/my%20track.flac"),
             "file://localhost/Users/vz/Music/my%20track.flac"
         );
     }

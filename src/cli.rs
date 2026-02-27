@@ -238,7 +238,7 @@ fn cache_status_for_track(
 
 fn handle_decode_result(
     decode_result: Result<Result<(Vec<f32>, u32), audio::AudioError>, tokio::task::JoinError>,
-    idx: usize,
+    track_index: usize,
     pending: usize,
     label: &str,
     failed: &mut u32,
@@ -246,12 +246,12 @@ fn handle_decode_result(
     match decode_result {
         Ok(Ok(value)) => Some(value),
         Ok(Err(e)) => {
-            eprintln!("[{idx}/{pending}] FAIL {label}: Decode error: {e}");
+            eprintln!("[{track_index}/{pending}] FAIL {label}: Decode error: {e}");
             *failed += 1;
             None
         }
         Err(e) => {
-            eprintln!("[{idx}/{pending}] FAIL {label}: Decode task failed: {e}");
+            eprintln!("[{track_index}/{pending}] FAIL {label}: Decode task failed: {e}");
             *failed += 1;
             None
         }
@@ -303,7 +303,7 @@ async fn run_and_cache_essentia(
     } else {
         &result.analyzer_version
     };
-    let json = serde_json::to_string(&result).unwrap_or_default();
+    let analysis_json = serde_json::to_string(&result).unwrap_or_default();
     store::set_audio_analysis(
         store_conn,
         file_path,
@@ -311,7 +311,7 @@ async fn run_and_cache_essentia(
         file_size,
         file_mtime,
         version,
-        &json,
+        &analysis_json,
     )
     .map_err(|e| format!("Cache write error: {e}"))
 }
@@ -459,7 +459,7 @@ async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::error::Error>
                 };
 
             let analysis_result =
-                tokio::task::spawn_blocking(move || audio::analyze(&samples, sample_rate)).await;
+                tokio::task::spawn_blocking(move || audio::analyze_with_stratum(&samples, sample_rate)).await;
 
             let result =
                 match handle_analysis_result(analysis_result, idx, pending, &label, &mut failed) {

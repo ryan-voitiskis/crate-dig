@@ -153,7 +153,8 @@ pub struct ClearChangesParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SuggestNormalizationsParams {
     #[schemars(description = "Only show genres with at least this many tracks (default 1)")]
-    pub min_count: Option<i32>,
+    #[serde(rename = "min_count")]
+    pub min_genre_count: Option<i32>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -242,7 +243,7 @@ pub struct ResolveTracksDataParams {
 
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum SetPriority {
+pub enum SequencingPriority {
     Balanced,
     Harmonic,
     Energy,
@@ -251,7 +252,7 @@ pub enum SetPriority {
 
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum HarmonicStyle {
+pub enum HarmonicMixingStyle {
     Conservative,
     Balanced,
     Adventurous,
@@ -270,7 +271,8 @@ pub enum EnergyPhase {
 #[serde(rename_all = "snake_case")]
 pub enum EnergyCurvePreset {
     WarmupBuildPeakRelease,
-    Flat,
+    #[serde(rename = "flat")]
+    FlatEnergy,
     PeakOnly,
 }
 
@@ -288,13 +290,14 @@ pub struct BuildSetParams {
     #[schemars(description = "Desired number of tracks in each candidate set")]
     pub target_tracks: u32,
     #[schemars(description = "Weighting axis (balanced, harmonic, energy, genre)")]
-    pub priority: Option<SetPriority>,
+    pub priority: Option<SequencingPriority>,
     #[schemars(
         description = "Energy curve: preset name ('warmup_build_peak_release', 'flat', 'peak_only') or an array of phase strings (warmup/build/peak/release), one per target position."
     )]
     pub energy_curve: Option<EnergyCurveInput>,
     #[schemars(description = "Optional track ID to force as the opening track")]
-    pub start_track_id: Option<String>,
+    #[serde(rename = "start_track_id")]
+    pub opening_track_id: Option<String>,
     #[schemars(
         description = "Deprecated — use beam_width. Number of set candidates to generate (default 3, max 8)."
     )]
@@ -306,11 +309,12 @@ pub struct BuildSetParams {
     #[schemars(
         description = "Master Tempo mode (default true). When false, accounts for pitch shift from BPM adjustment when scoring key compatibility."
     )]
-    pub master_tempo: Option<bool>,
+    #[serde(rename = "master_tempo")]
+    pub use_master_tempo: Option<bool>,
     #[schemars(
         description = "Harmonic mixing style: conservative (strict key matching), balanced (default), adventurous (creative key clashes allowed)."
     )]
-    pub harmonic_style: Option<HarmonicStyle>,
+    pub harmonic_style: Option<HarmonicMixingStyle>,
     #[schemars(
         description = "Maximum BPM drift from start track as a percentage (default 6.0). The last track may deviate up to this percentage from the opening BPM; intermediate tracks get a proportional fraction."
     )]
@@ -324,9 +328,11 @@ pub struct BuildSetParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct QueryTransitionCandidatesParams {
     #[schemars(description = "Source track ID to transition from")]
-    pub from_track_id: String,
+    #[serde(rename = "from_track_id")]
+    pub source_track_id: String,
     #[schemars(description = "Pool of candidate track IDs to rank")]
-    pub pool_track_ids: Option<Vec<String>>,
+    #[serde(rename = "pool_track_ids")]
+    pub candidate_track_ids: Option<Vec<String>>,
     #[schemars(description = "Playlist ID to use as the candidate pool")]
     pub playlist_id: Option<String>,
     #[schemars(
@@ -336,15 +342,16 @@ pub struct QueryTransitionCandidatesParams {
     #[schemars(description = "Energy phase preference (warmup, build, peak, release)")]
     pub energy_phase: Option<EnergyPhase>,
     #[schemars(description = "Weighting axis (balanced, harmonic, energy, genre)")]
-    pub priority: Option<SetPriority>,
+    pub priority: Option<SequencingPriority>,
     #[schemars(
         description = "Master Tempo mode (default true). When false, accounts for pitch shift from BPM adjustment when scoring key compatibility."
     )]
-    pub master_tempo: Option<bool>,
+    #[serde(rename = "master_tempo")]
+    pub use_master_tempo: Option<bool>,
     #[schemars(
         description = "Harmonic mixing style: conservative (strict key matching), balanced (default), adventurous (creative key clashes allowed)."
     )]
-    pub harmonic_style: Option<HarmonicStyle>,
+    pub harmonic_style: Option<HarmonicMixingStyle>,
     #[schemars(description = "Max results to return (default 10, max 50)")]
     pub limit: Option<u32>,
 }
@@ -352,21 +359,24 @@ pub struct QueryTransitionCandidatesParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ScoreTransitionParams {
     #[schemars(description = "Source track ID")]
-    pub from_track_id: String,
+    #[serde(rename = "from_track_id")]
+    pub source_track_id: String,
     #[schemars(description = "Destination track ID")]
-    pub to_track_id: String,
+    #[serde(rename = "to_track_id")]
+    pub target_track_id: String,
     #[schemars(description = "Energy phase preference (warmup, build, peak, release)")]
     pub energy_phase: Option<EnergyPhase>,
     #[schemars(description = "Weighting axis (balanced, harmonic, energy, genre)")]
-    pub priority: Option<SetPriority>,
+    pub priority: Option<SequencingPriority>,
     #[schemars(
         description = "Master Tempo mode (default true). When false, accounts for pitch shift from BPM adjustment when scoring key compatibility."
     )]
-    pub master_tempo: Option<bool>,
+    #[serde(rename = "master_tempo")]
+    pub use_master_tempo: Option<bool>,
     #[schemars(
         description = "Harmonic mixing style: conservative (strict key matching), balanced (default), adventurous (creative key clashes allowed)."
     )]
-    pub harmonic_style: Option<HarmonicStyle>,
+    pub harmonic_style: Option<HarmonicMixingStyle>,
 }
 
 // ---------------------------------------------------------------------------
@@ -449,7 +459,8 @@ pub(super) struct EmbedCoverArtParams {
     pub image_path: String,
 
     #[schemars(description = "Audio files to embed art into")]
-    pub targets: Vec<String>,
+    #[serde(rename = "targets")]
+    pub target_audio_files: Vec<String>,
 
     #[schemars(description = "Picture type (default: front_cover)")]
     pub picture_type: Option<String>,
@@ -457,11 +468,12 @@ pub(super) struct EmbedCoverArtParams {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(tag = "operation")]
-pub(super) enum AuditStateParams {
+pub(super) enum AuditOperation {
     #[serde(rename = "scan")]
     Scan {
         #[schemars(description = "Directory path to audit (trailing / enforced)")]
-        scope: String,
+        #[serde(rename = "scope")]
+        path_prefix: String,
 
         #[schemars(description = "Re-read all files including unchanged (default: false)")]
         revalidate: Option<bool>,
@@ -475,7 +487,8 @@ pub(super) enum AuditStateParams {
     #[serde(rename = "query_issues")]
     QueryIssues {
         #[schemars(description = "Directory path prefix to filter issues")]
-        scope: String,
+        #[serde(rename = "scope")]
+        path_prefix: String,
 
         #[schemars(description = "Filter by status: open | resolved | accepted | deferred")]
         status: Option<String>,
@@ -505,6 +518,7 @@ pub(super) enum AuditStateParams {
     #[serde(rename = "get_summary")]
     GetSummary {
         #[schemars(description = "Directory path prefix for summary")]
-        scope: String,
+        #[serde(rename = "scope")]
+        path_prefix: String,
     },
 }

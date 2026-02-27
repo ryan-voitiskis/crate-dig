@@ -331,7 +331,7 @@ pub(crate) fn resolve_audio_path(raw_path: &str) -> Result<String, AudioError> {
 pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), AudioError> {
     let file = std::fs::File::open(path)
         .map_err(|e| AudioError::Io(format!("Failed to open audio file '{path}': {e}")))?;
-    let mss = MediaSourceStream::new(Box::new(file), Default::default());
+    let media_source_stream = MediaSourceStream::new(Box::new(file), Default::default());
 
     let mut hint = Hint::new();
     if let Some(ext) = std::path::Path::new(path)
@@ -344,7 +344,7 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), AudioError> {
     let probed = get_probe()
         .format(
             &hint,
-            mss,
+            media_source_stream,
             &FormatOptions::default(),
             &MetadataOptions::default(),
         )
@@ -418,28 +418,28 @@ pub fn decode_to_samples(path: &str) -> Result<(Vec<f32>, u32), AudioError> {
 
 fn decode_buffer_to_mono(buf: &AudioBufferRef) -> Vec<f32> {
     match buf {
-        AudioBufferRef::F32(b) => mix_to_mono(b.planes().planes(), |&v| v),
-        AudioBufferRef::F64(b) => mix_to_mono(b.planes().planes(), |&v| v as f32),
-        AudioBufferRef::S8(b) => mix_to_mono(b.planes().planes(), |&v| v as f32 / 128.0),
-        AudioBufferRef::S16(b) => mix_to_mono(b.planes().planes(), |&v| v as f32 / 32768.0),
+        AudioBufferRef::F32(b) => downmix_to_mono(b.planes().planes(), |&v| v),
+        AudioBufferRef::F64(b) => downmix_to_mono(b.planes().planes(), |&v| v as f32),
+        AudioBufferRef::S8(b) => downmix_to_mono(b.planes().planes(), |&v| v as f32 / 128.0),
+        AudioBufferRef::S16(b) => downmix_to_mono(b.planes().planes(), |&v| v as f32 / 32768.0),
         AudioBufferRef::S24(b) => {
-            mix_to_mono(b.planes().planes(), |v| v.inner() as f32 / 8388608.0)
+            downmix_to_mono(b.planes().planes(), |v| v.inner() as f32 / 8388608.0)
         }
-        AudioBufferRef::S32(b) => mix_to_mono(b.planes().planes(), |&v| v as f32 / 2147483648.0),
-        AudioBufferRef::U8(b) => mix_to_mono(b.planes().planes(), |&v| (v as f32 - 128.0) / 128.0),
+        AudioBufferRef::S32(b) => downmix_to_mono(b.planes().planes(), |&v| v as f32 / 2147483648.0),
+        AudioBufferRef::U8(b) => downmix_to_mono(b.planes().planes(), |&v| (v as f32 - 128.0) / 128.0),
         AudioBufferRef::U16(b) => {
-            mix_to_mono(b.planes().planes(), |&v| (v as f32 - 32768.0) / 32768.0)
+            downmix_to_mono(b.planes().planes(), |&v| (v as f32 - 32768.0) / 32768.0)
         }
-        AudioBufferRef::U24(b) => mix_to_mono(b.planes().planes(), |v| {
+        AudioBufferRef::U24(b) => downmix_to_mono(b.planes().planes(), |v| {
             (v.inner() as f32 - 8388608.0) / 8388608.0
         }),
-        AudioBufferRef::U32(b) => mix_to_mono(b.planes().planes(), |&v| {
+        AudioBufferRef::U32(b) => downmix_to_mono(b.planes().planes(), |&v| {
             (v as f64 - 2147483648.0) as f32 / 2147483648.0
         }),
     }
 }
 
-fn mix_to_mono<T, F>(planes: &[&[T]], convert: F) -> Vec<f32>
+fn downmix_to_mono<T, F>(planes: &[&[T]], convert: F) -> Vec<f32>
 where
     F: Fn(&T) -> f32,
 {
@@ -453,11 +453,11 @@ where
         return planes[0].iter().take(num_frames).map(&convert).collect();
     }
 
-    let scale = 1.0 / num_channels as f32;
+    let channel_weight = 1.0 / num_channels as f32;
     (0..num_frames)
         .map(|i| {
             let sum: f32 = planes.iter().map(|ch| convert(&ch[i])).sum();
-            sum * scale
+            sum * channel_weight
         })
         .collect()
 }
@@ -468,7 +468,7 @@ where
 /// Standard Camelot (Rekordbox/Mixed In Key): A=minor, B=major, C=8.
 ///
 /// Mapping: flip A↔B, number = (stratum + 6) % 12 + 1.
-fn to_camelot(stratum_notation: &str) -> String {
+fn stratum_notation_to_camelot(stratum_notation: &str) -> String {
     let (num_str, letter) = if stratum_notation.ends_with('A') || stratum_notation.ends_with('B') {
         let (n, l) = stratum_notation.split_at(stratum_notation.len() - 1);
         (n, l)
@@ -486,7 +486,7 @@ fn to_camelot(stratum_notation: &str) -> String {
     format!("{camelot_num}{camelot_letter}")
 }
 
-pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, AudioError> {
+pub fn analyze_with_stratum(samples: &[f32], sample_rate: u32) -> Result<StratumResult, AudioError> {
     let config = stratum_dsp::AnalysisConfig::default();
 
     let start = Instant::now();
@@ -502,7 +502,7 @@ pub fn analyze(samples: &[f32], sample_rate: u32) -> Result<StratumResult, Audio
         bpm: result.bpm as f64,
         bpm_confidence: confidence.bpm_confidence as f64,
         key: result.key.name(),
-        key_camelot: to_camelot(&result.key.numerical()),
+        key_camelot: stratum_notation_to_camelot(&result.key.numerical()),
         key_confidence: confidence.key_confidence as f64,
         key_clarity: result.key_clarity as f64,
         grid_stability: confidence.grid_stability as f64,
@@ -559,55 +559,55 @@ mod tests {
     }
 
     #[test]
-    fn to_camelot_converts_all_major_keys() {
+    fn stratum_notation_to_camelot_converts_all_major_keys() {
         // stratum-dsp A (major) → standard Camelot B (major)
         // number = (stratum + 6) % 12 + 1
-        assert_eq!(to_camelot("1A"), "8B"); // C
-        assert_eq!(to_camelot("2A"), "9B"); // G
-        assert_eq!(to_camelot("3A"), "10B"); // D
-        assert_eq!(to_camelot("4A"), "11B"); // A
-        assert_eq!(to_camelot("5A"), "12B"); // E
-        assert_eq!(to_camelot("6A"), "1B"); // B
-        assert_eq!(to_camelot("7A"), "2B"); // F#
-        assert_eq!(to_camelot("8A"), "3B"); // C#
-        assert_eq!(to_camelot("9A"), "4B"); // G#
-        assert_eq!(to_camelot("10A"), "5B"); // D#
-        assert_eq!(to_camelot("11A"), "6B"); // A#
-        assert_eq!(to_camelot("12A"), "7B"); // F
+        assert_eq!(stratum_notation_to_camelot("1A"), "8B"); // C
+        assert_eq!(stratum_notation_to_camelot("2A"), "9B"); // G
+        assert_eq!(stratum_notation_to_camelot("3A"), "10B"); // D
+        assert_eq!(stratum_notation_to_camelot("4A"), "11B"); // A
+        assert_eq!(stratum_notation_to_camelot("5A"), "12B"); // E
+        assert_eq!(stratum_notation_to_camelot("6A"), "1B"); // B
+        assert_eq!(stratum_notation_to_camelot("7A"), "2B"); // F#
+        assert_eq!(stratum_notation_to_camelot("8A"), "3B"); // C#
+        assert_eq!(stratum_notation_to_camelot("9A"), "4B"); // G#
+        assert_eq!(stratum_notation_to_camelot("10A"), "5B"); // D#
+        assert_eq!(stratum_notation_to_camelot("11A"), "6B"); // A#
+        assert_eq!(stratum_notation_to_camelot("12A"), "7B"); // F
     }
 
     #[test]
-    fn to_camelot_converts_all_minor_keys() {
+    fn stratum_notation_to_camelot_converts_all_minor_keys() {
         // stratum-dsp B (minor) → standard Camelot A (minor)
-        assert_eq!(to_camelot("1B"), "8A"); // Am
-        assert_eq!(to_camelot("2B"), "9A"); // Em
-        assert_eq!(to_camelot("3B"), "10A"); // Bm
-        assert_eq!(to_camelot("4B"), "11A"); // F#m
-        assert_eq!(to_camelot("5B"), "12A"); // C#m
-        assert_eq!(to_camelot("6B"), "1A"); // G#m
-        assert_eq!(to_camelot("7B"), "2A"); // D#m
-        assert_eq!(to_camelot("8B"), "3A"); // A#m
-        assert_eq!(to_camelot("9B"), "4A"); // Fm
-        assert_eq!(to_camelot("10B"), "5A"); // Cm
-        assert_eq!(to_camelot("11B"), "6A"); // Gm
-        assert_eq!(to_camelot("12B"), "7A"); // Dm
+        assert_eq!(stratum_notation_to_camelot("1B"), "8A"); // Am
+        assert_eq!(stratum_notation_to_camelot("2B"), "9A"); // Em
+        assert_eq!(stratum_notation_to_camelot("3B"), "10A"); // Bm
+        assert_eq!(stratum_notation_to_camelot("4B"), "11A"); // F#m
+        assert_eq!(stratum_notation_to_camelot("5B"), "12A"); // C#m
+        assert_eq!(stratum_notation_to_camelot("6B"), "1A"); // G#m
+        assert_eq!(stratum_notation_to_camelot("7B"), "2A"); // D#m
+        assert_eq!(stratum_notation_to_camelot("8B"), "3A"); // A#m
+        assert_eq!(stratum_notation_to_camelot("9B"), "4A"); // Fm
+        assert_eq!(stratum_notation_to_camelot("10B"), "5A"); // Cm
+        assert_eq!(stratum_notation_to_camelot("11B"), "6A"); // Gm
+        assert_eq!(stratum_notation_to_camelot("12B"), "7A"); // Dm
     }
 
     #[test]
-    fn to_camelot_passes_through_invalid_input() {
-        assert_eq!(to_camelot(""), "");
-        assert_eq!(to_camelot("X"), "X");
-        assert_eq!(to_camelot("0A"), "0A");
-        assert_eq!(to_camelot("13A"), "13A");
+    fn stratum_notation_to_camelot_passes_through_invalid_input() {
+        assert_eq!(stratum_notation_to_camelot(""), "");
+        assert_eq!(stratum_notation_to_camelot("X"), "X");
+        assert_eq!(stratum_notation_to_camelot("0A"), "0A");
+        assert_eq!(stratum_notation_to_camelot("13A"), "13A");
     }
 
     #[test]
-    fn mix_to_mono_truncates_to_shortest_channel() {
+    fn downmix_to_mono_truncates_to_shortest_channel() {
         let left = [0.25_f32, 0.50, 0.75];
         let right = [0.75_f32, 0.25];
         let planes: &[&[f32]] = &[&left, &right];
 
-        let mono = mix_to_mono(planes, |&v| v);
+        let mono = downmix_to_mono(planes, |&v| v);
 
         assert_eq!(mono.len(), 2, "should use the shortest channel length");
         assert!((mono[0] - 0.50).abs() < f32::EPSILON);
@@ -615,22 +615,22 @@ mod tests {
     }
 
     #[test]
-    fn mix_to_mono_single_channel_uses_all_frames() {
+    fn downmix_to_mono_single_channel_uses_all_frames() {
         let mono_src = [0.1_f32, 0.2, 0.3];
         let planes: &[&[f32]] = &[&mono_src];
 
-        let mono = mix_to_mono(planes, |&v| v);
+        let mono = downmix_to_mono(planes, |&v| v);
 
         assert_eq!(mono, mono_src);
     }
 
     #[test]
-    fn mix_to_mono_returns_empty_when_any_channel_is_empty() {
+    fn downmix_to_mono_returns_empty_when_any_channel_is_empty() {
         let left: [f32; 0] = [];
         let right = [0.25_f32, 0.50, 0.75];
         let planes: &[&[f32]] = &[&left, &right];
 
-        let mono = mix_to_mono(planes, |&v| v);
+        let mono = downmix_to_mono(planes, |&v| v);
 
         assert!(
             mono.is_empty(),
@@ -954,7 +954,7 @@ def column_stack(cols):
         );
 
         let result =
-            analyze(&samples, sample_rate).unwrap_or_else(|e| panic!("analysis failed: {e}"));
+            analyze_with_stratum(&samples, sample_rate).unwrap_or_else(|e| panic!("analysis failed: {e}"));
 
         assert!(
             result.bpm > 0.0,
@@ -1043,7 +1043,7 @@ def column_stack(cols):
 
         // Decode + analyze
         let (samples, sample_rate) = decode_to_samples(&file_path).unwrap();
-        let result = analyze(&samples, sample_rate).unwrap();
+        let result = analyze_with_stratum(&samples, sample_rate).unwrap();
         let features_json = serde_json::to_string(&result).unwrap();
 
         // Write to a temp store

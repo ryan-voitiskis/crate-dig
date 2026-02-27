@@ -2,10 +2,31 @@ use std::collections::{HashMap, HashSet};
 
 use rusqlite::Connection;
 
-use super::params::{EnergyPhase, EnergyCurveInput, EnergyCurvePreset, HarmonicStyle, SetPriority};
+use super::params::{EnergyPhase, EnergyCurveInput, EnergyCurvePreset, HarmonicMixingStyle, SequencingPriority};
 use super::resolve_file_path;
 use crate::genre;
 use crate::store;
+
+// Energy curve preset phase boundaries
+const WARMUP_PHASE_END: f64 = 0.15;
+const BUILD_PHASE_END: f64 = 0.45;
+const PEAK_PHASE_END: f64 = 0.75;
+const PEAKONLY_BUILD_END: f64 = 0.10;
+const PEAKONLY_RELEASE_END: f64 = 0.85;
+
+// Scoring factors
+const BPM_DRIFT_PENALTY_FACTOR: f64 = 0.7;
+const HARMONIC_PENALTY_FACTOR: f64 = 0.5;
+
+// Brightness axis thresholds (Hz)
+const BRIGHTNESS_SIMILAR_HZ: f64 = 300.0;
+const BRIGHTNESS_SHIFT_HZ: f64 = 800.0;
+const BRIGHTNESS_JUMP_HZ: f64 = 1500.0;
+
+// Rhythm regularity thresholds
+const RHYTHM_MATCHED_DELTA: f64 = 0.1;
+const RHYTHM_MANAGEABLE_DELTA: f64 = 0.25;
+const RHYTHM_CHALLENGING_DELTA: f64 = 0.5;
 
 #[derive(Debug, Clone)]
 pub(super) struct TrackProfile {
@@ -53,13 +74,13 @@ pub(super) struct TransitionScores {
 impl TransitionScores {
     pub(super) fn to_json(&self) -> serde_json::Value {
         serde_json::json!({
-            "key": { "value": round_score(self.key.value), "label": self.key.label },
-            "bpm": { "value": round_score(self.bpm.value), "label": self.bpm.label },
-            "energy": { "value": round_score(self.energy.value), "label": self.energy.label },
-            "genre": { "value": round_score(self.genre.value), "label": self.genre.label },
-            "brightness": { "value": round_score(self.brightness.value), "label": self.brightness.label },
-            "rhythm": { "value": round_score(self.rhythm.value), "label": self.rhythm.label },
-            "composite": round_score(self.composite),
+            "key": { "value": round_to_3_decimals(self.key.value), "label": self.key.label },
+            "bpm": { "value": round_to_3_decimals(self.bpm.value), "label": self.bpm.label },
+            "energy": { "value": round_to_3_decimals(self.energy.value), "label": self.energy.label },
+            "genre": { "value": round_to_3_decimals(self.genre.value), "label": self.genre.label },
+            "brightness": { "value": round_to_3_decimals(self.brightness.value), "label": self.brightness.label },
+            "rhythm": { "value": round_to_3_decimals(self.rhythm.value), "label": self.rhythm.label },
+            "composite": round_to_3_decimals(self.composite),
         })
     }
 }
@@ -123,21 +144,21 @@ fn preset_energy_phase(preset: EnergyCurvePreset, position: usize, total: usize)
     };
     match preset {
         EnergyCurvePreset::WarmupBuildPeakRelease => {
-            if fraction < 0.15 {
+            if fraction < WARMUP_PHASE_END {
                 EnergyPhase::Warmup
-            } else if fraction < 0.45 {
+            } else if fraction < BUILD_PHASE_END {
                 EnergyPhase::Build
-            } else if fraction < 0.75 {
+            } else if fraction < PEAK_PHASE_END {
                 EnergyPhase::Peak
             } else {
                 EnergyPhase::Release
             }
         }
-        EnergyCurvePreset::Flat => EnergyPhase::Peak,
+        EnergyCurvePreset::FlatEnergy => EnergyPhase::Peak,
         EnergyCurvePreset::PeakOnly => {
-            if fraction < 0.10 {
+            if fraction < PEAKONLY_BUILD_END {
                 EnergyPhase::Build
-            } else if fraction < 0.85 {
+            } else if fraction < PEAKONLY_RELEASE_END {
                 EnergyPhase::Peak
             } else {
                 EnergyPhase::Release
@@ -173,15 +194,15 @@ pub(super) fn select_start_track_ids(
     });
 
     let wanted = requested_candidates.max(1);
-    let mut out: Vec<String> = profiles
+    let mut start_track_ids: Vec<String> = profiles
         .into_iter()
         .take(wanted)
         .map(|profile| profile.track.id.clone())
         .collect();
-    if out.is_empty() {
-        out.extend(profiles_by_id.keys().take(1).cloned());
+    if start_track_ids.is_empty() {
+        start_track_ids.extend(profiles_by_id.keys().take(1).cloned());
     }
-    out
+    start_track_ids
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -190,10 +211,10 @@ pub(super) fn build_candidate_plan(
     start_track_id: &str,
     target_tracks: usize,
     phases: &[EnergyPhase],
-    priority: SetPriority,
+    priority: SequencingPriority,
     variation_index: usize,
     master_tempo: bool,
-    harmonic_style: Option<HarmonicStyle>,
+    harmonic_style: Option<HarmonicMixingStyle>,
     bpm_drift_pct: f64,
     target_bpms: Option<&[f64]>,
 ) -> CandidatePlan {
@@ -223,7 +244,7 @@ pub(super) fn build_candidate_plan(
             .len()
             .checked_sub(1)
             .and_then(|idx| phases.get(idx).copied());
-        let ctx = ScoringContext { genre_run_length };
+        let scoring_context = ScoringContext { genre_run_length };
         let step = ordered_ids.len();
         let play_bpms = target_bpms.and_then(|bpms| {
             let from_bpm = bpms.get(step - 1).copied()?;
@@ -244,7 +265,7 @@ pub(super) fn build_candidate_plan(
                             priority,
                             master_tempo,
                             harmonic_style,
-                            &ctx,
+                            &scoring_context,
                             play_bpms,
                         ),
                     )
@@ -262,7 +283,7 @@ pub(super) fn build_candidate_plan(
                 if let Some(candidate_profile) = profiles_by_id.get(candidate_id.as_str()) {
                     let drift = (candidate_profile.bpm - start_bpm).abs();
                     if drift > budget_bpm {
-                        scores.composite *= 0.7;
+                        scores.composite *= BPM_DRIFT_PENALTY_FACTOR;
                     }
                 }
             }
@@ -347,10 +368,10 @@ pub(super) fn build_candidate_plan_beam(
     start_track_id: &str,
     target_tracks: usize,
     phases: &[EnergyPhase],
-    priority: SetPriority,
+    priority: SequencingPriority,
     beam_width: usize,
     master_tempo: bool,
-    harmonic_style: Option<HarmonicStyle>,
+    harmonic_style: Option<HarmonicMixingStyle>,
     bpm_drift_pct: f64,
     target_bpms: Option<&[f64]>,
 ) -> Vec<CandidatePlan> {
@@ -390,7 +411,7 @@ pub(super) fn build_candidate_plan_beam(
 
             let to_phase = phases.get(step).copied();
             let from_phase = step.checked_sub(1).and_then(|idx| phases.get(idx).copied());
-            let ctx = ScoringContext {
+            let scoring_context = ScoringContext {
                 genre_run_length: beam.genre_run_length,
             };
 
@@ -413,7 +434,7 @@ pub(super) fn build_candidate_plan_beam(
                     priority,
                     master_tempo,
                     harmonic_style,
-                    &ctx,
+                    &scoring_context,
                     play_bpms,
                 );
 
@@ -424,7 +445,7 @@ pub(super) fn build_candidate_plan_beam(
                     let budget_bpm = start_bpm * budget_pct / 100.0;
                     let drift = (to_profile.bpm - start_bpm).abs();
                     if drift > budget_bpm {
-                        scores.composite *= 0.7;
+                        scores.composite *= BPM_DRIFT_PENALTY_FACTOR;
                     }
                 }
 
@@ -522,21 +543,21 @@ pub(super) fn compute_bpm_trajectory(
         .map(|(i, phase)| match phase {
             EnergyPhase::Warmup => start_bpm,
             EnergyPhase::Build => {
-                let (bs, be) = (build_start.unwrap(), build_end.unwrap());
-                if bs == be {
+                let (build_start_idx, build_end_idx) = (build_start.unwrap(), build_end.unwrap());
+                if build_start_idx == build_end_idx {
                     (start_bpm + end_bpm) / 2.0
                 } else {
-                    let progress = (i - bs) as f64 / (be - bs) as f64;
+                    let progress = (i - build_start_idx) as f64 / (build_end_idx - build_start_idx) as f64;
                     start_bpm + (end_bpm - start_bpm) * progress
                 }
             }
             EnergyPhase::Peak => end_bpm,
             EnergyPhase::Release => {
-                let (rs, re) = (release_start.unwrap(), release_end.unwrap());
-                if rs == re {
+                let (release_start_idx, release_end_idx) = (release_start.unwrap(), release_end.unwrap());
+                if release_start_idx == release_end_idx {
                     (end_bpm + start_bpm) / 2.0
                 } else {
-                    let progress = (i - rs) as f64 / (re - rs) as f64;
+                    let progress = (i - release_start_idx) as f64 / (release_end_idx - release_start_idx) as f64;
                     end_bpm + (start_bpm - end_bpm) * progress
                 }
             }
@@ -606,9 +627,9 @@ pub(super) fn score_transition_profiles(
     to: &TrackProfile,
     from_phase: Option<EnergyPhase>,
     to_phase: Option<EnergyPhase>,
-    priority: SetPriority,
+    priority: SequencingPriority,
     master_tempo: bool,
-    harmonic_style: Option<HarmonicStyle>,
+    harmonic_style: Option<HarmonicMixingStyle>,
     ctx: &ScoringContext,
     play_bpms: Option<(f64, f64)>,
 ) -> TransitionScores {
@@ -629,19 +650,19 @@ pub(super) fn score_transition_profiles(
                 0
             };
 
-            let eff_from_key = if !master_tempo && from_shift != 0 {
+            let effective_from_key = if !master_tempo && from_shift != 0 {
                 from.camelot_key.map(|k| transpose_camelot_key(k, from_shift))
             } else {
                 from.camelot_key
             };
-            let eff_to_key = if !master_tempo && to_shift != 0 {
+            let effective_to_key = if !master_tempo && to_shift != 0 {
                 to.camelot_key.map(|k| transpose_camelot_key(k, to_shift))
             } else {
                 to.camelot_key
             };
 
-            let eff_to_display = if !master_tempo && to_shift != 0 {
-                eff_to_key.map(format_camelot)
+            let effective_to_key_display = if !master_tempo && to_shift != 0 {
+                effective_to_key.map(format_camelot)
             } else {
                 None
             };
@@ -649,7 +670,7 @@ pub(super) fn score_transition_profiles(
             // BPM axis scores how close the candidate's native BPM is to its target
             let bpm_score = score_bpm_axis(to_play_bpm, to.bpm);
 
-            (eff_to_display, to_shift, eff_from_key, eff_to_key, bpm_score)
+            (effective_to_key_display, to_shift, effective_from_key, effective_to_key, bpm_score)
         } else {
             // Original master_tempo logic
             let (eff_to_key, shift) = if !master_tempo && from.bpm > 0.0 && to.bpm > 0.0 {
@@ -717,7 +738,7 @@ pub(super) fn score_transition_profiles(
     if let Some(style) = harmonic_style {
         let min_key = harmonic_style_min_key(style, to_phase);
         if key.value < min_key {
-            composite *= 0.5;
+            composite *= HARMONIC_PENALTY_FACTOR;
         }
     }
 
@@ -749,7 +770,7 @@ pub(super) fn score_transition_profiles(
     }
 }
 
-pub(super) fn round_score(value: f64) -> f64 {
+pub(super) fn round_to_3_decimals(value: f64) -> f64 {
     (value * 1000.0).round() / 1000.0
 }
 
@@ -856,10 +877,10 @@ pub(super) fn score_energy_axis(
     let delta = to_energy - from_energy;
     let mut axis = match to_phase {
         Some(EnergyPhase::Warmup) => {
-            let met = (-0.03..=0.12).contains(&delta);
+            let phase_requirement_met = (-0.03..=0.12).contains(&delta);
             AxisScore {
-                value: if met { 1.0 } else { 0.5 },
-                label: if met {
+                value: if phase_requirement_met { 1.0 } else { 0.5 },
+                label: if phase_requirement_met {
                     "Stable/slight rise (warmup phase)".to_string()
                 } else {
                     "Too abrupt for warmup".to_string()
@@ -867,10 +888,10 @@ pub(super) fn score_energy_axis(
             }
         }
         Some(EnergyPhase::Build) => {
-            let met = delta >= 0.03;
+            let phase_requirement_met = delta >= 0.03;
             AxisScore {
-                value: if met { 1.0 } else { 0.3 },
-                label: if met {
+                value: if phase_requirement_met { 1.0 } else { 0.3 },
+                label: if phase_requirement_met {
                     "Rising (build phase)".to_string()
                 } else {
                     "Not rising (build phase)".to_string()
@@ -878,10 +899,10 @@ pub(super) fn score_energy_axis(
             }
         }
         Some(EnergyPhase::Peak) => {
-            let met = to_energy >= 0.65 && delta.abs() <= 0.10;
+            let phase_requirement_met = to_energy >= 0.65 && delta.abs() <= 0.10;
             AxisScore {
-                value: if met { 1.0 } else { 0.5 },
-                label: if met {
+                value: if phase_requirement_met { 1.0 } else { 0.5 },
+                label: if phase_requirement_met {
                     "High and stable (peak phase)".to_string()
                 } else {
                     "Not high/stable (peak phase)".to_string()
@@ -889,10 +910,10 @@ pub(super) fn score_energy_axis(
             }
         }
         Some(EnergyPhase::Release) => {
-            let met = delta <= -0.03;
+            let phase_requirement_met = delta <= -0.03;
             AxisScore {
-                value: if met { 1.0 } else { 0.3 },
-                label: if met {
+                value: if phase_requirement_met { 1.0 } else { 0.3 },
+                label: if phase_requirement_met {
                     "Dropping (release phase)".to_string()
                 } else {
                     "Not dropping (release phase)".to_string()
@@ -910,11 +931,11 @@ pub(super) fn score_energy_axis(
         (Some(previous), Some(current)) if previous != current
     );
     match (to_phase, to_loudness_range) {
-        (Some(_), Some(lra)) if is_phase_boundary && lra > 8.0 => {
+        (Some(_), Some(loudness_range)) if is_phase_boundary && loudness_range > 8.0 => {
             axis.value = (axis.value + 0.1).clamp(0.0, 1.0);
             axis.label.push_str(" + dynamic boundary boost");
         }
-        (Some(EnergyPhase::Peak), Some(lra)) if !is_phase_boundary && lra < 4.0 => {
+        (Some(EnergyPhase::Peak), Some(loudness_range)) if !is_phase_boundary && loudness_range < 4.0 => {
             axis.value = (axis.value + 0.05).clamp(0.0, 1.0);
             axis.label.push_str(" + sustained-peak consistency boost");
         }
@@ -990,17 +1011,17 @@ fn score_brightness_axis(from_centroid: Option<f64>, to_centroid: Option<f64>) -
     };
 
     let delta = (to_centroid - from_centroid).abs();
-    if delta < 300.0 {
+    if delta < BRIGHTNESS_SIMILAR_HZ {
         AxisScore {
             value: 1.0,
             label: format!("Similar timbre (delta {:.0} Hz)", delta),
         }
-    } else if delta < 800.0 {
+    } else if delta < BRIGHTNESS_SHIFT_HZ {
         AxisScore {
             value: 0.7,
             label: format!("Noticeable brightness shift (delta {:.0} Hz)", delta),
         }
-    } else if delta < 1500.0 {
+    } else if delta < BRIGHTNESS_JUMP_HZ {
         AxisScore {
             value: 0.4,
             label: format!("Large timbral jump (delta {:.0} Hz)", delta),
@@ -1028,17 +1049,17 @@ fn score_rhythm_axis(from_regularity: Option<f64>, to_regularity: Option<f64>) -
     };
 
     let delta = (to_regularity - from_regularity).abs();
-    if delta < 0.1 {
+    if delta < RHYTHM_MATCHED_DELTA {
         AxisScore {
             value: 1.0,
             label: format!("Matching groove (delta {:.2})", delta),
         }
-    } else if delta < 0.25 {
+    } else if delta < RHYTHM_MANAGEABLE_DELTA {
         AxisScore {
             value: 0.7,
             label: format!("Manageable groove shift (delta {:.2})", delta),
         }
-    } else if delta < 0.5 {
+    } else if delta < RHYTHM_CHALLENGING_DELTA {
         AxisScore {
             value: 0.4,
             label: format!("Challenging groove shift (delta {:.2})", delta),
@@ -1051,11 +1072,11 @@ fn score_rhythm_axis(from_regularity: Option<f64>, to_regularity: Option<f64>) -
     }
 }
 
-fn harmonic_style_min_key(style: HarmonicStyle, phase: Option<EnergyPhase>) -> f64 {
+fn harmonic_style_min_key(style: HarmonicMixingStyle, phase: Option<EnergyPhase>) -> f64 {
     match style {
-        HarmonicStyle::Conservative => 0.8,
-        HarmonicStyle::Balanced => 0.45,
-        HarmonicStyle::Adventurous => match phase {
+        HarmonicMixingStyle::Conservative => 0.8,
+        HarmonicMixingStyle::Balanced => 0.45,
+        HarmonicMixingStyle::Adventurous => match phase {
             Some(EnergyPhase::Warmup) | Some(EnergyPhase::Release) => 0.45,
             Some(EnergyPhase::Build) | Some(EnergyPhase::Peak) | None => 0.1,
         },
@@ -1071,12 +1092,12 @@ pub(super) struct PriorityWeights {
     pub rhythm: f64,
 }
 
-pub(super) fn priority_weights(priority: SetPriority) -> PriorityWeights {
+pub(super) fn priority_weights(priority: SequencingPriority) -> PriorityWeights {
     match priority {
-        SetPriority::Balanced => PriorityWeights { key: 0.30, bpm: 0.20, energy: 0.18, genre: 0.17, brightness: 0.08, rhythm: 0.07 },
-        SetPriority::Harmonic => PriorityWeights { key: 0.48, bpm: 0.18, energy: 0.12, genre: 0.08, brightness: 0.08, rhythm: 0.06 },
-        SetPriority::Energy => PriorityWeights { key: 0.12, bpm: 0.18, energy: 0.42, genre: 0.12, brightness: 0.08, rhythm: 0.08 },
-        SetPriority::Genre => PriorityWeights { key: 0.18, bpm: 0.18, energy: 0.12, genre: 0.38, brightness: 0.08, rhythm: 0.06 },
+        SequencingPriority::Balanced => PriorityWeights { key: 0.30, bpm: 0.20, energy: 0.18, genre: 0.17, brightness: 0.08, rhythm: 0.07 },
+        SequencingPriority::Harmonic => PriorityWeights { key: 0.48, bpm: 0.18, energy: 0.12, genre: 0.08, brightness: 0.08, rhythm: 0.06 },
+        SequencingPriority::Energy => PriorityWeights { key: 0.12, bpm: 0.18, energy: 0.42, genre: 0.12, brightness: 0.08, rhythm: 0.08 },
+        SequencingPriority::Genre => PriorityWeights { key: 0.18, bpm: 0.18, energy: 0.12, genre: 0.38, brightness: 0.08, rhythm: 0.06 },
     }
 }
 
@@ -1087,22 +1108,22 @@ pub(super) fn composite_score(
     genre_score: f64,
     brightness_score: Option<f64>,
     rhythm_score: Option<f64>,
-    priority: SetPriority,
+    priority: SequencingPriority,
 ) -> f64 {
-    let w = priority_weights(priority);
-    let mut weighted_sum = (w.key * key_score)
-        + (w.bpm * bpm_score)
-        + (w.energy * energy_score)
-        + (w.genre * genre_score);
-    let mut total_weight = w.key + w.bpm + w.energy + w.genre;
+    let weights = priority_weights(priority);
+    let mut weighted_sum = (weights.key * key_score)
+        + (weights.bpm * bpm_score)
+        + (weights.energy * energy_score)
+        + (weights.genre * genre_score);
+    let mut total_weight = weights.key + weights.bpm + weights.energy + weights.genre;
 
     if let Some(brightness) = brightness_score {
-        weighted_sum += w.brightness * brightness;
-        total_weight += w.brightness;
+        weighted_sum += weights.brightness * brightness;
+        total_weight += weights.brightness;
     }
     if let Some(rhythm) = rhythm_score {
-        weighted_sum += w.rhythm * rhythm;
-        total_weight += w.rhythm;
+        weighted_sum += weights.rhythm * rhythm;
+        total_weight += weights.rhythm;
     }
 
     if total_weight <= f64::EPSILON {
@@ -1154,10 +1175,10 @@ fn canonicalize_genre(raw_genre: &str) -> Option<String> {
     if trimmed.is_empty() {
         return None;
     }
-    if let Some(canonical) = genre::canonical_casing(trimmed) {
+    if let Some(canonical) = genre::canonical_genre_name(trimmed) {
         return Some(canonical.to_string());
     }
-    if let Some(alias_target) = genre::normalize_genre(trimmed) {
+    if let Some(alias_target) = genre::canonical_genre_from_alias(trimmed) {
         return Some(alias_target.to_string());
     }
     None
@@ -1168,7 +1189,7 @@ pub(super) fn genre_family_for(canonical_genre: &str) -> GenreFamily {
 }
 
 pub(super) fn key_to_camelot(raw_key: &str) -> Option<CamelotKey> {
-    parse_camelot_key(raw_key).or_else(|| standard_key_to_camelot(raw_key))
+    parse_camelot_key(raw_key).or_else(|| musical_key_to_camelot(raw_key))
 }
 
 pub(super) fn parse_camelot_key(raw_key: &str) -> Option<CamelotKey> {
@@ -1188,7 +1209,7 @@ pub(super) fn parse_camelot_key(raw_key: &str) -> Option<CamelotKey> {
     Some(CamelotKey { number, letter })
 }
 
-pub(super) fn standard_key_to_camelot(raw_key: &str) -> Option<CamelotKey> {
+pub(super) fn musical_key_to_camelot(raw_key: &str) -> Option<CamelotKey> {
     let normalized = raw_key.trim().replace('\u{266F}', "#").replace('\u{266D}', "b");
     if normalized.is_empty() {
         return None;
@@ -1291,9 +1312,9 @@ pub(super) fn transpose_camelot_key(key: CamelotKey, semitones: i32) -> CamelotK
 /// Map a genre/style string through the taxonomy.
 /// Returns (maps_to, mapping_type) where mapping_type is "exact", "alias", or "unknown".
 pub(super) fn map_genre_through_taxonomy(style: &str) -> (Option<String>, &'static str) {
-    if let Some(canonical) = genre::canonical_casing(style) {
+    if let Some(canonical) = genre::canonical_genre_name(style) {
         (Some(canonical.to_string()), "exact")
-    } else if let Some(canonical) = genre::normalize_genre(style) {
+    } else if let Some(canonical) = genre::canonical_genre_from_alias(style) {
         (Some(canonical.to_string()), "alias")
     } else {
         (None, "unknown")

@@ -19,13 +19,13 @@ pub(super) struct CorpusQuerySpec {
 
 pub(super) fn unique_paths(paths: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut seen = HashSet::new();
-    let mut out = Vec::new();
+    let mut deduped_paths = Vec::new();
     for path in paths {
         if seen.insert(path.clone()) {
-            out.push(path);
+            deduped_paths.push(path);
         }
     }
-    out
+    deduped_paths
 }
 
 pub(super) fn fallback_corpus_consultation(
@@ -55,7 +55,7 @@ pub(super) fn consult_manifest_first_docs(
                     search_text: query_spec.search_text,
                     limit: Some(query_spec.limit),
                 };
-                paths.extend(index.consulted_paths(query));
+                paths.extend(index.matched_paths(query));
             }
 
             let paths = unique_paths(paths);

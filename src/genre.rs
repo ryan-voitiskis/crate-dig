@@ -51,7 +51,7 @@ pub const GENRES: &[&str] = &[
 
 
 /// Returns the canonical casing of a genre if it's in the taxonomy.
-pub fn canonical_casing(genre: &str) -> Option<&'static str> {
+pub fn canonical_genre_name(genre: &str) -> Option<&'static str> {
     let genre = genre.trim();
     GENRES
         .iter()
@@ -60,7 +60,7 @@ pub fn canonical_casing(genre: &str) -> Option<&'static str> {
 }
 
 pub fn is_known_genre(genre: &str) -> bool {
-    canonical_casing(genre).is_some()
+    canonical_genre_name(genre).is_some()
 }
 
 /// Alias entries mapping non-canonical genre strings to canonical genres.
@@ -126,14 +126,14 @@ fn build_alias_map(aliases: &[(&str, &'static str)]) -> HashMap<String, &'static
 }
 
 /// Static alias map built once via OnceLock. Maps lowercase ASCII alias → canonical genre.
-pub fn alias_map() -> &'static HashMap<String, &'static str> {
+pub fn genre_alias_map() -> &'static HashMap<String, &'static str> {
     static MAP: OnceLock<HashMap<String, &'static str>> = OnceLock::new();
     MAP.get_or_init(|| build_alias_map(ALIASES))
 }
 
 /// Returns the canonical genre if the input is a known alias, `None` if already canonical or unknown.
-pub fn normalize_genre(genre: &str) -> Option<&'static str> {
-    alias_map().get(&genre.trim().to_ascii_lowercase()).copied()
+pub fn canonical_genre_from_alias(genre: &str) -> Option<&'static str> {
+    genre_alias_map().get(&genre.trim().to_ascii_lowercase()).copied()
 }
 
 
@@ -147,7 +147,7 @@ pub enum GenreFamily {
 }
 
 /// Map a canonical genre name to its family. Input should be canonical
-/// (via `canonical_casing` or `normalize_genre`); non-canonical names
+/// (via `canonical_genre_name` or `canonical_genre_from_alias`); non-canonical names
 /// fall through to `Other`.
 pub fn genre_family(canonical: &str) -> GenreFamily {
     match canonical {
@@ -213,54 +213,54 @@ mod tests {
 
     #[test]
     fn normalize_known_aliases() {
-        assert_eq!(normalize_genre("Hip-Hop"), Some("Hip Hop"));
-        assert_eq!(normalize_genre("DnB"), Some("Drum & Bass"));
-        assert_eq!(normalize_genre("Electronica"), Some("Techno"));
-        assert_eq!(normalize_genre("Bass"), Some("UK Bass"));
-        assert_eq!(normalize_genre("Gabber"), Some("Hard Techno"));
-        assert_eq!(normalize_genre("Glitch"), Some("IDM"));
+        assert_eq!(canonical_genre_from_alias("Hip-Hop"), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("DnB"), Some("Drum & Bass"));
+        assert_eq!(canonical_genre_from_alias("Electronica"), Some("Techno"));
+        assert_eq!(canonical_genre_from_alias("Bass"), Some("UK Bass"));
+        assert_eq!(canonical_genre_from_alias("Gabber"), Some("Hard Techno"));
+        assert_eq!(canonical_genre_from_alias("Glitch"), Some("IDM"));
         assert_eq!(
-            normalize_genre("140 / Deep Dubstep / Grime"),
+            canonical_genre_from_alias("140 / Deep Dubstep / Grime"),
             Some("Dubstep")
         );
     }
 
     #[test]
     fn normalize_case_insensitive() {
-        assert_eq!(normalize_genre("hip-hop"), Some("Hip Hop"));
-        assert_eq!(normalize_genre("HIP-HOP"), Some("Hip Hop"));
-        assert_eq!(normalize_genre("Hip-Hop"), Some("Hip Hop"));
-        assert_eq!(normalize_genre("dnb"), Some("Drum & Bass"));
-        assert_eq!(normalize_genre("DNB"), Some("Drum & Bass"));
+        assert_eq!(canonical_genre_from_alias("hip-hop"), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("HIP-HOP"), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("Hip-Hop"), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("dnb"), Some("Drum & Bass"));
+        assert_eq!(canonical_genre_from_alias("DNB"), Some("Drum & Bass"));
     }
 
     #[test]
     fn normalize_trims_whitespace() {
-        assert_eq!(normalize_genre(" hip-hop"), Some("Hip Hop"));
-        assert_eq!(normalize_genre("HIP-HOP "), Some("Hip Hop"));
-        assert_eq!(normalize_genre("\tdnb\t"), Some("Drum & Bass"));
+        assert_eq!(canonical_genre_from_alias(" hip-hop"), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("HIP-HOP "), Some("Hip Hop"));
+        assert_eq!(canonical_genre_from_alias("\tdnb\t"), Some("Drum & Bass"));
     }
 
     #[test]
     fn normalize_canonical_returns_none() {
-        assert_eq!(normalize_genre("Techno"), None);
-        assert_eq!(normalize_genre("Deep House"), None);
-        assert_eq!(normalize_genre("Drum & Bass"), None);
-        assert_eq!(normalize_genre("Hip Hop"), None);
-        assert_eq!(normalize_genre("Rock"), None);
-        assert_eq!(normalize_genre("Pop"), None);
+        assert_eq!(canonical_genre_from_alias("Techno"), None);
+        assert_eq!(canonical_genre_from_alias("Deep House"), None);
+        assert_eq!(canonical_genre_from_alias("Drum & Bass"), None);
+        assert_eq!(canonical_genre_from_alias("Hip Hop"), None);
+        assert_eq!(canonical_genre_from_alias("Rock"), None);
+        assert_eq!(canonical_genre_from_alias("Pop"), None);
     }
 
     #[test]
     fn normalize_unknown_returns_none() {
-        assert_eq!(normalize_genre("Polka"), None);
-        assert_eq!(normalize_genre("Anti-music"), None);
-        assert_eq!(normalize_genre("Zydeco"), None);
+        assert_eq!(canonical_genre_from_alias("Polka"), None);
+        assert_eq!(canonical_genre_from_alias("Anti-music"), None);
+        assert_eq!(canonical_genre_from_alias("Zydeco"), None);
     }
 
     #[test]
     fn alias_map_not_empty() {
-        let aliases = alias_map();
+        let aliases = genre_alias_map();
         assert!(
             aliases.len() >= 30,
             "expected at least 30 aliases, got {}",

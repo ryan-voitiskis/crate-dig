@@ -108,11 +108,11 @@ pub struct CorpusHit {
 pub struct CorpusIndex {
     #[cfg(test)]
     manifest: CorpusManifest,
-    documents: Vec<IndexedDocument>,
+    documents: Vec<CorpusDocument>,
 }
 
 #[derive(Debug, Clone)]
-struct IndexedDocument {
+struct CorpusDocument {
     manifest_order: usize,
     document: ManifestDocument,
     repo_relative_path: String,
@@ -130,7 +130,7 @@ struct NormalizedQuery {
     topic: Option<String>,
     mode: Option<String>,
     doc_type: Option<String>,
-    search_phrase: Option<String>,
+    normalized_search_text: Option<String>,
     search_terms: Vec<String>,
     limit: Option<usize>,
 }
@@ -140,8 +140,8 @@ impl<'a> From<CorpusQuery<'a>> for NormalizedQuery {
         let topic = normalize_optional_filter(value.topic);
         let mode = normalize_optional_filter(value.mode);
         let doc_type = normalize_optional_filter(value.doc_type);
-        let search_phrase = normalize_optional_filter(value.search_text);
-        let search_terms = search_phrase
+        let normalized_search_text = normalize_optional_filter(value.search_text);
+        let search_terms = normalized_search_text
             .as_deref()
             .map(|phrase| {
                 phrase
@@ -157,7 +157,7 @@ impl<'a> From<CorpusQuery<'a>> for NormalizedQuery {
             topic,
             mode,
             doc_type,
-            search_phrase,
+            normalized_search_text,
             search_terms,
             limit,
         }
@@ -190,7 +190,7 @@ impl CorpusIndex {
 
     pub fn query(&self, query: CorpusQuery<'_>) -> Vec<CorpusHit> {
         let query = NormalizedQuery::from(query);
-        let mut scored: Vec<(&IndexedDocument, i32)> = self
+        let mut scored: Vec<(&CorpusDocument, i32)> = self
             .documents
             .iter()
             .filter_map(|document| {
@@ -230,7 +230,7 @@ impl CorpusIndex {
             .collect()
     }
 
-    pub fn consulted_paths(&self, query: CorpusQuery<'_>) -> Vec<String> {
+    pub fn matched_paths(&self, query: CorpusQuery<'_>) -> Vec<String> {
         self.query(query).into_iter().map(|hit| hit.path).collect()
     }
 
@@ -240,7 +240,7 @@ impl CorpusIndex {
                 "manifest has no documents".to_string(),
             ));
         }
-        touch_manifest_metadata(&manifest);
+        mark_manifest_metadata_used(&manifest);
 
         let mut documents = Vec::with_capacity(manifest.documents.len());
         for (manifest_order, document) in manifest.documents.iter().cloned().enumerate() {
@@ -275,7 +275,7 @@ impl CorpusIndex {
             ]
             .join(" ");
 
-            documents.push(IndexedDocument {
+            documents.push(CorpusDocument {
                 manifest_order,
                 document,
                 repo_relative_path,
@@ -350,7 +350,7 @@ fn looks_like_windows_drive_path(path: &str) -> bool {
     bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic()
 }
 
-fn touch_manifest_metadata(manifest: &CorpusManifest) {
+fn mark_manifest_metadata_used(manifest: &CorpusManifest) {
     let _ = (
         manifest.schema_version,
         manifest.corpus.as_str(),
@@ -376,7 +376,7 @@ fn touch_manifest_metadata(manifest: &CorpusManifest) {
     }
 }
 
-fn document_matches_filters(document: &IndexedDocument, query: &NormalizedQuery) -> bool {
+fn document_matches_filters(document: &CorpusDocument, query: &NormalizedQuery) -> bool {
     if let Some(topic) = query.topic.as_deref()
         && !document.topics_lower.iter().any(|item| item == topic)
     {
@@ -407,7 +407,7 @@ fn document_matches_filters(document: &IndexedDocument, query: &NormalizedQuery)
     true
 }
 
-fn score_document(document: &IndexedDocument, query: &NormalizedQuery) -> i32 {
+fn score_document(document: &CorpusDocument, query: &NormalizedQuery) -> i32 {
     let mut score = 0;
 
     if query.topic.is_some() {
@@ -420,14 +420,14 @@ fn score_document(document: &IndexedDocument, query: &NormalizedQuery) -> i32 {
         score += 35;
     }
 
-    if let Some(search_phrase) = query.search_phrase.as_deref() {
-        if document.title_lower.contains(search_phrase) {
+    if let Some(normalized_search_text) = query.normalized_search_text.as_deref() {
+        if document.title_lower.contains(normalized_search_text) {
             score += 30;
         }
-        if document.id_lower.contains(search_phrase) {
+        if document.id_lower.contains(normalized_search_text) {
             score += 20;
         }
-        if document.path_lower.contains(search_phrase) {
+        if document.path_lower.contains(normalized_search_text) {
             score += 20;
         }
     }
@@ -527,7 +527,7 @@ documents:
                 .all(|hit| hit.path.starts_with("docs/rekordbox/"))
         );
 
-        let paths = index.consulted_paths(CorpusQuery::default());
+        let paths = index.matched_paths(CorpusQuery::default());
         assert_eq!(paths.len(), hits.len());
         assert!(paths.iter().all(|path| path.starts_with("docs/rekordbox/")));
     }

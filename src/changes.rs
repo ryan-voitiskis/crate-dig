@@ -4,7 +4,7 @@ use std::sync::{Mutex, MutexGuard};
 use crate::color;
 use crate::types::{EditableField, FieldDiff, Track, TrackChange, TrackDiff};
 
-fn lock_or_recover<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+fn acquire_or_recover_lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|e| {
         eprintln!("[changes] mutex poisoned, recovering");
         e.into_inner()
@@ -24,22 +24,22 @@ impl ChangeManager {
 
     /// Stage changes for one or more tracks. Merges with previously staged changes for the same track.
     pub fn stage(&self, changes: Vec<TrackChange>) -> (usize, usize) {
-        let mut map = lock_or_recover(&self.changes);
+        let mut staged_changes_by_track_id = acquire_or_recover_lock(&self.changes);
         let mut staged = 0;
         for change in changes {
             if !has_any_staged_field(&change) {
                 continue;
             }
             staged += 1;
-            map.entry(change.track_id.clone())
+            staged_changes_by_track_id.entry(change.track_id.clone())
                 .and_modify(|existing| merge_track_change(existing, &change))
                 .or_insert(change);
         }
-        (staged, map.len())
+        (staged, staged_changes_by_track_id.len())
     }
 
     pub fn pending_ids(&self) -> Vec<String> {
-        let map = lock_or_recover(&self.changes);
+        let map = acquire_or_recover_lock(&self.changes);
         let mut ids: Vec<String> = map.keys().cloned().collect();
         ids.sort();
         ids
@@ -47,7 +47,7 @@ impl ChangeManager {
 
     #[cfg(test)]
     pub fn pending_count(&self) -> usize {
-        lock_or_recover(&self.changes).len()
+        acquire_or_recover_lock(&self.changes).len()
     }
 
     pub fn get(&self, track_id: &str) -> Option<TrackChange> {
@@ -59,7 +59,7 @@ impl ChangeManager {
     }
 
     pub fn preview(&self, current_tracks: &[Track]) -> Vec<TrackDiff> {
-        let map = lock_or_recover(&self.changes);
+        let map = acquire_or_recover_lock(&self.changes);
         let track_map: HashMap<&str, &Track> =
             current_tracks.iter().map(|t| (t.id.as_str(), t)).collect();
 
@@ -70,12 +70,12 @@ impl ChangeManager {
                 continue;
             };
 
-            let mut fields = Vec::new();
+            let mut field_diffs = Vec::new();
 
             if let Some(ref new_genre) = change.genre
                 && *new_genre != track.genre
             {
-                fields.push(FieldDiff {
+                field_diffs.push(FieldDiff {
                     field: "genre".to_string(),
                     old_value: track.genre.clone(),
                     new_value: new_genre.clone(),
@@ -85,7 +85,7 @@ impl ChangeManager {
             if let Some(ref new_comments) = change.comments
                 && *new_comments != track.comments
             {
-                fields.push(FieldDiff {
+                field_diffs.push(FieldDiff {
                     field: "comments".to_string(),
                     old_value: track.comments.clone(),
                     new_value: new_comments.clone(),
@@ -95,7 +95,7 @@ impl ChangeManager {
             if let Some(new_rating) = change.rating
                 && new_rating != track.rating
             {
-                fields.push(FieldDiff {
+                field_diffs.push(FieldDiff {
                     field: "rating".to_string(),
                     old_value: track.rating.to_string(),
                     new_value: new_rating.to_string(),
@@ -105,20 +105,20 @@ impl ChangeManager {
             if let Some(ref new_color) = change.color
                 && *new_color != track.color
             {
-                fields.push(FieldDiff {
+                field_diffs.push(FieldDiff {
                     field: "color".to_string(),
                     old_value: track.color.clone(),
                     new_value: new_color.clone(),
                 });
             }
 
-            if !fields.is_empty() {
-                fields.sort_by(|a, b| a.field.cmp(&b.field));
+            if !field_diffs.is_empty() {
+                field_diffs.sort_by(|a, b| a.field.cmp(&b.field));
                 result.push(TrackDiff {
                     track_id: track_id.clone(),
                     title: track.title.clone(),
                     artist: track.artist.clone(),
-                    changes: fields,
+                    changes: field_diffs,
                 });
             }
         }
@@ -129,7 +129,7 @@ impl ChangeManager {
 
     #[cfg(test)]
     pub fn apply_changes(&self, tracks: &[Track]) -> Vec<Track> {
-        let map = lock_or_recover(&self.changes);
+        let map = acquire_or_recover_lock(&self.changes);
         apply_changes_with_map(tracks, &map)
     }
 
@@ -144,7 +144,7 @@ impl ChangeManager {
 
     /// Remove and return staged changes. If `track_ids` is None, drains all staged changes.
     pub fn take(&self, track_ids: Option<Vec<String>>) -> Vec<TrackChange> {
-        let mut map = lock_or_recover(&self.changes);
+        let mut map = acquire_or_recover_lock(&self.changes);
         match track_ids {
             Some(ids) => ids.into_iter().filter_map(|id| map.remove(&id)).collect(),
             None => {
@@ -157,7 +157,7 @@ impl ChangeManager {
 
     /// Restore previously taken changes without overwriting newer staged values.
     pub fn restore(&self, snapshot: Vec<TrackChange>) -> (usize, usize) {
-        let mut map = lock_or_recover(&self.changes);
+        let mut map = acquire_or_recover_lock(&self.changes);
         let restored = snapshot.len();
         for change in snapshot {
             map.entry(change.track_id.clone())
@@ -174,7 +174,7 @@ impl ChangeManager {
         track_ids: Option<Vec<String>>,
         fields: &[String],
     ) -> (usize, usize) {
-        let mut map = lock_or_recover(&self.changes);
+        let mut map = acquire_or_recover_lock(&self.changes);
         let target_ids: Vec<String> = match track_ids {
             Some(ids) => ids,
             None => map.keys().cloned().collect(),
@@ -222,7 +222,7 @@ impl ChangeManager {
     }
 
     pub fn clear(&self, track_ids: Option<Vec<String>>) -> (usize, usize) {
-        let mut map = lock_or_recover(&self.changes);
+        let mut map = acquire_or_recover_lock(&self.changes);
         let cleared = match track_ids {
             Some(ids) => {
                 let mut count = 0;
@@ -280,11 +280,11 @@ fn merge_missing_fields(existing: &mut TrackChange, incoming: &TrackChange) {
     }
 }
 
-fn apply_changes_with_map(tracks: &[Track], map: &HashMap<String, TrackChange>) -> Vec<Track> {
+fn apply_changes_with_map(tracks: &[Track], changes_by_track_id: &HashMap<String, TrackChange>) -> Vec<Track> {
     tracks
         .iter()
         .map(|track| {
-            if let Some(change) = map.get(&track.id) {
+            if let Some(change) = changes_by_track_id.get(&track.id) {
                 let mut modified = track.clone();
                 if let Some(ref genre) = change.genre {
                     modified.genre = genre.clone();

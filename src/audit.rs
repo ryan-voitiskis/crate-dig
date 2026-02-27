@@ -606,9 +606,9 @@ pub fn check_tags(
         if !skip.contains(&IssueType::WavTagDrift) {
             let mut drifted = Vec::new();
             for field in &["artist", "title", "album", "genre", "year", "comment"] {
-                let v2 = id3v2.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
-                let ri = riff_info.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
-                if let (Some(v2_val), Some(ri_val)) = (v2, ri)
+                let id3v2_value = id3v2.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
+                let riff_info_value = riff_info.get(*field).and_then(|v| v.as_deref()).map(|s| s.trim());
+                if let (Some(v2_val), Some(ri_val)) = (id3v2_value, riff_info_value)
                     && v2_val != ri_val
                 {
                     drifted.push(serde_json::json!({
@@ -747,9 +747,9 @@ pub fn check_filename(
         let mut drifts = Vec::new();
 
         if let (Some(fn_artist), Some(t_artist)) = (&parsed.artist, &tag_artist) {
-            let fn_a = casefold_text(fn_artist.trim());
-            let t_a = casefold_text(t_artist.trim());
-            if !fn_a.is_empty() && !t_a.is_empty() && fn_a != t_a {
+            let filename_artist_folded = casefold_text(fn_artist.trim());
+            let tag_artist_folded = casefold_text(t_artist.trim());
+            if !filename_artist_folded.is_empty() && !tag_artist_folded.is_empty() && filename_artist_folded != tag_artist_folded {
                 drifts.push(serde_json::json!({
                     "field": "artist",
                     "filename": fn_artist,
@@ -761,9 +761,9 @@ pub fn check_filename(
         if let (Some(fn_title), Some(t_title)) = (&parsed.title, &tag_title) {
             // Strip (Original Mix) from filename title for comparison
             let fn_t_clean = fn_title.replace(" (Original Mix)", "");
-            let fn_t = casefold_text(fn_t_clean.trim());
-            let t_t = casefold_text(t_title.trim());
-            if !fn_t.is_empty() && !t_t.is_empty() && fn_t != t_t {
+            let filename_title_folded = casefold_text(fn_t_clean.trim());
+            let tag_title_folded = casefold_text(t_title.trim());
+            if !filename_title_folded.is_empty() && !tag_title_folded.is_empty() && filename_title_folded != tag_title_folded {
                 drifts.push(serde_json::json!({
                     "field": "title",
                     "filename": fn_title,
@@ -1134,26 +1134,26 @@ pub struct IssueRecord {
     pub resolved_at: Option<String>,
 }
 
-fn store_issue_to_record(i: store::AuditIssue) -> IssueRecord {
-    let detail = i.detail.as_deref().and_then(|d| {
+fn store_issue_to_record(issue: store::AuditIssue) -> IssueRecord {
+    let detail = issue.detail.as_deref().and_then(|d| {
         match serde_json::from_str(d) {
             Ok(v) => Some(v),
             Err(e) => {
-                eprintln!("[audit] issue {}: detail JSON parse failed: {e}", i.id);
+                eprintln!("[audit] issue {}: detail JSON parse failed: {e}", issue.id);
                 None
             }
         }
     });
     IssueRecord {
-        id: i.id,
-        path: i.path,
-        issue_type: i.issue_type,
+        id: issue.id,
+        path: issue.path,
+        issue_type: issue.issue_type,
         detail,
-        status: i.status,
-        resolution: i.resolution,
-        note: i.note,
-        created_at: i.created_at,
-        resolved_at: i.resolved_at,
+        status: issue.status,
+        resolution: issue.resolution,
+        note: issue.note,
+        created_at: issue.created_at,
+        resolved_at: issue.resolved_at,
     }
 }
 
@@ -1180,7 +1180,7 @@ pub fn resolve_issues(
     resolution: &str,
     note: Option<&str>,
 ) -> Result<usize, String> {
-    let res = Resolution::from_str(resolution)
+    let parsed_resolution = Resolution::from_str(resolution)
         .filter(|r| !matches!(r, Resolution::Fixed))
         .ok_or_else(|| {
             format!(
@@ -1189,7 +1189,7 @@ pub fn resolve_issues(
             )
         })?;
     let now = now_iso();
-    store::resolve_audit_issues(conn, ids, res, note, &now)
+    store::resolve_audit_issues(conn, ids, parsed_resolution, note, &now)
         .map_err(|e| format!("DB error: {e}"))
 }
 

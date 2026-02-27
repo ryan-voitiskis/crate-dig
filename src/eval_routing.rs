@@ -4,7 +4,7 @@ mod tests {
 
     const TOP_K: usize = 3;
     const TOP1_ACCURACY_THRESHOLD: f64 = 0.90;
-    const SCORE_PASS_RATE_THRESHOLD: f64 = 0.80;
+    const TOP1_SCORE_PASS_RATE_THRESHOLD: f64 = 0.80;
     const TOP1_SCORE_THRESHOLD: i32 = 150;
 
     #[derive(Debug, Clone, Copy)]
@@ -150,7 +150,7 @@ mod tests {
         let score_pass_hits = results.iter().filter(|result| result.score_ok).count();
 
         let min_top1_hits = ((total as f64) * TOP1_ACCURACY_THRESHOLD).ceil() as usize;
-        let min_score_hits = ((total as f64) * SCORE_PASS_RATE_THRESHOLD).ceil() as usize;
+        let min_score_hits = ((total as f64) * TOP1_SCORE_PASS_RATE_THRESHOLD).ceil() as usize;
 
         let report = build_report(
             &results,
@@ -270,12 +270,12 @@ mod tests {
     }
 
     fn summarize_score_floor(results: &[CaseResult]) -> String {
-        let mut floors = results.iter().map(|result| result.case.min_top_score);
-        let Some(first_floor) = floors.next() else {
+        let mut score_thresholds = results.iter().map(|result| result.case.min_top_score);
+        let Some(first_floor) = score_thresholds.next() else {
             return "n/a".to_string();
         };
 
-        let (min_floor, max_floor) = floors.fold(
+        let (min_floor, max_floor) = score_thresholds.fold(
             (first_floor, first_floor),
             |(min_floor, max_floor), floor| (min_floor.min(floor), max_floor.max(floor)),
         );

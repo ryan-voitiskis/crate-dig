@@ -7,12 +7,12 @@ use crate::types::{
 };
 
 /// The universal Rekordbox 6/7 SQLCipher key (publicly known, same for all installations).
-const DB_KEY: &str = "402fd482c38817c35ffa8ffb8c7d93143b749e7d315df7a81732a1ff43608497";
+const REKORDBOX_SQLCIPHER_KEY: &str = "402fd482c38817c35ffa8ffb8c7d93143b749e7d315df7a81732a1ff43608497";
 
 pub fn open(path: &str) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     // Key is passed as a passphrase — SQLCipher derives the encryption key via PBKDF2.
-    conn.execute_batch(&format!("PRAGMA key = '{DB_KEY}'"))?;
+    conn.execute_batch(&format!("PRAGMA key = '{REKORDBOX_SQLCIPHER_KEY}'"))?;
     conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))?;
     Ok(conn)
 }
@@ -151,12 +151,12 @@ fn apply_search_filters(
     params: &SearchParams,
     bind_values: &mut Vec<Box<dyn rusqlite::types::ToSql>>,
 ) {
-    if let Some(ref q) = params.query {
-        let idx = bind_values.len() + 1;
+    if let Some(ref query_text) = params.query {
+        let bind_index = bind_values.len() + 1;
         sql.push_str(&format!(
-            " AND (c.Title LIKE ?{idx} ESCAPE '\\' OR a.Name LIKE ?{idx} ESCAPE '\\')"
+            " AND (c.Title LIKE ?{bind_index} ESCAPE '\\' OR a.Name LIKE ?{bind_index} ESCAPE '\\')"
         ));
-        bind_values.push(Box::new(format!("%{}%", escape_like(q))));
+        bind_values.push(Box::new(format!("%{}%", escape_like(query_text))));
     }
 
     if let Some(ref artist) = params.artist {
@@ -274,8 +274,8 @@ fn search_tracks_with_limit_policy(
     }
 
     let mut stmt = conn.prepare(&sql)?;
-    let refs: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
-    let rows = stmt.query_map(refs.as_slice(), row_to_track)?;
+    let bind_params: Vec<&dyn rusqlite::types::ToSql> = bind_values.iter().map(|b| b.as_ref()).collect();
+    let rows = stmt.query_map(bind_params.as_slice(), row_to_track)?;
     rows.collect()
 }
 
@@ -366,14 +366,14 @@ pub fn get_playlists(conn: &Connection) -> Result<Vec<Playlist>, rusqlite::Error
     ";
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map([], |row| {
-        let attr: i32 = row.get("Attribute")?;
+        let playlist_attribute: i32 = row.get("Attribute")?;
         Ok(Playlist {
             id: row.get("ID")?,
             name: row.get::<_, String>("Name")?.trim().to_string(),
             track_count: row.get("TrackCount")?,
             parent_id: row.get("ParentID")?,
-            is_folder: attr == 1,
-            is_smart: attr == 4,
+            is_folder: playlist_attribute == 1,
+            is_smart: playlist_attribute == 4,
         })
     })?;
     rows.collect()
@@ -416,7 +416,7 @@ pub fn get_library_stats_filtered(
     } else {
         String::new()
     };
-    let sample_filter_c = if exclude_samples {
+    let content_sample_filter = if exclude_samples {
         format!(" AND c.FolderPath NOT LIKE '{sampler_pattern}' ESCAPE '\\'")
     } else {
         String::new()
@@ -452,7 +452,7 @@ pub fn get_library_stats_filtered(
         "SELECT COALESCE(g.Name, '(none)') AS GenreName, COUNT(*) AS cnt
          FROM djmdContent c
          LEFT JOIN djmdGenre g ON c.GenreID = g.ID
-         WHERE c.rb_local_deleted = 0{sample_filter_c}
+         WHERE c.rb_local_deleted = 0{content_sample_filter}
          GROUP BY g.Name
          ORDER BY cnt DESC"
     ))?;
@@ -469,7 +469,7 @@ pub fn get_library_stats_filtered(
         "SELECT COALESCE(k.ScaleName, '(none)') AS KeyName, COUNT(*) AS cnt
          FROM djmdContent c
          LEFT JOIN djmdKey k ON c.KeyID = k.ID
-         WHERE c.rb_local_deleted = 0{sample_filter_c}
+         WHERE c.rb_local_deleted = 0{content_sample_filter}
          GROUP BY k.ScaleName
          ORDER BY cnt DESC"
     ))?;
@@ -621,7 +621,7 @@ pub(crate) fn open_real_db() -> Option<Connection> {
 
     let conn =
         Connection::open(&db_path).unwrap_or_else(|e| panic!("failed to open {db_path}: {e}"));
-    conn.execute_batch(&format!("PRAGMA key = '{DB_KEY}'"))
+    conn.execute_batch(&format!("PRAGMA key = '{REKORDBOX_SQLCIPHER_KEY}'"))
         .unwrap_or_else(|e| panic!("failed to set key: {e}"));
     conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))
         .unwrap_or_else(|e| panic!("key verification failed: {e}"));
@@ -1425,7 +1425,7 @@ mod tests {
             if gc.name == "(none)" || gc.name.is_empty() {
                 continue;
             }
-            if crate::genre::normalize_genre(&gc.name).is_some() {
+            if crate::genre::canonical_genre_from_alias(&gc.name).is_some() {
                 alias_count += gc.count;
             } else if crate::genre::is_known_genre(&gc.name) {
                 canonical_count += gc.count;

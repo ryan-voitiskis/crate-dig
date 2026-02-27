@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::discogs::urlencoding;
 
-const BEATPORT_UA: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
+const BEATPORT_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 #[derive(Debug, thiserror::Error)]
@@ -23,7 +23,7 @@ pub enum BeatportError {
     Parse(String),
 }
 
-enum HttpStatusHandling {
+enum HttpStatusOutcome {
     NoMatch,
     Error(BeatportError),
 }
@@ -53,7 +53,7 @@ pub async fn lookup(
 
     let resp = client
         .get(&url)
-        .header("User-Agent", BEATPORT_UA)
+        .header("User-Agent", BEATPORT_USER_AGENT)
         .header(
             "Accept",
             "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -72,8 +72,8 @@ pub async fn lookup(
             .and_then(|v| v.to_str().ok())
             .map(str::to_string);
         return match classify_http_status(status, retry_after.as_deref()) {
-            HttpStatusHandling::NoMatch => Ok(None),
-            HttpStatusHandling::Error(e) => Err(e),
+            HttpStatusOutcome::NoMatch => Ok(None),
+            HttpStatusOutcome::Error(e) => Err(e),
         };
     }
 
@@ -85,13 +85,13 @@ pub async fn lookup(
 fn classify_http_status(
     status: reqwest::StatusCode,
     retry_after: Option<&str>,
-) -> HttpStatusHandling {
+) -> HttpStatusOutcome {
     if status == reqwest::StatusCode::NOT_FOUND {
-        return HttpStatusHandling::NoMatch;
+        return HttpStatusOutcome::NoMatch;
     }
 
     if status == reqwest::StatusCode::TOO_MANY_REQUESTS || status.is_server_error() {
-        return HttpStatusHandling::Error(http_status_error(
+        return HttpStatusOutcome::Error(http_status_error(
             status,
             retry_after,
             "transient/retryable",
@@ -99,10 +99,10 @@ fn classify_http_status(
     }
 
     if status.is_client_error() {
-        return HttpStatusHandling::Error(http_status_error(status, retry_after, "client"));
+        return HttpStatusOutcome::Error(http_status_error(status, retry_after, "client"));
     }
 
-    HttpStatusHandling::Error(http_status_error(status, retry_after, "unexpected"))
+    HttpStatusOutcome::Error(http_status_error(status, retry_after, "unexpected"))
 }
 
 fn http_status_error(
@@ -483,13 +483,13 @@ mod tests {
     #[test]
     fn test_classify_http_status_404_is_no_match() {
         let result = classify_http_status(reqwest::StatusCode::NOT_FOUND, None);
-        assert!(matches!(result, HttpStatusHandling::NoMatch));
+        assert!(matches!(result, HttpStatusOutcome::NoMatch));
     }
 
     #[test]
     fn test_classify_http_status_429_includes_retry_after_and_retryable_context() {
         let result = classify_http_status(reqwest::StatusCode::TOO_MANY_REQUESTS, Some("30"));
-        let HttpStatusHandling::Error(err) = result else {
+        let HttpStatusOutcome::Error(err) = result else {
             panic!("429 should be treated as retryable error");
         };
         let msg = err.to_string();
@@ -501,7 +501,7 @@ mod tests {
     #[test]
     fn test_classify_http_status_5xx_is_retryable_error() {
         let result = classify_http_status(reqwest::StatusCode::BAD_GATEWAY, None);
-        let HttpStatusHandling::Error(err) = result else {
+        let HttpStatusOutcome::Error(err) = result else {
             panic!("5xx should be treated as retryable error");
         };
         let msg = err.to_string();
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn test_classify_http_status_other_4xx_is_client_error() {
         let result = classify_http_status(reqwest::StatusCode::FORBIDDEN, None);
-        let HttpStatusHandling::Error(err) = result else {
+        let HttpStatusOutcome::Error(err) = result else {
             panic!("4xx (other than 404) should be treated as client error");
         };
         let msg = err.to_string();

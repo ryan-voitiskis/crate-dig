@@ -18,7 +18,7 @@ mod tests {
     struct Thresholds {
         min_total_hits: usize,
         min_expected_recall: f32,
-        min_prefix_matches: usize,
+        min_leading_matches: usize,
     }
 
     #[derive(Clone, Copy, Debug)]
@@ -26,7 +26,7 @@ mod tests {
         name: &'static str,
         query_specs: &'static [QuerySpec],
         expected_doc_ids: &'static [&'static str],
-        expected_prefix_doc_ids: &'static [&'static str],
+        expected_leading_doc_ids: &'static [&'static str],
         thresholds: Thresholds,
     }
 
@@ -40,11 +40,11 @@ mod tests {
         expected_total: usize,
         expected_recall: f32,
         min_expected_recall: f32,
-        prefix_matches: usize,
-        min_prefix_matches: usize,
+        leading_matches: usize,
+        min_leading_matches: usize,
         observed_paths: Vec<String>,
         expected_paths: Vec<String>,
-        expected_prefix_paths: Vec<String>,
+        expected_leading_paths: Vec<String>,
     }
 
     impl EvalReport {
@@ -52,7 +52,7 @@ mod tests {
             self.deterministic
                 && self.total_hits >= self.min_total_hits
                 && self.expected_recall >= self.min_expected_recall
-                && self.prefix_matches >= self.min_prefix_matches
+                && self.leading_matches >= self.min_leading_matches
         }
 
         fn render(&self) -> String {
@@ -61,9 +61,9 @@ mod tests {
                  deterministic: {deterministic}\n\
                  total_hits: {total_hits} (threshold: >= {min_total_hits})\n\
                  expected_recall: {matched_expected}/{expected_total} = {expected_recall:.3} (threshold: >= {min_expected_recall:.3})\n\
-                 prefix_matches: {prefix_matches} (threshold: >= {min_prefix_matches})\n\
+                 leading_matches: {leading_matches} (threshold: >= {min_leading_matches})\n\
                  expected_paths: {expected_paths:?}\n\
-                 expected_prefix_paths: {expected_prefix_paths:?}\n\
+                 expected_leading_paths: {expected_leading_paths:?}\n\
                  observed_paths: {observed_paths:?}",
                 workflow = self.workflow,
                 deterministic = self.deterministic,
@@ -73,10 +73,10 @@ mod tests {
                 expected_total = self.expected_total,
                 expected_recall = self.expected_recall,
                 min_expected_recall = self.min_expected_recall,
-                prefix_matches = self.prefix_matches,
-                min_prefix_matches = self.min_prefix_matches,
+                leading_matches = self.leading_matches,
+                min_leading_matches = self.min_leading_matches,
                 expected_paths = self.expected_paths,
-                expected_prefix_paths = self.expected_prefix_paths,
+                expected_leading_paths = self.expected_leading_paths,
                 observed_paths = self.observed_paths,
             )
         }
@@ -155,8 +155,8 @@ mod tests {
             .iter()
             .map(|doc_id| repo_path_for_doc_id(index, doc_id))
             .collect();
-        let expected_prefix_paths: Vec<String> = case
-            .expected_prefix_doc_ids
+        let expected_leading_paths: Vec<String> = case
+            .expected_leading_doc_ids
             .iter()
             .map(|doc_id| repo_path_for_doc_id(index, doc_id))
             .collect();
@@ -173,9 +173,9 @@ mod tests {
             matched_expected as f32 / expected_total as f32
         };
 
-        let prefix_matches = first_paths
+        let leading_matches = first_paths
             .iter()
-            .zip(expected_prefix_paths.iter())
+            .zip(expected_leading_paths.iter())
             .take_while(|(observed, expected)| *observed == *expected)
             .count();
 
@@ -188,11 +188,11 @@ mod tests {
             expected_total,
             expected_recall,
             min_expected_recall: case.thresholds.min_expected_recall,
-            prefix_matches,
-            min_prefix_matches: case.thresholds.min_prefix_matches,
+            leading_matches,
+            min_leading_matches: case.thresholds.min_leading_matches,
             observed_paths: first_paths,
             expected_paths,
-            expected_prefix_paths,
+            expected_leading_paths,
         }
     }
 
@@ -245,7 +245,7 @@ mod tests {
                     "preferences",
                     "glossary",
                 ],
-                expected_prefix_doc_ids: &[
+                expected_leading_doc_ids: &[
                     "introduction",
                     "collection-window",
                     "export-mode-screen",
@@ -253,7 +253,7 @@ mod tests {
                 thresholds: Thresholds {
                     min_total_hits: 5,
                     min_expected_recall: 0.80,
-                    min_prefix_matches: 3,
+                    min_leading_matches: 3,
                 },
             },
             WorkflowEvalCase {
@@ -286,7 +286,7 @@ mod tests {
                     "xml-format-spec",
                     "developer-integration",
                 ],
-                expected_prefix_doc_ids: &[
+                expected_leading_doc_ids: &[
                     "xml-import-export",
                     "xml-format-spec",
                     "developer-integration",
@@ -294,7 +294,7 @@ mod tests {
                 thresholds: Thresholds {
                     min_total_hits: 3,
                     min_expected_recall: 1.0,
-                    min_prefix_matches: 3,
+                    min_leading_matches: 3,
                 },
             },
             WorkflowEvalCase {
@@ -328,7 +328,7 @@ mod tests {
                     "developer-integration",
                     "glossary",
                 ],
-                expected_prefix_doc_ids: &[
+                expected_leading_doc_ids: &[
                     "management",
                     "faq-library-and-collection",
                     "developer-integration",
@@ -336,7 +336,7 @@ mod tests {
                 thresholds: Thresholds {
                     min_total_hits: 4,
                     min_expected_recall: 1.0,
-                    min_prefix_matches: 3,
+                    min_leading_matches: 3,
                 },
             },
             WorkflowEvalCase {
@@ -370,11 +370,11 @@ mod tests {
                     "export-pro-dj-link",
                     "faq-usb-and-devices",
                 ],
-                expected_prefix_doc_ids: &["usb-export", "device-library-backup"],
+                expected_leading_doc_ids: &["usb-export", "device-library-backup"],
                 thresholds: Thresholds {
                     min_total_hits: 6,
                     min_expected_recall: 1.0,
-                    min_prefix_matches: 2,
+                    min_leading_matches: 2,
                 },
             },
             WorkflowEvalCase {
@@ -403,11 +403,11 @@ mod tests {
                     },
                 ],
                 expected_doc_ids: &["preferences", "menu-list"],
-                expected_prefix_doc_ids: &["preferences", "menu-list"],
+                expected_leading_doc_ids: &["preferences", "menu-list"],
                 thresholds: Thresholds {
                     min_total_hits: 2,
                     min_expected_recall: 1.0,
-                    min_prefix_matches: 2,
+                    min_leading_matches: 2,
                 },
             },
         ]

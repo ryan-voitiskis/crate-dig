@@ -21,7 +21,7 @@ pub struct BrokerConfig {
 }
 
 /// Result of attempting to load broker config from the environment.
-pub enum BrokerConfigResult {
+pub enum BrokerConfigStatus {
     /// Config loaded successfully.
     Ok(BrokerConfig),
     /// Env var not set — broker auth is not configured.
@@ -31,17 +31,17 @@ pub enum BrokerConfigResult {
 }
 
 impl BrokerConfig {
-    pub fn from_env() -> BrokerConfigResult {
+    pub fn from_env() -> BrokerConfigStatus {
         let raw_base_url = match std::env::var(BROKER_URL_ENV) {
             Ok(v) => v,
-            Err(_) => return BrokerConfigResult::NotConfigured,
+            Err(_) => return BrokerConfigStatus::NotConfigured,
         };
         let base_url = match normalize_base_url(&raw_base_url) {
             Some(url) => url,
-            None => return BrokerConfigResult::InvalidUrl(raw_base_url),
+            None => return BrokerConfigStatus::InvalidUrl(raw_base_url),
         };
         let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
-        BrokerConfigResult::Ok(Self {
+        BrokerConfigStatus::Ok(Self {
             base_url,
             broker_token,
         })
@@ -451,7 +451,7 @@ fn get_credentials() -> Result<&'static Credentials, String> {
     Ok(CREDENTIALS.get_or_init(|| creds))
 }
 
-fn nonce() -> String {
+fn generate_oauth_nonce() -> String {
     let mut rng = rand::rng();
     let bytes: [u8; 16] = rng.random();
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -518,18 +518,18 @@ async fn lookup_inner_legacy(
         .and_then(|raw| normalize_base_url(&raw))
         .unwrap_or_else(|| "https://api.discogs.com".to_string());
 
-    let oauth_nonce = nonce();
+    let oauth_nonce = generate_oauth_nonce();
     let url = build_legacy_search_url(&base_url, &query_params);
     let auth_header = build_legacy_oauth_authorization_header(creds, &oauth_nonce, timestamp);
 
-    let resp = client
+    let response = client
         .get(&url)
         .header(reqwest::header::AUTHORIZATION, auth_header)
         .send()
         .await
         .map_err(|e| format!("request failed: {e}"))?;
 
-    if resp.status() == 429 {
+    if response.status() == 429 {
         if is_retry {
             return Err("rate limited after retry".into());
         }
@@ -538,36 +538,36 @@ async fn lookup_inner_legacy(
         return Box::pin(lookup_inner_legacy(client, artist, title, album, true)).await;
     }
 
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let body = resp.text().await.unwrap_or_default();
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
         let snippet = if body.len() > 200 { &body[..200] } else { &body };
         return Err(format!("Discogs HTTP {status}: {snippet}"));
     }
 
-    let data: SearchResponse = resp
+    let search_response: SearchResponse = response
         .json()
         .await
         .map_err(|e| format!("JSON parse error: {e}"))?;
 
-    let results = match data.results {
+    let results = match search_response.results {
         Some(r) if !r.is_empty() => r,
         _ => return Ok(None),
     };
 
     // Find best match by artist name in result title.
-    for r in &results {
-        let result_title = r.title.as_deref().unwrap_or("");
+    for search_result in &results {
+        let result_title = search_result.title.as_deref().unwrap_or("");
         if result_title_matches_artist(result_title, artist) {
-            return Ok(Some(to_result(r, false)));
+            return Ok(Some(to_discogs_result(search_result, false)));
         }
     }
 
     // Fallback to first result
-    Ok(Some(to_result(&results[0], true)))
+    Ok(Some(to_discogs_result(&results[0], true)))
 }
 
-fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
+fn to_discogs_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
     let url = r
         .uri
         .as_deref()
@@ -590,11 +590,11 @@ fn to_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
 }
 
 fn result_title_matches_artist(result_title: &str, artist: &str) -> bool {
-    let norm_artist = crate::normalize::normalize(artist);
+    let norm_artist = crate::normalize::normalize_for_matching(artist);
     if norm_artist.len() < 3 {
         return true;
     }
-    crate::normalize::normalize(result_title).contains(&norm_artist)
+    crate::normalize::normalize_for_matching(result_title).contains(&norm_artist)
 }
 
 pub(crate) fn urlencoding(s: &str) -> String {
