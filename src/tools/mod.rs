@@ -1741,6 +1741,7 @@ impl ReklawdboxServer {
             priority,
             master_tempo,
             p.harmonic_style,
+            &ScoringContext::default(),
         );
 
         let result = serde_json::json!({

@@ -3010,13 +3010,13 @@
         to.camelot_key = parse_camelot_key("8A"); // same key naturally
 
         // With master_tempo ON: same key → perfect (1.0)
-        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, true, None);
+        let scores_mt_on = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, true, None, &ScoringContext::default());
         assert_eq!(scores_mt_on.key.value, 1.0, "master_tempo on: same key should be perfect");
         assert_eq!(scores_mt_on.pitch_shift_semitones, 0);
         assert!(scores_mt_on.effective_to_key.is_none());
 
         // With master_tempo OFF: pitch shift changes effective key
-        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, false, None);
+        let scores_mt_off = score_transition_profiles(&from, &to, None, None, SetPriority::Balanced, false, None, &ScoringContext::default());
         assert_ne!(scores_mt_off.pitch_shift_semitones, 0, "BPM diff should cause pitch shift");
         assert!(scores_mt_off.effective_to_key.is_some(), "effective key should be set");
         // The key score should differ from the master_tempo ON case
@@ -3073,13 +3073,13 @@
         // Conservative + peak phase + key=0.55 (< 0.8 threshold) → penalty
         let conservative = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Conservative), &ScoringContext::default(),
         );
 
         // Same without harmonic_style → no penalty (baseline)
         let baseline = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, None,
+            SetPriority::Balanced, true, None, &ScoringContext::default(),
         );
 
         assert!(
@@ -3097,7 +3097,7 @@
         // Adventurous + peak phase + key=0.55 → no penalty (threshold is 0.1)
         let adventurous = score_transition_profiles(
             &from, &to, Some(EnergyPhase::Peak), Some(EnergyPhase::Peak),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Adventurous), &ScoringContext::default(),
         );
         assert_eq!(
             adventurous.composite, baseline.composite,
@@ -3109,11 +3109,11 @@
         let to2 = make_test_profile("hs-to2", "10A", 128.0, 0.6, "House");
         let balanced_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, Some(HarmonicStyle::Balanced),
+            SetPriority::Balanced, true, Some(HarmonicStyle::Balanced), &ScoringContext::default(),
         );
         let baseline_build = score_transition_profiles(
             &from2, &to2, Some(EnergyPhase::Build), Some(EnergyPhase::Build),
-            SetPriority::Balanced, true, None,
+            SetPriority::Balanced, true, None, &ScoringContext::default(),
         );
         // key=0.45, threshold=0.45 → NOT below threshold → no penalty
         assert_eq!(
@@ -3193,14 +3193,59 @@
     #[test]
     fn score_genre_axis_treats_missing_genre_as_neutral() {
         let unknown_source =
-            score_genre_axis(None, Some("House"), GenreFamily::Other, GenreFamily::House);
+            score_genre_axis(None, Some("House"), GenreFamily::Other, GenreFamily::House, 0);
         assert_eq!(unknown_source.value, 0.5);
         assert_eq!(unknown_source.label, "Unknown genre");
 
         let unknown_destination =
-            score_genre_axis(Some("House"), None, GenreFamily::House, GenreFamily::Other);
+            score_genre_axis(Some("House"), None, GenreFamily::House, GenreFamily::Other, 0);
         assert_eq!(unknown_destination.value, 0.5);
         assert_eq!(unknown_destination.label, "Unknown genre");
+    }
+
+    #[test]
+    fn genre_stickiness_bonus_and_penalty() {
+        let approx = |a: f64, b: f64| (a - b).abs() < 1e-9;
+
+        // Streak bonus: same family, run_length=3 (< 5) → +0.1
+        let bonus = score_genre_axis(
+            Some("Deep House"), Some("Tech House"),
+            GenreFamily::House, GenreFamily::House, 3,
+        );
+        assert!(approx(bonus.value, 0.8), "0.7 + 0.1 streak bonus; got {}", bonus.value);
+        assert!(bonus.label.contains("streak bonus"));
+
+        // No bonus at run=5 (cap)
+        let no_bonus = score_genre_axis(
+            Some("Deep House"), Some("Tech House"),
+            GenreFamily::House, GenreFamily::House, 5,
+        );
+        assert_eq!(no_bonus.value, 0.7);
+        assert!(!no_bonus.label.contains("streak bonus"));
+
+        // Early switch penalty: different family, run_length=1 (< 2) → -0.1
+        let penalty = score_genre_axis(
+            Some("House"), Some("Drum & Bass"),
+            GenreFamily::House, GenreFamily::Bass, 1,
+        );
+        assert!(approx(penalty.value, 0.2), "0.3 - 0.1 early switch penalty; got {}", penalty.value);
+        assert!(penalty.label.contains("early switch penalty"));
+
+        // No penalty at run=2
+        let no_penalty = score_genre_axis(
+            Some("House"), Some("Drum & Bass"),
+            GenreFamily::House, GenreFamily::Bass, 2,
+        );
+        assert_eq!(no_penalty.value, 0.3);
+        assert!(!no_penalty.label.contains("early switch penalty"));
+
+        // No bonus at run=0 (first transition)
+        let first = score_genre_axis(
+            Some("House"), Some("Tech House"),
+            GenreFamily::House, GenreFamily::House, 0,
+        );
+        assert_eq!(first.value, 0.7);
+        assert!(!first.label.contains("streak bonus"));
     }
 
     #[test]

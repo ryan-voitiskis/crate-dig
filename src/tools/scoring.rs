@@ -69,6 +69,11 @@ impl TransitionScores {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub(super) struct ScoringContext {
+    pub(super) genre_run_length: u32,
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct CandidateTransition {
     pub(super) from_index: usize,
@@ -200,6 +205,9 @@ pub(super) fn build_candidate_plan(
     let mut remaining: HashSet<String> = profiles_by_id.keys().cloned().collect();
     remaining.remove(start_track_id);
 
+    // Track genre run length for stickiness scoring
+    let mut genre_run_length: u32 = 0;
+
     while ordered_ids.len() < target_tracks && !remaining.is_empty() {
         let Some(from_track_id) = ordered_ids.last() else {
             break;
@@ -213,6 +221,7 @@ pub(super) fn build_candidate_plan(
             .len()
             .checked_sub(1)
             .and_then(|idx| phases.get(idx).copied());
+        let ctx = ScoringContext { genre_run_length };
         let mut scored_next: Vec<(String, TransitionScores)> = remaining
             .iter()
             .filter_map(|candidate_id| {
@@ -227,6 +236,7 @@ pub(super) fn build_candidate_plan(
                             priority,
                             master_tempo,
                             harmonic_style,
+                            &ctx,
                         ),
                     )
                 })
@@ -248,6 +258,17 @@ pub(super) fn build_candidate_plan(
 
         let pick_rank = transition_pick_rank(variation_index, ordered_ids.len(), scored_next.len());
         let (next_track_id, transition_scores) = scored_next[pick_rank].clone();
+
+        // Update genre run length
+        if let Some(next_profile) = profiles_by_id.get(&next_track_id) {
+            if next_profile.genre_family == from_profile.genre_family
+                && from_profile.genre_family != GenreFamily::Other
+            {
+                genre_run_length += 1;
+            } else {
+                genre_run_length = 0;
+            }
+        }
 
         transitions.push(CandidateTransition {
             from_index: ordered_ids.len() - 1,
@@ -338,6 +359,7 @@ pub(super) fn build_track_profile(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn score_transition_profiles(
     from: &TrackProfile,
     to: &TrackProfile,
@@ -346,6 +368,7 @@ pub(super) fn score_transition_profiles(
     priority: SetPriority,
     master_tempo: bool,
     harmonic_style: Option<HarmonicStyle>,
+    ctx: &ScoringContext,
 ) -> TransitionScores {
     // When master_tempo is off, pitch-shifting changes the effective key.
     // Calculate the semitone shift implied by the BPM difference.
@@ -381,6 +404,7 @@ pub(super) fn score_transition_profiles(
         to.canonical_genre.as_deref(),
         from.genre_family,
         to.genre_family,
+        ctx.genre_run_length,
     );
     let brightness = score_brightness_axis(from.brightness, to.brightness);
     let rhythm = score_rhythm_axis(from.rhythm_regularity, to.rhythm_regularity);
@@ -605,6 +629,7 @@ pub(super) fn score_genre_axis(
     to_genre: Option<&str>,
     from_family: GenreFamily,
     to_family: GenreFamily,
+    genre_run_length: u32,
 ) -> AxisScore {
     let Some(from_genre) = from_genre else {
         return AxisScore {
@@ -619,7 +644,10 @@ pub(super) fn score_genre_axis(
         };
     };
 
-    if from_genre.eq_ignore_ascii_case(to_genre) {
+    let same_family = (from_genre.eq_ignore_ascii_case(to_genre))
+        || (from_family == to_family && from_family != GenreFamily::Other);
+
+    let mut axis = if from_genre.eq_ignore_ascii_case(to_genre) {
         AxisScore {
             value: 1.0,
             label: "Same genre".to_string(),
@@ -634,7 +662,18 @@ pub(super) fn score_genre_axis(
             value: 0.3,
             label: "Different families".to_string(),
         }
+    };
+
+    // Genre stickiness: bonus for staying in the same family, penalty for early switch
+    if same_family && from_family != GenreFamily::Other && genre_run_length > 0 && genre_run_length < 5 {
+        axis.value = (axis.value + 0.1).min(1.0);
+        axis.label.push_str(" + streak bonus");
+    } else if !same_family && genre_run_length > 0 && genre_run_length < 2 {
+        axis.value = (axis.value - 0.1).max(0.0);
+        axis.label.push_str(" + early switch penalty");
     }
+
+    axis
 }
 
 fn score_brightness_axis(from_centroid: Option<f64>, to_centroid: Option<f64>) -> AxisScore {
