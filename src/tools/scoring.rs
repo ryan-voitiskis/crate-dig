@@ -414,22 +414,22 @@ pub(super) fn score_key_axis(from: Option<CamelotKey>, to: Option<CamelotKey>) -
     if from.letter == to.letter && clockwise == 1 {
         AxisScore {
             value: 0.9,
-            label: "Energy boost (+1)".to_string(),
+            label: "Camelot adjacent (+1)".to_string(),
         }
     } else if from.letter == to.letter && clockwise == 11 {
         AxisScore {
             value: 0.9,
-            label: "Energy drop (-1)".to_string(),
+            label: "Camelot adjacent (-1)".to_string(),
         }
     } else if from.letter == to.letter && (clockwise == 2 || clockwise == 10) {
         AxisScore {
-            value: 0.5,
-            label: "Acceptable (+/-2)".to_string(),
+            value: 0.45,
+            label: "Extended (+/-2)".to_string(),
         }
     } else if from.letter != to.letter && (clockwise == 1 || clockwise == 11) {
         AxisScore {
-            value: 0.4,
-            label: "Rough (+/-1, A\u{2194}B)".to_string(),
+            value: 0.55,
+            label: "Energy diagonal (+/-1 cross)".to_string(),
         }
     } else {
         AxisScore {

@@ -2836,22 +2836,59 @@
         let wrap_up = score_key_axis(parse_camelot_key("12A"), parse_camelot_key("1A"));
         assert_eq!(wrap_up.value, 0.9);
         assert!(
-            wrap_up.label.contains("Energy boost"),
+            wrap_up.label.contains("Camelot adjacent"),
             "wrap-around up should be treated as +1"
         );
 
         let wrap_down = score_key_axis(parse_camelot_key("1A"), parse_camelot_key("12A"));
         assert_eq!(wrap_down.value, 0.9);
         assert!(
-            wrap_down.label.contains("Energy drop"),
+            wrap_down.label.contains("Camelot adjacent"),
             "wrap-around down should be treated as -1"
         );
 
         let mood_shift = score_key_axis(parse_camelot_key("6A"), parse_camelot_key("6B"));
         assert_eq!(mood_shift.value, 0.8);
 
-        let rough = score_key_axis(parse_camelot_key("6A"), parse_camelot_key("7B"));
-        assert_eq!(rough.value, 0.4);
+        let diagonal = score_key_axis(parse_camelot_key("6A"), parse_camelot_key("7B"));
+        assert_eq!(diagonal.value, 0.55);
+        assert!(
+            diagonal.label.contains("Energy diagonal"),
+            "cross-letter ±1 should be Energy diagonal"
+        );
+    }
+
+    #[test]
+    fn key_axis_covers_all_relation_types() {
+        // Perfect match
+        let perfect = score_key_axis(parse_camelot_key("8A"), parse_camelot_key("8A"));
+        assert_eq!(perfect.value, 1.0);
+        assert_eq!(perfect.label, "Perfect");
+
+        // Camelot adjacent (+1)
+        let adjacent = score_key_axis(parse_camelot_key("8A"), parse_camelot_key("9A"));
+        assert_eq!(adjacent.value, 0.9);
+        assert!(adjacent.label.contains("Camelot adjacent"));
+
+        // Mood shift (A↔B same number)
+        let mood = score_key_axis(parse_camelot_key("8A"), parse_camelot_key("8B"));
+        assert_eq!(mood.value, 0.8);
+        assert!(mood.label.contains("Mood shift"));
+
+        // Energy diagonal (±1 cross letter)
+        let diagonal = score_key_axis(parse_camelot_key("8A"), parse_camelot_key("9B"));
+        assert_eq!(diagonal.value, 0.55);
+        assert!(diagonal.label.contains("Energy diagonal"));
+
+        // Extended (±2 same letter)
+        let extended = score_key_axis(parse_camelot_key("8A"), parse_camelot_key("10A"));
+        assert_eq!(extended.value, 0.45);
+        assert!(extended.label.contains("Extended"));
+
+        // Clash (distant keys)
+        let clash = score_key_axis(parse_camelot_key("1A"), parse_camelot_key("6A"));
+        assert_eq!(clash.value, 0.1);
+        assert_eq!(clash.label, "Clash");
     }
 
     #[test]
