@@ -1,0 +1,154 @@
+---
+title: Getting Started
+description: Build reklawdbox from source and configure your MCP host.
+sidebar:
+  label: Setup Guide
+  order: 0
+---
+
+import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
+
+## Prerequisites
+
+- **Rust toolchain** — install via [rustup](https://rustup.rs/) if you don't have it
+- **macOS on Apple Silicon** (ARM64) — reklawdbox targets `aarch64-apple-darwin`
+- **Rekordbox 7.x** installed with at least one collection imported
+
+## Build
+
+<Steps>
+
+1. Clone the repository and build the release binary:
+
+   ```bash
+   git clone https://github.com/ryan-voitiskis/reklawdbox.git
+   cd reklawdbox
+   cargo build --release
+   ```
+
+2. The binary is at `./target/release/reklawdbox`. You can leave it in place or copy it somewhere on your `PATH`.
+
+</Steps>
+
+## MCP host configuration
+
+Register reklawdbox as an MCP server with your host. Pick your client below.
+
+<Tabs>
+  <TabItem label="Claude Code">
+    Add directly from the CLI:
+
+    ```bash
+    claude mcp add reklawdbox \
+      -e REKORDBOX_DB_PATH="/Users/<you>/Library/Pioneer/rekordbox/master.db" \
+      -e REKLAWDBOX_DISCOGS_BROKER_URL="<broker-url>" \
+      -e REKLAWDBOX_DISCOGS_BROKER_TOKEN="<broker-token>" \
+      -e CRATE_DIG_ESSENTIA_PYTHON="/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python" \
+      -- ./target/release/reklawdbox
+    ```
+
+    Or add an `.mcp.json` file in the project root:
+
+    ```json
+    {
+      "mcpServers": {
+        "reklawdbox": {
+          "type": "stdio",
+          "command": "./target/release/reklawdbox",
+          "env": {
+            "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
+            "REKLAWDBOX_DISCOGS_BROKER_URL": "<broker-url>",
+            "REKLAWDBOX_DISCOGS_BROKER_TOKEN": "<broker-token>",
+            "CRATE_DIG_ESSENTIA_PYTHON": "/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python"
+          }
+        }
+      }
+    }
+    ```
+  </TabItem>
+  <TabItem label="Claude Desktop">
+    Add the following to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+    ```json
+    {
+      "mcpServers": {
+        "reklawdbox": {
+          "type": "stdio",
+          "command": "./target/release/reklawdbox",
+          "env": {
+            "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
+            "REKLAWDBOX_DISCOGS_BROKER_URL": "<broker-url>",
+            "REKLAWDBOX_DISCOGS_BROKER_TOKEN": "<broker-token>",
+            "CRATE_DIG_ESSENTIA_PYTHON": "/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python"
+          }
+        }
+      }
+    }
+    ```
+  </TabItem>
+  <TabItem label="Codex">
+    Codex requires a wrapper script since it doesn't support `env` in its MCP config.
+
+    Create a launcher script (e.g., `scripts/launch-reklawdbox.sh`):
+
+    ```bash
+    #!/bin/bash
+    export REKORDBOX_DB_PATH="/Users/<you>/Library/Pioneer/rekordbox/master.db"
+    export REKLAWDBOX_DISCOGS_BROKER_URL="<broker-url>"
+    export REKLAWDBOX_DISCOGS_BROKER_TOKEN="<broker-token>"
+    export CRATE_DIG_ESSENTIA_PYTHON="/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python"
+    exec ./target/release/reklawdbox
+    ```
+
+    Then register it:
+
+    ```bash
+    codex mcp add reklawdbox -- bash scripts/launch-reklawdbox.sh
+    ```
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+  reklawdbox auto-detects the Rekordbox database at `~/Library/Pioneer/rekordbox/master.db`. You only need to set `REKORDBOX_DB_PATH` if your database is in a non-standard location or you have multiple Rekordbox installations.
+</Aside>
+
+## Verify
+
+Once configured, ask your agent to call the `read_library` tool. It should return your library stats — track count, playlist count, and genre distribution. If it fails, check the [Troubleshooting](/troubleshooting/) page.
+
+## Optional: Essentia setup
+
+Essentia adds advanced audio descriptors (danceability, energy, mood, voice/instrumental classification). It runs in a Python virtual environment.
+
+<Steps>
+
+1. Run the setup script:
+
+   ```bash
+   bash scripts/setup-essentia.sh
+   ```
+
+2. Set the `CRATE_DIG_ESSENTIA_PYTHON` environment variable in your MCP host config to the venv Python path printed by the script (typically `~/.local/share/reklawdbox/essentia-venv/bin/python`).
+
+3. Verify by calling `setup_essentia` through your agent. It should report Essentia as available.
+
+</Steps>
+
+## Optional: Discogs enrichment
+
+Discogs enrichment pulls release metadata, labels, and catalog numbers for your tracks.
+
+<Steps>
+
+1. Set `REKLAWDBOX_DISCOGS_BROKER_URL` and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` in your MCP host config.
+
+2. Call `lookup_discogs` for any track. On first use, the broker will return an OAuth authorization URL. Open it in your browser to grant access.
+
+3. After authorizing, subsequent `lookup_discogs` calls will work automatically.
+
+</Steps>
+
+## Next steps
+
+- [Concepts](/concepts/) — understand the architecture and safety model
+- [Genre Classification](/workflows/genre-classification/) — the most common workflow for organizing your library

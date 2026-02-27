@@ -1,0 +1,185 @@
+---
+title: Set Building
+description: Build transition-scored DJ set sequences with energy curve shaping.
+sidebar:
+  order: 2
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+Build ordered tracklists for DJ sets using cached audio analysis and enrichment data. The agent scores transitions across 6 axes (key, BPM, energy, genre, brightness, rhythm), sequences tracks using greedy heuristics, and presents multiple candidates for you to compare and refine.
+
+<Aside type="note">
+  Set building is read-only — it never modifies track metadata. It only creates playlist orderings exported as XML.
+</Aside>
+
+## Prerequisites
+
+- **Genre classification** should be substantially complete for the tracks you want to use. Ungenred tracks can still be included in the pool, but genre-based scoring and affinity matching will be weaker.
+- **Cache coverage > 80%** across stratum-dsp and enrichment. Run `cache_coverage` to check. Tracks missing Essentia data lose the brightness and rhythm axes; energy falls back to a BPM-based proxy.
+- **Essentia** is optional but improves energy and danceability scoring if available.
+
+## Step 1: Define set parameters
+
+<Steps>
+
+1. Tell the agent what kind of set you want. Specify as many or as few parameters as you like — reasonable defaults fill in the rest.
+
+2. Available parameters:
+
+   | Parameter | Default | Description |
+   |---|---|---|
+   | Duration | 60 minutes | Target set length |
+   | Energy curve | warmup -> build -> peak -> release | Shape of the energy arc |
+   | Genre focus | any | Specific genres, a playlist, or unconstrained |
+   | BPM range | unrestricted | Min/max BPM for the set |
+   | Priority axis | balanced | Which scoring axis to weight most heavily |
+   | Track count | ~5-7 min per track | Derived from duration |
+   | Starting track | none | Pin a specific track as the opener |
+   | Exclusion list | none | Tracks to exclude from the pool |
+
+3. The agent confirms your parameters before proceeding.
+
+</Steps>
+
+## Step 2: Build candidate pool
+
+<Steps>
+
+1. The agent uses `search_tracks` or `get_playlist_tracks` to find candidates matching your genre focus, BPM range, and other constraints.
+
+2. Full data is resolved with `resolve_tracks_data` — this pulls cached audio analysis and enrichment for every candidate.
+
+3. A pool summary is shown:
+   - Total track count
+   - Genre breakdown (how many tracks per genre)
+   - BPM range (min, max, median)
+   - Key spread (distribution across Camelot positions)
+   - Data gaps (tracks missing audio analysis or enrichment)
+
+4. You can adjust the pool before proceeding — add tracks, remove tracks, or change filters.
+
+</Steps>
+
+## Step 3: Generate candidates
+
+<Steps>
+
+1. The agent calls `build_set` to generate 2-3 candidate tracklists.
+
+2. Each candidate includes:
+   - Full track list with key, BPM, genre, and energy for each track
+   - Per-transition scores across all 6 axes
+   - Energy curve showing how the set flows
+   - Overall set score (weighted sum of all transition scores)
+
+3. Compare candidates side by side. The agent highlights differences — where one candidate makes a better transition choice vs. another.
+
+</Steps>
+
+### Transition scoring axes
+
+Each transition between adjacent tracks is scored on 6 axes:
+
+| Axis | What it measures |
+|---|---|
+| **Key** | Harmonic compatibility via Camelot wheel position |
+| **BPM** | Tempo proximity (smaller jumps score higher) |
+| **Energy** | Energy level continuity and adherence to the target curve |
+| **Genre** | Genre affinity (same genre or compatible genres score higher) |
+| **Brightness** | Spectral similarity (smooth tonal transitions) |
+| **Rhythm** | Rhythmic pattern compatibility |
+
+The **priority axis** parameter weights one axis more heavily. "Balanced" gives equal weight to all six. "Harmonic" prioritizes key compatibility. "Energy" prioritizes energy curve adherence.
+
+## Step 4: Refine
+
+Once you pick a candidate, you can edit it interactively:
+
+- **Swap** — replace a track at a specific position with another from the pool
+- **Move** — reorder a track to a different position
+- **Remove** — drop a track from the set
+- **Insert** — add a track at a specific position
+
+After each edit:
+- Adjacent transitions are re-scored automatically
+- The agent calls `suggest` to recommend the best replacement if you remove a track without specifying one
+- Run `check` to re-display the full set with updated scores and energy curve
+
+Iterate until you are satisfied with the flow. There is no limit on the number of edits — the agent re-scores instantly since all data is cached.
+
+## Step 5: Export
+
+<Steps>
+
+1. Run `write_xml` with the `playlists` parameter to export the set.
+
+2. The XML contains both a `<COLLECTION>` section (track metadata) and a `<PLAYLISTS>` section (track ordering).
+
+3. In Rekordbox: **File > Import > Import Playlist/Collection**, then select the XML file.
+
+4. The playlist appears in the XML import node with tracks in the specified order. Drag it into your playlists to keep it.
+
+</Steps>
+
+## Energy curves
+
+Energy curves define the intended energy arc of the set. The agent uses these to constrain track selection and ordering.
+
+### warmup -> build -> peak -> release (default)
+
+The classic DJ set arc:
+
+| Phase | Position | Energy |
+|---|---|---|
+| Warmup | 0-15% | Low energy, atmospheric, setting the mood |
+| Build | 15-45% | Gradually increasing energy and intensity |
+| Peak | 45-75% | Maximum energy, biggest tracks |
+| Release | 75-100% | Winding down, closing tracks |
+
+### flat
+
+Constant peak energy throughout. Useful for peak-time sets where every track needs to hit hard.
+
+### peak_only
+
+Minimal warmup, extended peak, brief cooldown:
+
+| Phase | Position | Energy |
+|---|---|---|
+| Build | 0-10% | Quick ramp-up |
+| Peak | 10-85% | Sustained high energy |
+| Release | 85-100% | Brief wind-down |
+
+### Custom
+
+Specify energy levels per track position. Useful for themed sets or specific venue requirements. Tell the agent the shape you want and it will translate it into per-position constraints.
+
+**Example:** "I want positions 1-3 low energy, positions 4-8 high energy, positions 9-10 medium energy."
+
+## Practical examples
+
+### Warm-up set (60 min, deep house / ambient)
+
+> "Build me a 60-minute warm-up set from my Deep House and Ambient tracks. BPM 118-124. Energy should stay low — flat curve. Prioritize harmonic mixing."
+
+### Peak-time techno (90 min)
+
+> "90-minute techno set, 130-140 BPM, peak_only energy curve. Start with this track: [track name]. Prioritize energy."
+
+### Eclectic closing set (75 min)
+
+> "75-minute closing set from my full collection. warmup_build_peak_release curve but reversed — start high and wind down. No BPM restriction. Balanced priority."
+
+## Tips
+
+- **Start with a larger pool than you need.** A 12-track set benefits from a pool of 40-60 candidates. More options produce better transition scores.
+- **Pin your opener and closer first.** If you know how you want to start or end, set those as constraints. The agent optimizes the middle.
+- **Use genre focus loosely.** Specifying "Techno, Tech House" gives better results than "Techno" alone — adjacent genres often produce excellent transitions.
+- **Re-run with different priority axes.** A "harmonic" build and an "energy" build can look very different. Compare both.
+- **Check individual transitions.** Use `score_transition` on any two tracks to see the detailed axis breakdown. This helps you understand why the agent made a particular sequencing choice.
+
+## Next steps
+
+- [Harmonic Mixing](/concepts/harmonic-mixing/) — understand the Camelot wheel and key compatibility scoring that drives the harmonic axis
+- [Genre Classification](/workflows/genre-classification/) — classify genres first to improve genre affinity scoring in set builds

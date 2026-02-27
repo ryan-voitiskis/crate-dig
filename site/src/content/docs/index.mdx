@@ -1,14 +1,14 @@
 ---
-title: reklawdbox Documentation
-description: MCP-first docs for Rekordbox 7.x library management workflows.
+title: reklawdbox
+description: MCP server for Rekordbox 7.x — AI-assisted library management, genre classification, and set building.
 template: splash
 hero:
-  tagline: Build, run, and operate reklawdbox with confidence.
+  tagline: AI-assisted Rekordbox library management via MCP. Read your encrypted database directly. Stage metadata changes safely. Export Rekordbox-compatible XML.
   actions:
-    - text: Start with Getting Started
+    - text: Get Started
       link: /getting-started/
       icon: right-arrow
-    - text: View Source on GitHub
+    - text: GitHub
       link: https://github.com/ryan-voitiskis/reklawdbox
       icon: external
       variant: minimal
@@ -16,20 +16,66 @@ hero:
 
 import { Card, CardGrid } from '@astrojs/starlight/components';
 
+Manage your Rekordbox library with AI through the
+[Model Context Protocol](https://modelcontextprotocol.io/).
+reklawdbox connects any MCP-compatible host — Claude Code, Claude Desktop,
+Codex — to your collection.
+
 <CardGrid stagger>
-  <Card title="Getting Started" icon="rocket" href="/getting-started/">
-    Install and run the MCP server quickly.
+  <Card title="Getting Started" icon="rocket">
+    Install, configure, and connect reklawdbox to your MCP host.
   </Card>
-  <Card title="Concepts" icon="open-book" href="/concepts/">
-    Understand architecture, state, and safety boundaries.
+  <Card title="Concepts" icon="open-book">
+    Architecture, safety model, and how harmonic mixing works.
   </Card>
-  <Card title="Workflows" icon="pencil" href="/workflows/">
-    Follow repeatable library update workflows.
+  <Card title="Workflows" icon="pencil">
+    Genre classification, set building, and collection audits.
   </Card>
-  <Card title="Reference" icon="document" href="/reference/">
-    Review tools, environment variables, and behavior contracts.
+  <Card title="Reference" icon="document">
+    All 27 tools, environment variables, transition scoring math, and XML export details.
   </Card>
-  <Card title="Troubleshooting" icon="warning" href="/troubleshooting/">
-    Diagnose common setup and runtime problems.
+  <Card title="Troubleshooting" icon="warning">
+    Fix common setup, auth, and runtime problems.
   </Card>
 </CardGrid>
+
+## What reklawdbox does
+
+reklawdbox is an MCP server that sits between your AI agent and Rekordbox 7.x.
+It gives the agent structured access to your library while keeping your
+database safe. All metadata changes are staged in memory and exported as
+XML — the Rekordbox database is never modified directly.
+
+- **Reads the encrypted Rekordbox `master.db` directly** using SQLCipher.
+  The database is opened read-only — reklawdbox never writes to it.
+- **Stages metadata changes in memory** (genre, comments, rating, color)
+  so you can review them before anything is exported.
+- **Exports Rekordbox-compatible XML** for safe reimport.
+  Your database is never modified directly.
+- **Enriches tracks via Discogs and Beatport** — pulls release metadata,
+  labels, catalog numbers, and artwork through a broker API and HTML extraction.
+- **Analyzes audio with stratum-dsp and optional Essentia** — computes BPM,
+  key, energy, danceability, and spectral features from your actual audio files.
+- **Scores transitions and builds DJ set sequences** — uses harmonic
+  compatibility, BPM proximity, energy curves, and genre affinity to find
+  optimal track ordering.
+- **Provides CLI subcommands** for batch audio analysis and native file tag
+  read/write outside of MCP.
+
+## 27 MCP tools
+
+**Library** — `read_library`, `search_tracks`, `get_track`, `get_playlists`, `get_playlist_tracks`
+
+**Metadata** — `get_genre_taxonomy`, `update_tracks`, `preview_changes`, `write_xml`, `clear_changes`, `suggest_normalizations`
+
+**Enrichment** — `lookup_discogs`, `lookup_beatport`, `enrich_tracks`
+
+**Audio Analysis** — `analyze_track_audio`, `analyze_audio_batch`, `setup_essentia`
+
+**Set Building** — `score_transition`, `build_set`
+
+**Data** — `resolve_track_data`, `resolve_tracks_data`, `cache_coverage`
+
+**File Tags** — `read_file_tags`, `write_file_tags`, `extract_cover_art`, `embed_cover_art`
+
+**Collection Audit** — `audit_state`

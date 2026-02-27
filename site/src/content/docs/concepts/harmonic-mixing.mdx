@@ -1,0 +1,138 @@
+---
+title: Harmonic Mixing
+description: How reklawdbox uses the Camelot wheel and audio features to score transitions.
+sidebar:
+  order: 2
+---
+
+import { Aside, Card, CardGrid, Badge } from '@astrojs/starlight/components';
+
+Harmonic mixing means mixing tracks in compatible musical keys so transitions sound smooth instead of dissonant. reklawdbox automates this using the Camelot wheel and extends it with multi-axis scoring that accounts for BPM, energy, genre, brightness, and rhythm.
+
+## The Camelot wheel
+
+The Camelot system maps all 24 musical keys (12 pitches x 2 modes) to a numbered wheel. Each position has a number (1-12) and a letter: **A** for minor keys, **B** for major keys.
+
+Adjacent positions on the wheel are harmonically compatible. Moving clockwise or counterclockwise by one position (same letter) shifts the key by a perfect fifth — the most natural-sounding key change.
+
+### Full Camelot mapping
+
+| Classic Key | Camelot | Classic Key | Camelot |
+|:-----------:|:-------:|:-----------:|:-------:|
+| G#m / Abm | 1A | B | 1B |
+| Ebm / D#m | 2A | Gb / F# | 2B |
+| Bbm / A#m | 3A | Db / C# | 3B |
+| Fm | 4A | Ab / G# | 4B |
+| Cm | 5A | Eb / D# | 5B |
+| Gm | 6A | Bb / A# | 6B |
+| Dm | 7A | F | 7B |
+| Am | 8A | C | 8B |
+| Em | 9A | G | 9B |
+| Bm | 10A | D | 10B |
+| F#m / Gbm | 11A | A | 11B |
+| C#m / Dbm | 12A | E | 12B |
+
+<Aside type="note">
+  Rekordbox lets you display keys in either Classic notation (Am, C) or Camelot notation (8A, 8B) — it is a user preference in the settings. reklawdbox always uses Camelot internally for scoring, regardless of display format.
+</Aside>
+
+## Key compatibility scoring
+
+reklawdbox scores key transitions on a 0-1 scale based on the relationship between the two Camelot positions:
+
+| Relationship | Score | Example | Label |
+|:-------------|:-----:|:-------:|:------|
+| Same key | 1.0 | 6A to 6A | Perfect |
+| +/-1, same letter | 0.9 | 6A to 7A | Energy boost / drop |
+| Same number, A to B | 0.8 | 6A to 6B | Mood shift |
+| +/-2, same letter | 0.5 | 6A to 8A | Acceptable |
+| +/-1, different letter | 0.4 | 6A to 7B | Rough |
+| Everything else | 0.1 | — | Clash |
+
+The wheel wraps: 12A to 1A is a +1 move (adjacent), not an 11-step jump.
+
+Missing keys (track has no key detected) score 0.1 — same as a clash. Run `analyze_track_audio` first to ensure key detection.
+
+## Beyond key: multi-axis scoring
+
+Key compatibility alone is not enough for a good transition. reklawdbox scores transitions on **six axes**, then combines them into a single composite score using weighted averages.
+
+### The six axes
+
+| Axis | What it measures | Data source |
+|:-----|:-----------------|:------------|
+| **Key** | Camelot wheel distance | stratum-dsp key detection |
+| **BPM** | Tempo difference between tracks | stratum-dsp / Rekordbox BPM |
+| **Energy** | Whether energy direction matches the current curve phase | Essentia descriptors (fallback: BPM proxy) |
+| **Genre** | Same genre or same genre family | Genre taxonomy classification |
+| **Brightness** | Spectral centroid delta (timbre similarity) | Essentia spectral centroid |
+| **Rhythm** | Rhythm regularity delta (groove similarity) | Essentia rhythm regularity |
+
+Each axis produces a score from 0 to 1. The composite score is a weighted average — the weights depend on the priority mode.
+
+### Priority modes
+
+| Mode | Key | BPM | Energy | Genre | Brightness | Rhythm |
+|:-----|:---:|:---:|:------:|:-----:|:----------:|:------:|
+| **Balanced** | 0.30 | 0.20 | 0.18 | 0.17 | 0.08 | 0.07 |
+| **Harmonic** | 0.48 | 0.18 | 0.12 | 0.08 | 0.08 | 0.06 |
+| **Energy** | 0.12 | 0.18 | 0.42 | 0.12 | 0.08 | 0.08 |
+| **Genre** | 0.18 | 0.18 | 0.12 | 0.38 | 0.08 | 0.06 |
+
+<Aside type="tip">
+  When brightness and rhythm data are unavailable (no Essentia analysis), those axes are excluded and the remaining weights are renormalized. The scoring still works — it is just less precise.
+</Aside>
+
+### BPM scoring detail
+
+| BPM delta | Score | Label |
+|:---------:|:-----:|:------|
+| 0-2 | 1.0 | Seamless |
+| 2-4 | 0.8 | Comfortable pitch adjust |
+| 4-6 | 0.5 | Noticeable |
+| 6-8 | 0.3 | Needs creative transition |
+| 8+ | 0.1 | Likely jarring |
+
+## Energy curves
+
+When building a set with `build_set`, reklawdbox shapes the energy arc across the entire sequence. Each position in the set is assigned an **energy phase**, and the energy axis scoring rewards transitions that match the expected direction for that phase.
+
+### Phases
+
+| Phase | Behavior | Energy direction |
+|:------|:---------|:-----------------|
+| **Warmup** | Stable or slight rise | Delta -0.03 to +0.12 |
+| **Build** | Rising energy | Delta ≥ +0.03 |
+| **Peak** | High and stable | Track energy ≥ 0.65, delta ≤ 0.10 |
+| **Release** | Dropping energy | Delta ≤ -0.03 |
+
+### Presets
+
+**warmup_build_peak_release** (default) — the classic DJ arc. Gradual warmup (first 15%), build through the middle (15-45%), sustained peak (45-75%), then wind down (75-100%).
+
+**flat** — every position is Peak phase. Use this for peak-time sets where you want consistently high energy throughout.
+
+**peak_only** — fast ramp to peak. Short build (first 10%), sustained peak (10-85%), brief release (85-100%). Good for shorter sets or festival slots.
+
+**custom** — define the phase for each position yourself by passing an array of phase values. The array length must match the target set size.
+
+## How `score_transition` and `build_set` use this
+
+`score_transition` computes the full six-axis score between two tracks. It does not require an energy curve — it scores a single pair in isolation.
+
+`build_set` uses a greedy algorithm: starting from a seed track, it scores every remaining candidate and picks the best composite match for the current phase. This repeats until the set reaches the target length.
+
+The greedy approach means `build_set` does not guarantee a globally optimal sequence, but it produces good results quickly and generates multiple candidate plans (with slight variation) so you can pick the one you prefer.
+
+For the full scoring math and all parameter options, see the [Transition Scoring reference](/reference/transition-scoring/).
+
+<CardGrid>
+  <Card title="Concepts Overview" icon="open-book">
+    Core design principles: read-only access, staging, XML export.
+    [Back to overview](/concepts/)
+  </Card>
+  <Card title="Architecture" icon="setting">
+    How the binary, database, external services, and audio pipeline connect.
+    [Read more](/concepts/architecture/)
+  </Card>
+</CardGrid>

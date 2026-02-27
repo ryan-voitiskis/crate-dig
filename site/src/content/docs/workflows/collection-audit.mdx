@@ -1,0 +1,180 @@
+---
+title: Collection Audit
+description: Detect and fix naming, tagging, and convention violations in your music files.
+sidebar:
+  order: 3
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+Detect and fix naming, tagging, and convention violations so every track imports into Rekordbox with correct Artist, Title, Album, Year, Track Number, and Label. Genre is handled separately by the [genre classification workflow](/workflows/genre-classification/).
+
+## What gets checked
+
+The audit scans for these issue types:
+
+| Issue | Description | Safety |
+|---|---|---|
+| `EMPTY_ARTIST` | Artist field empty | Review |
+| `EMPTY_TITLE` | Title field empty | Review |
+| `MISSING_TRACK_NUM` | Track number missing | Review |
+| `MISSING_ALBUM` | Album field empty | Review |
+| `MISSING_YEAR` | Year/date field empty | Review |
+| `ARTIST_IN_TITLE` | Title starts with "Artist - " | Safe |
+| `WAV_TAG3_MISSING` | WAV missing RIFF INFO tags | Safe |
+| `WAV_TAG_DRIFT` | WAV ID3v2 and RIFF INFO differ | Safe |
+| `GENRE_SET` | Genre tag non-empty in file | Review |
+| `NO_TAGS` | All tag fields empty | Review |
+| `BAD_FILENAME` | Filename doesn't match convention | Review |
+| `ORIGINAL_MIX_SUFFIX` | Filename has "(Original Mix)" | Rename-safe |
+| `TECH_SPECS_IN_DIR` | Directory has "[FLAC]" etc. | Rename-safe |
+| `MISSING_YEAR_IN_DIR` | Album directory missing (YYYY) | Review |
+| `FILENAME_TAG_DRIFT` | Filename disagrees with tags | Review |
+
+The **Safety** column indicates how the issue is handled:
+
+- **Auto-fix** — safe to fix programmatically. Previewed before applying.
+- **Rename-safe** — safe to rename, but only if the file is not already imported in Rekordbox.
+- **Review** — requires your manual decision.
+
+## Step 1: Scope and scan
+
+<Steps>
+
+1. Choose your scope:
+   - Entire collection
+   - Specific artist or album
+   - Custom file path
+
+2. Optionally skip `GENRE_SET` checks — these can produce thousands of flags if most of your tracks have embedded genre tags. Genre management is better handled in the [genre classification workflow](/workflows/genre-classification/).
+
+3. Run `audit_state(scan, scope="...")` to start the scan.
+
+4. The agent reports the total issue count, broken down by type and safety tier.
+
+</Steps>
+
+## Step 2: Review and triage
+
+Issues are categorized by safety tier so you can batch-process the easy ones first.
+
+### Auto-fixable (safe)
+
+These issues have deterministic, reversible fixes:
+
+- **`WAV_TAG3_MISSING`** — RIFF INFO tags are written to match existing ID3v2 tags
+- **`WAV_TAG_DRIFT`** — RIFF INFO tags are updated to match ID3v2 (the more complete source)
+- **`ARTIST_IN_TITLE`** — artist name is stripped from the title field and placed in the artist field
+
+### Rename-safe
+
+These involve file or directory renaming:
+
+- **`ORIGINAL_MIX_SUFFIX`** — removes "(Original Mix)" from filenames (redundant metadata)
+- **`TECH_SPECS_IN_DIR`** — removes "[FLAC]", "[WAV]", etc. from directory names
+
+<Aside type="caution">
+  Files already imported in Rekordbox are never renamed. Rekordbox cannot update file paths via XML import — renaming an imported file creates a dead reference and a duplicate on re-scan.
+</Aside>
+
+### Needs review
+
+Everything else requires your input. The agent presents each issue with context:
+
+- Current tag values and filename
+- Suggested fix (if one can be inferred from filename, directory structure, or enrichment data)
+- Source of the suggestion (filename parsing, directory context, Discogs, Beatport)
+
+You decide: accept the suggestion, provide your own value, mark as `accepted_as_is`, or `deferred`.
+
+## Step 3: Fix
+
+<Steps>
+
+1. **Auto-fixes first.** The agent runs auto-fixable issues with `dry_run=true` and shows you a preview of every change. Approve to apply.
+
+2. **Rename-safe issues next.** Same preview flow. Only applies to files not already imported in Rekordbox.
+
+3. **Review-tier issues last.** Presented individually or in small groups. For each issue:
+   - Accept the suggested fix
+   - Provide a different value
+   - Mark as `accepted_as_is` (the current state is intentional)
+   - Mark as `deferred` (come back to it later)
+
+4. Missing metadata can be filled from multiple sources:
+   - **Filename parsing** — extract artist and title from structured filenames
+   - **Directory context** — album name and year from parent directory
+   - **Discogs / Beatport** — lookup release metadata for label, catalog number, year
+
+</Steps>
+
+## Step 4: Verify
+
+<Steps>
+
+1. Re-run `audit_state(scan, scope="...")` on the same scope.
+
+2. Confirm the issue count has dropped. Remaining issues should only be items you marked as `accepted_as_is` or `deferred`.
+
+3. Export a summary report for your records.
+
+</Steps>
+
+## File naming conventions
+
+The audit checks filenames against these patterns:
+
+### Album tracks
+
+```
+NN Artist Name - Track Title.ext
+```
+
+Where `NN` is the zero-padded track number. Examples:
+
+- `01 Actress - Maze.flac`
+- `12 Four Tet - Baby.wav`
+
+### Loose tracks (singles, downloads)
+
+```
+Artist Name - Track Title.ext
+```
+
+No track number prefix. Examples:
+
+- `Burial - Archangel.flac`
+- `Joy Orbison - Hyph Mngo.wav`
+
+### Album directories
+
+```
+Album Name (Year)/
+```
+
+Examples:
+
+- `Untrue (2007)/`
+- `New Energy (2017)/`
+
+## WAV tagging
+
+<Aside type="caution">
+  Rekordbox reads **only RIFF INFO (tag 3)** from WAV files, completely ignoring ID3v2 tags. If your WAV files only have ID3v2 tags (common with files from Bandcamp, Beatport, etc.), Rekordbox will show them as untagged.
+</Aside>
+
+Both ID3v2 and RIFF INFO must be written for full compatibility across players. The `WAV_TAG3_MISSING` and `WAV_TAG_DRIFT` checks catch these problems, and `write_file_tags` handles writing both tag formats automatically.
+
+## Imported file protection
+
+<Aside type="caution">
+  Files already imported in Rekordbox are **never** renamed by the collection audit. Rekordbox stores absolute file paths in its database. Renaming a file breaks the reference — Rekordbox shows the track as missing, and re-importing creates a duplicate. There is no way to update paths via XML reimport.
+</Aside>
+
+If you need to rename an imported file:
+
+1. Delete the track from your Rekordbox collection
+2. Rename the file
+3. Re-import the file into Rekordbox
+
+The audit flags rename-safe issues but skips any file it finds in the Rekordbox database.

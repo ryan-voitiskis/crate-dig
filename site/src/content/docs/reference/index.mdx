@@ -1,0 +1,29 @@
+---
+title: Reference
+description: Technical reference — tools, environment variables, transition scoring, and XML export.
+sidebar:
+  order: 0
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+Complete technical reference for reklawdbox. These pages document every tool, configuration option, and behavioral contract.
+
+<CardGrid>
+  <Card title="Tool Catalog" icon="list-format">
+    All 27 MCP tools with parameters, defaults, and response shapes.
+    [Read more](/reference/tools/)
+  </Card>
+  <Card title="Environment Variables" icon="setting">
+    Configuration via environment variables in your MCP host config.
+    [Read more](/reference/environment-variables/)
+  </Card>
+  <Card title="Transition Scoring" icon="bars-ascending">
+    The math behind key, BPM, energy, genre, brightness, and rhythm scoring.
+    [Read more](/reference/transition-scoring/)
+  </Card>
+  <Card title="XML Export" icon="document">
+    Rekordbox XML format, import workflow, and known limitations.
+    [Read more](/reference/xml-export/)
+  </Card>
+</CardGrid>

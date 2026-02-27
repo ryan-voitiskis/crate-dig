@@ -1,0 +1,183 @@
+---
+title: XML Export
+description: Rekordbox XML format, import workflow, backup behavior, and known limitations.
+sidebar:
+  order: 4
+---
+
+import { Aside, Steps } from '@astrojs/starlight/components';
+
+## Overview
+
+reklawdbox uses Rekordbox-compatible XML as its only write path. The database is never modified directly. XML files contain track metadata and optional playlist structures that you import into Rekordbox manually.
+
+This design means every change requires human approval — you review the XML, import it, and verify the results in Rekordbox.
+
+---
+
+## XML structure
+
+A minimal Rekordbox XML file looks like this:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="rekordbox" Version="7.2.10" Company="AlphaTheta"/>
+  <COLLECTION Entries="12">
+    <TRACK TrackID="1" Name="Track Title" Artist="Artist Name"
+           Genre="Deep House" Comments="Great track" Rating="204"
+           Location="file://localhost/Users/.../track.flac"
+           Tonality="Am" AverageBpm="124.00" Colour="0x25FDE9"/>
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Type="0" Name="ROOT" Count="1">
+      <NODE Type="1" Name="My Set" Entries="12" KeyType="0">
+        <TRACK Key="1"/>
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>
+```
+
+The `PRODUCT` element identifies the source. `COLLECTION` holds all track metadata. `PLAYLISTS` defines folder/playlist hierarchy with track references by `TrackID`.
+
+---
+
+## What reklawdbox exports
+
+### Primary metadata targets
+
+These are the fields reklawdbox actively writes when you use tools like `write_xml`:
+
+- **Genre** — free text, no predefined list
+- **Comments** — free text
+- **Rating** — star rating (1-5), converted to XML values automatically
+- **Colour** — track color label
+
+### Pass-through fields
+
+All other track fields are read from the database and passed through unchanged:
+
+- Title, artist, album, composer, remixer, label
+- Key (Tonality), BPM (AverageBpm)
+- File location (Location)
+
+### Preserved structures
+
+- **TEMPO** elements — beat grid data
+- **POSITION_MARK** elements — cue points, memory cues, loops
+- **Playlists** — included when `build_set` exports a set ordering
+
+---
+
+## Importing into Rekordbox
+
+<Steps>
+
+1. **Close Rekordbox** before reklawdbox writes the XML (avoids file lock conflicts).
+
+2. **Open Rekordbox.**
+
+3. Go to **File > Import > Import Playlist/Collection**.
+
+4. **Select the XML file** reklawdbox generated.
+
+5. Tracks appear in the **rekordbox xml** browser section in the left sidebar.
+
+</Steps>
+
+<Aside type="caution" title="The reimport bug">
+In Rekordbox 5.6.1 and later (all of RB6 and RB7), tracks already in your collection are **not** updated on standard import. The metadata changes are silently ignored.
+
+**Workaround:**
+
+1. Right-click the imported playlist and select **Import To Collection** (imports any new tracks).
+2. Select all tracks (Cmd+A), right-click, and select **Import To Collection** again (forces metadata overwrite for existing tracks).
+
+Both steps are required. The first pass adds new tracks; the second pass overwrites metadata on tracks that already exist in your collection.
+</Aside>
+
+---
+
+## What survives a round-trip
+
+When you export from reklawdbox and reimport into Rekordbox, some data is preserved and some is lost.
+
+### Preserved
+
+- Genre, Comments, Rating, Colour
+- Track title, artist, album, composer, remixer, label
+- Key, BPM
+- Cue points (memory cues and hot cues) and beat grids
+- Playlist structure and track ordering
+
+### Not preserved
+
+- My Tags
+- Hot Cue Banks (the bank assignments, not the cues themselves)
+- Phrase analysis
+- Smart playlist criteria
+- Waveform data (stored in ANLZ files, not in XML)
+
+---
+
+## Rating values
+
+Rekordbox uses a non-obvious internal scale for star ratings:
+
+| Stars | XML Value |
+| ----- | --------- |
+| 0     | 0         |
+| 1     | 51        |
+| 2     | 102       |
+| 3     | 153       |
+| 4     | 204       |
+| 5     | 255       |
+
+reklawdbox converts automatically. You specify stars (1-5) in tool calls, and the correct XML value is written.
+
+---
+
+## Track colors
+
+Rekordbox supports eight track colors. Use these hex values in reklawdbox:
+
+| Color     | Hex        |
+| --------- | ---------- |
+| Rose      | `0xFF007F` |
+| Red       | `0xFF0000` |
+| Orange    | `0xFFA500` |
+| Lemon     | `0xFFFF00` |
+| Green     | `0x00FF00` |
+| Turquoise | `0x25FDE9` |
+| Blue      | `0x0000FF` |
+| Violet    | `0x660099` |
+
+---
+
+## Key format
+
+Rekordbox XML uses classic music notation for keys: `Am`, `Bb`, `F#m`, etc. Camelot notation (8A, 6B) is a display-only preference within the Rekordbox UI.
+
+reklawdbox reads Camelot from the database and converts to classic notation when writing XML. You don't need to handle the conversion yourself.
+
+---
+
+## Backup behavior
+
+reklawdbox automatically creates a database backup before `write_xml` exports. Backups are stored at:
+
+```
+~/Library/Pioneer/rekordbox-backups/
+```
+
+This is a safety net — if an import goes wrong, you can restore from the backup. Configure the backup script path with the `REKLAWDBOX_BACKUP_SCRIPT` [environment variable](/reference/environment-variables/).
+
+---
+
+<Aside type="tip" title="Important notes">
+- **Location paths** must use the `file://localhost/` prefix with URL-encoded special characters. reklawdbox handles this encoding automatically.
+- **Collection count** — the `Entries` attribute in `<COLLECTION>` must match the actual number of `<TRACK>` elements. A mismatch causes Rekordbox to reject the file.
+- **Import is additive only** — removing a track from XML does not remove it from your Rekordbox collection. XML import only adds or updates, never deletes.
+- **Genre is free text** — Rekordbox has no predefined genre list. Whatever string reklawdbox writes becomes the genre.
+</Aside>

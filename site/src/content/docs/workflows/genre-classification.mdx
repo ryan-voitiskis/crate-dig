@@ -1,0 +1,209 @@
+---
+title: Genre Classification
+description: Evidence-based genre tagging using Discogs, Beatport, and audio analysis.
+sidebar:
+  order: 1
+---
+
+import { Aside, Steps, Card, CardGrid } from '@astrojs/starlight/components';
+
+Classify genres across your collection using cached evidence from Discogs, Beatport, and audio analysis. The agent gathers evidence, applies a decision tree, and presents recommendations grouped by confidence level. Every change requires your explicit approval.
+
+<Aside type="caution">
+  No auto-tagging. Every genre change requires your explicit approval before it is staged or exported.
+</Aside>
+
+## Prerequisites
+
+Cache coverage should be high before starting. Run `cache_coverage` to check:
+
+| Provider | Ready | Needs hydration |
+|---|---|---|
+| stratum-dsp | > 90% | < 50% |
+| Essentia | > 80% (optional) | < 50% |
+| Discogs | > 70% | < 50% |
+| Beatport | > 50% | < 30% |
+
+If any provider is below the "Needs hydration" threshold, run enrichment before starting classification. The workflow will still function with partial coverage, but confidence levels will be lower and more tracks will land in the "insufficient" bucket.
+
+<Aside type="tip">
+  Run audio analysis first (local, fast), then enrichment (external, rate-limited). This order minimizes wall-clock time — `analyze_audio_batch` runs locally while `enrich_tracks` is throttled by upstream APIs.
+</Aside>
+
+## Step 1: Check cache coverage
+
+<Steps>
+
+1. Run `cache_coverage()` — or scope it to a specific playlist or filter.
+
+2. Review the coverage percentages for each provider (stratum-dsp, Essentia, Discogs, Beatport).
+
+3. If gaps exist, hydrate:
+   - `analyze_audio_batch` for stratum-dsp and Essentia (processes audio files locally)
+   - `enrich_tracks` for Discogs and Beatport (network requests, rate-limited)
+
+4. Re-run `cache_coverage()` to confirm targets are met.
+
+</Steps>
+
+## Step 2: Review taxonomy
+
+The agent calls `get_genre_taxonomy` and `suggest_normalizations` to surface alias mappings and inconsistencies.
+
+### Known alias mappings
+
+These are non-controversial normalizations applied automatically when you approve them:
+
+- "Hip-Hop" -> "Hip Hop"
+- "DnB" -> "Drum & Bass"
+- "UK Garage" -> "Garage"
+- "Afrobeat" -> "Afro House"
+
+### Debatable aliases
+
+These are flagged for your review because reasonable people disagree:
+
+- "Electronica" -> "Techno" (might be IDM, Ambient, or Experimental instead)
+- "Bass" -> "UK Bass" (could be Dubstep, Garage, or Bassline)
+- "Electronic" -> "Experimental" (broad label, could be many genres)
+
+You can accept, override with a different mapping, or skip each one.
+
+### Unknown genres
+
+Genres found in your collection that don't appear in the taxonomy are surfaced for manual mapping. You decide whether to add them to the taxonomy, map them to an existing genre, or leave them as-is.
+
+<Aside type="tip">
+  Review the taxonomy step once and save your decisions. The agent remembers your alias overrides for subsequent classification runs, so you only need to resolve debatable mappings once.
+</Aside>
+
+## Step 3: Classify ungenred tracks
+
+This is the core classification loop.
+
+<Steps>
+
+1. The agent calls `resolve_tracks_data(has_genre=false)` in batches of ~30 tracks.
+
+2. Each track is run through the decision tree (see below).
+
+3. Results are grouped by confidence level:
+   - **High** — full consensus from multiple sources
+   - **Medium** — partial consensus or single-source match
+   - **Low** — weak or ambiguous evidence (split enrichment sources, audio-only inference, or audio-assisted tiebreak)
+   - **Insufficient** — conflicting or missing data, requires manual decision
+
+4. You can:
+   - Approve all recommendations at a given confidence level
+   - Approve individual tracks
+   - Reject specific suggestions
+   - Override with a different genre
+   - Request "details" to see the full evidence chain for any track
+
+5. Approved changes are staged via `update_tracks`.
+
+</Steps>
+
+## The decision tree
+
+The agent evaluates evidence in priority order for each track:
+
+### Full consensus (high confidence)
+
+Discogs and Beatport agree on genre. Both sources return the same genre (or a known alias). This is the strongest signal.
+
+**Example:** Discogs says "Tech House", Beatport says "Tech House" -> **Tech House** (high confidence).
+
+### Partial consensus (medium confidence)
+
+Only one enrichment source is available, but it returns a clear genre match in the taxonomy.
+
+**Example:** Discogs says "Deep House", Beatport has no result -> **Deep House** (medium confidence).
+
+### Split with tiebreak (medium confidence)
+
+Discogs returns multiple genres, Beatport agrees with one of them. The agreed genre wins.
+
+**Example:** Discogs says "House, Deep House", Beatport says "Deep House" -> **Deep House** (medium confidence).
+
+### Audio-only (low confidence)
+
+No enrichment data available. Genre is inferred from BPM range and audio features (spectral centroid, energy, danceability). This is the weakest signal and should be verified manually when possible.
+
+**Example:** BPM 140, high energy, dark spectral profile -> **Techno** (low confidence).
+
+Audio-only classification works best for genres with distinctive BPM ranges (e.g., Drum & Bass at 170-180, Downtempo at 80-110). Genres that overlap in BPM and spectral profile (e.g., House vs. Tech House at 124-128) are harder to distinguish from audio alone.
+
+### Disagreement / no data (insufficient)
+
+Sources disagree with no tiebreak, or no data is available from any source. These require your manual decision.
+
+**Example:** Discogs says "Techno", Beatport says "Electro", audio features are ambiguous -> **Manual review required**.
+
+## Step 4: Review existing genre conflicts
+
+This step is optional but recommended for collections with existing genre tags. It catches tracks where your current genre assignment disagrees with the evidence.
+
+<Steps>
+
+1. The agent finds tracks where the current Rekordbox genre disagrees with enrichment evidence. For example, a track tagged "House" where both Discogs and Beatport say "Garage".
+
+2. Conflicts are presented with:
+   - The current genre in Rekordbox
+   - The suggested genre from evidence
+   - Which sources support the suggestion
+   - Confidence level of the recommendation
+
+3. Key mismatches (Rekordbox key vs. stratum-dsp detected key) are surfaced separately. A key mismatch can indicate a different version, remix, or incorrect metadata from the original source.
+
+4. You decide for each conflict: update to the suggested genre, keep the existing tag, or defer for later review.
+
+</Steps>
+
+<Aside type="tip">
+  If you have a large collection with existing genres, scope this step to specific playlists or artists rather than running it on everything at once. This keeps the review manageable.
+</Aside>
+
+## Step 5: Preview and export
+
+<Steps>
+
+1. Run `preview_changes` to review all staged genre updates.
+
+2. Verify the changes look correct — check for anything unexpected.
+
+3. Run `write_xml` to generate the Rekordbox-compatible XML file.
+
+4. In Rekordbox: **File > Import > Import Playlist/Collection**, select the XML, then drag updated tracks from the XML node into your main collection.
+
+</Steps>
+
+<Aside type="caution">
+  Rekordbox XML reimport has a known behavior: you must drag tracks from the imported XML node into your collection for changes to take effect. Simply importing the XML is not enough.
+</Aside>
+
+## Genre taxonomy
+
+This is the starter set, not a closed list. You can add genres during classification when the evidence supports it.
+
+| | | | |
+|---|---|---|---|
+| Acid | Afro House | Ambient | Ambient Techno |
+| Bassline | Breakbeat | Broken Beat | Dancehall |
+| Deep House | Deep Techno | Disco | Downtempo |
+| Drone Techno | Drum & Bass | Dub | Dub Reggae |
+| Dub Techno | Dubstep | Electro | Experimental |
+| Garage | Gospel House | Grime | Hard Techno |
+| Highlife | Hip Hop | House | IDM |
+| Jazz | Jungle | Minimal | Pop |
+| Progressive House | Psytrance | R&B | Reggae |
+| Rock | Speed Garage | Synth-pop | Tech House |
+| Techno | Trance | UK Bass | |
+
+The taxonomy favors specificity where it matters for mixing (e.g., "Deep House" and "Afro House" are distinct because they mix differently) while avoiding over-granularity (e.g., no "Minimal Deep Tech" sub-sub-genres).
+
+## Next steps
+
+- [Set Building](/workflows/set-building/) — once your genres are classified, build transition-scored set sequences
+- [Collection Audit](/workflows/collection-audit/) — fix naming and tagging issues before or after genre classification
+- [Concepts](/concepts/) — understand the safety model and how changes flow from staging to XML export

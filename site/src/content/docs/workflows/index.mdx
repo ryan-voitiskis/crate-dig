@@ -1,0 +1,54 @@
+---
+title: Workflows
+description: Repeatable library management workflows — genre classification, set building, and collection audits.
+sidebar:
+  order: 0
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+reklawdbox provides structured workflows for common library management tasks. Each workflow is designed for an AI agent to follow step-by-step, with human approval at every decision point. Nothing is written to your Rekordbox database — all changes are staged in memory and exported as XML.
+
+## Core workflow pattern
+
+Every workflow follows the same loop:
+
+1. **Scope tracks** — search, filter, or select a playlist to define the working set.
+2. **Gather evidence** — check cache coverage, run enrichment lookups, analyze audio.
+3. **Present recommendations** — the agent groups results by confidence level so you can triage efficiently.
+4. **Human approves** — you accept, reject, or override each recommendation. Nothing proceeds without your sign-off.
+5. **Stage and export** — approved changes are staged in memory, previewed with `preview_changes`, and exported via `write_xml`.
+
+The agent handles the tedious parts (lookups, matching, scoring). You make the final call on every change.
+
+## Cache-first design
+
+All workflows operate on cached data. Before starting any workflow, check your cache coverage with `cache_coverage`:
+
+- **stratum-dsp > 90%** and **enrichment > 70%** = ready to go
+- **Any provider < 50%** = hydrate first with `analyze_audio_batch` (local, fast) and `enrich_tracks` (external, rate-limited)
+
+Running analysis and enrichment upfront means the actual workflow steps are fast — no waiting on network requests or audio processing mid-flow.
+
+## Workflows
+
+<CardGrid>
+  <Card title="Genre Classification" icon="pencil">
+    Classify genres using Discogs, Beatport, and audio analysis evidence.
+    [Get started](/workflows/genre-classification/)
+  </Card>
+  <Card title="Set Building" icon="list-format">
+    Build transition-scored DJ set sequences from your collection.
+    [Get started](/workflows/set-building/)
+  </Card>
+  <Card title="Collection Audit" icon="warning">
+    Detect and fix naming, tagging, and convention violations.
+    [Get started](/workflows/collection-audit/)
+  </Card>
+</CardGrid>
+
+## Where to start
+
+If your collection has inconsistent genres, start with [Genre Classification](/workflows/genre-classification/). If your tags and filenames are messy, start with [Collection Audit](/workflows/collection-audit/). If your metadata is already clean and you want to build a set, go straight to [Set Building](/workflows/set-building/).
+
+All three workflows share the same prerequisite: good cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
