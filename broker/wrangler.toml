@@ -1,6 +1,7 @@
 name = "reklawdbox-discogs-broker"
 main = "src/index.ts"
 compatibility_date = "2026-02-19"
+workers_dev = true
 
 [triggers]
 crons = ["0 * * * *"]
@@ -8,5 +9,5 @@ crons = ["0 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "reklawdbox-broker"
-database_id = "replace-with-your-d1-database-id"
+database_id = "48abbf51-84c5-4d65-8bad-d8dcea877592"
 migrations_dir = "migrations"

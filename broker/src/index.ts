@@ -496,13 +496,26 @@ async function handleDeviceSessionFinalize(
 async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
   assertDiscogsOAuthEnv(env)
 
-  const deviceId = url.searchParams.get('device_id')?.trim()
-  const pendingToken = url.searchParams.get('pending_token')?.trim()
+  const deviceId = url.searchParams.get('device_id')?.replace(/\s/g, '')
+  const pendingToken = url.searchParams.get('pending_token')?.replace(/\s/g, '')
   if (!deviceId || !pendingToken) {
     return text('Missing device_id or pending_token', 400)
   }
 
-  let row = await getSessionByDeviceAndPending(env, deviceId, pendingToken)
+  // Batch read with a no-op write to force D1 to route to the primary,
+  // avoiding read-replica lag after the /start handler just wrote the session.
+  const batchResults = await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE device_sessions SET updated_at = updated_at WHERE 1 = 0`,
+    ),
+    env.DB.prepare(
+      `SELECT * FROM device_sessions
+       WHERE device_id = ?1 AND pending_token = ?2
+       LIMIT 1`,
+    ).bind(deviceId, pendingToken),
+  ])
+  let row = (batchResults[1].results[0] ?? null) as DeviceSessionRow | null
+
   if (!row) {
     const latest = await getSessionByDevice(env, deviceId)
     if (!latest) {
