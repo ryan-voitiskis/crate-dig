@@ -15,7 +15,7 @@ const PEAKONLY_RELEASE_END: f64 = 0.85;
 
 // Scoring factors
 const BPM_DRIFT_PENALTY_FACTOR: f64 = 0.7;
-const HARMONIC_PENALTY_FACTOR: f64 = 0.5;
+// Harmonic penalty factor is now per-style; see harmonic_penalty_factor()
 
 // Brightness axis thresholds (Hz)
 const BRIGHTNESS_SIMILAR_HZ: f64 = 300.0;
@@ -56,6 +56,14 @@ pub(super) struct AxisScore {
 }
 
 #[derive(Debug, Clone)]
+pub(super) struct ScoreAdjustment {
+    pub(super) kind: &'static str,
+    pub(super) delta: f64,
+    pub(super) composite_without: f64,
+    pub(super) reason: String,
+}
+
+#[derive(Debug, Clone)]
 pub(super) struct TransitionScores {
     pub(super) key: AxisScore,
     pub(super) bpm: AxisScore,
@@ -68,11 +76,12 @@ pub(super) struct TransitionScores {
     pub(super) pitch_shift_semitones: i32,
     pub(super) key_relation: String,
     pub(super) bpm_adjustment_pct: f64,
+    pub(super) adjustments: Vec<ScoreAdjustment>,
 }
 
 impl TransitionScores {
     pub(super) fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
+        let mut json = serde_json::json!({
             "key": { "value": round_to_3_decimals(self.key.value), "label": self.key.label },
             "bpm": { "value": round_to_3_decimals(self.bpm.value), "label": self.bpm.label },
             "energy": { "value": round_to_3_decimals(self.energy.value), "label": self.energy.label },
@@ -80,7 +89,18 @@ impl TransitionScores {
             "brightness": { "value": round_to_3_decimals(self.brightness.value), "label": self.brightness.label },
             "rhythm": { "value": round_to_3_decimals(self.rhythm.value), "label": self.rhythm.label },
             "composite": round_to_3_decimals(self.composite),
-        })
+        });
+        if !self.adjustments.is_empty() {
+            json["adjustments"] = serde_json::json!(
+                self.adjustments.iter().map(|a| serde_json::json!({
+                    "kind": a.kind,
+                    "delta": round_to_3_decimals(a.delta),
+                    "composite_without": round_to_3_decimals(a.composite_without),
+                    "reason": a.reason,
+                })).collect::<Vec<_>>()
+            );
+        }
+        json
     }
 }
 
@@ -282,7 +302,17 @@ pub(super) fn build_candidate_plan(
                 if let Some(candidate_profile) = profiles_by_id.get(candidate_id.as_str()) {
                     let drift = (candidate_profile.bpm - start_bpm).abs();
                     if drift > budget_bpm {
+                        let composite_without = scores.composite;
                         scores.composite *= BPM_DRIFT_PENALTY_FACTOR;
+                        scores.adjustments.push(ScoreAdjustment {
+                            kind: "bpm_drift",
+                            delta: scores.composite - composite_without,
+                            composite_without,
+                            reason: format!(
+                                "BPM drift {:.1} exceeds budget {:.1} at position {} — 0.7x penalty",
+                                drift, budget_bpm, position,
+                            ),
+                        });
                     }
                 }
             }
@@ -444,7 +474,17 @@ pub(super) fn build_candidate_plan_beam(
                     let budget_bpm = start_bpm * budget_pct / 100.0;
                     let drift = (to_profile.bpm - start_bpm).abs();
                     if drift > budget_bpm {
+                        let composite_without = scores.composite;
                         scores.composite *= BPM_DRIFT_PENALTY_FACTOR;
+                        scores.adjustments.push(ScoreAdjustment {
+                            kind: "bpm_drift",
+                            delta: scores.composite - composite_without,
+                            composite_without,
+                            reason: format!(
+                                "BPM drift {:.1} exceeds budget {:.1} at step {} — 0.7x penalty",
+                                drift, budget_bpm, step,
+                            ),
+                        });
                     }
                 }
 
@@ -732,12 +772,79 @@ pub(super) fn score_transition_profiles(
         priority,
     );
 
+    let mut adjustments = Vec::new();
+
+    // Report axis-level bonuses/penalties as composite adjustments.
+    // These were already applied to the axis scores above; compute their
+    // weighted impact on the composite for transparency.
+    let weights = priority_weights(priority);
+    let mut total_weight = weights.key + weights.bpm + weights.energy + weights.genre;
+    if brightness_available {
+        total_weight += weights.brightness;
+    }
+    if rhythm_available {
+        total_weight += weights.rhythm;
+    }
+    if total_weight > f64::EPSILON {
+        // Genre streak bonus (+0.1 on genre axis)
+        if genre.label.contains("streak bonus") {
+            let delta = weights.genre * 0.1 / total_weight;
+            adjustments.push(ScoreAdjustment {
+                kind: "genre_streak",
+                delta,
+                composite_without: composite - delta,
+                reason: "Genre family streak bonus (+0.1 on genre axis)".to_string(),
+            });
+        }
+        // Genre early switch penalty (-0.1 on genre axis)
+        if genre.label.contains("early switch penalty") {
+            let delta = -(weights.genre * 0.1 / total_weight);
+            adjustments.push(ScoreAdjustment {
+                kind: "genre_early_switch",
+                delta,
+                composite_without: composite - delta,
+                reason: "Genre family switched too early (-0.1 on genre axis)".to_string(),
+            });
+        }
+        // Phase boundary boost (+0.1 on energy axis)
+        if energy.label.contains("dynamic boundary boost") {
+            let delta = weights.energy * 0.1 / total_weight;
+            adjustments.push(ScoreAdjustment {
+                kind: "phase_boundary_boost",
+                delta,
+                composite_without: composite - delta,
+                reason: "Phase boundary with dynamic range (+0.1 on energy axis)".to_string(),
+            });
+        }
+        // Sustained peak boost (+0.05 on energy axis)
+        if energy.label.contains("sustained-peak consistency boost") {
+            let delta = weights.energy * 0.05 / total_weight;
+            adjustments.push(ScoreAdjustment {
+                kind: "sustained_peak",
+                delta,
+                composite_without: composite - delta,
+                reason: "Sustained peak with tight loudness range (+0.05 on energy axis)".to_string(),
+            });
+        }
+    }
+
     // Harmonic style modulation gate: penalize transitions where key score
     // falls below the minimum threshold for the current phase × style.
     if let Some(style) = harmonic_style {
         let min_key = harmonic_style_min_key(style, to_phase);
         if key.value < min_key {
-            composite *= HARMONIC_PENALTY_FACTOR;
+            let composite_without = composite;
+            let factor = harmonic_penalty_factor(style);
+            composite *= factor;
+            adjustments.push(ScoreAdjustment {
+                kind: "harmonic_gate",
+                delta: composite - composite_without,
+                composite_without,
+                reason: format!(
+                    "Key score {:.2} below {style:?} threshold {:.2} — {factor}x penalty",
+                    key.value, min_key,
+                ),
+            });
         }
     }
 
@@ -766,6 +873,7 @@ pub(super) fn score_transition_profiles(
         pitch_shift_semitones,
         key_relation,
         bpm_adjustment_pct,
+        adjustments,
     }
 }
 
@@ -838,31 +946,21 @@ pub(super) fn score_bpm_axis(from_bpm: f64, to_bpm: f64) -> AxisScore {
     }
     let delta = (from_bpm - to_bpm).abs();
     let pct = delta / from_bpm * 100.0;
-    if pct <= 1.5 {
-        AxisScore {
-            value: 1.0,
-            label: format!("Seamless ({:.1}%, {:.1} BPM)", pct, delta),
-        }
-    } else if pct <= 3.0 {
-        AxisScore {
-            value: 0.85,
-            label: format!("Comfortable ({:.1}%, {:.1} BPM)", pct, delta),
-        }
-    } else if pct <= 5.0 {
-        AxisScore {
-            value: 0.6,
-            label: format!("Noticeable ({:.1}%, {:.1} BPM)", pct, delta),
-        }
-    } else if pct <= 8.0 {
-        AxisScore {
-            value: 0.3,
-            label: format!("Creative transition needed ({:.1}%, {:.1} BPM)", pct, delta),
-        }
+    let value = (-0.019 * pct * pct).exp();
+    let label_category = if pct < 2.0 {
+        "Seamless"
+    } else if pct < 4.0 {
+        "Comfortable"
+    } else if pct < 6.0 {
+        "Noticeable"
+    } else if pct < 9.0 {
+        "Creative transition needed"
     } else {
-        AxisScore {
-            value: 0.1,
-            label: format!("Jarring ({:.1}%, {:.1} BPM)", pct, delta),
-        }
+        "Jarring"
+    };
+    AxisScore {
+        value,
+        label: format!("{label_category} ({:.1}%, {:.1} BPM)", pct, delta),
     }
 }
 
@@ -1068,6 +1166,13 @@ fn score_rhythm_axis(from_regularity: Option<f64>, to_regularity: Option<f64>) -
             value: 0.2,
             label: format!("Groove clash (delta {:.2})", delta),
         }
+    }
+}
+
+fn harmonic_penalty_factor(style: HarmonicMixingStyle) -> f64 {
+    match style {
+        HarmonicMixingStyle::Conservative => 0.1,
+        HarmonicMixingStyle::Balanced | HarmonicMixingStyle::Adventurous => 0.5,
     }
 }
 

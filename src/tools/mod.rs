@@ -434,4 +434,6 @@ impl ServerHandler for ReklawdboxServer {
 }
 
 #[cfg(test)]
+mod eval_scoring;
+#[cfg(test)]
 mod tests;
