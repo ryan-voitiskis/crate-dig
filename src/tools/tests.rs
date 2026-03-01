@@ -4765,3 +4765,64 @@ async fn build_set_beam_width_1_backward_compatible() {
         assert_eq!(tracks.len(), 4);
     }
 }
+
+// ==================== Schema compatibility tests ====================
+
+/// All tool input schemas must be free of $ref, $defs, and top-level
+/// oneOf/anyOf for Claude API compatibility. Schemars v1 emits these
+/// by default for enum/struct references; `#[schemars(inline)]` and
+/// manual `JsonSchema` impls prevent them.
+#[test]
+fn tool_schemas_are_claude_api_compatible() {
+    fn check<T: JsonSchema>(name: &str) {
+        let schema = schemars::schema_for!(T);
+        let json = serde_json::to_string(&schema).unwrap();
+
+        assert!(
+            !json.contains(r#""$ref""#),
+            "{name} schema contains $ref"
+        );
+        assert!(
+            !json.contains(r#""$defs""#),
+            "{name} schema contains $defs"
+        );
+
+        // Top-level oneOf/anyOf is forbidden (nested inside properties is ok)
+        let root = schema.as_value();
+        assert!(
+            root.get("oneOf").is_none(),
+            "{name} schema has top-level oneOf"
+        );
+        assert!(
+            root.get("anyOf").is_none(),
+            "{name} schema has top-level anyOf"
+        );
+    }
+
+    // Tools with complex nested types (the 8 originally broken tools)
+    check::<AuditOperation>("AuditOperation");
+    check::<BuildSetParams>("BuildSetParams");
+    check::<ScoreTransitionParams>("ScoreTransitionParams");
+    check::<QueryTransitionCandidatesParams>("QueryTransitionCandidatesParams");
+    check::<EnrichTracksParams>("EnrichTracksParams");
+    check::<WriteFileTagsParams>("WriteFileTagsParams");
+    check::<WriteXmlParams>("WriteXmlParams");
+    check::<UpdateTracksParams>("UpdateTracksParams");
+
+    // All remaining tool param types for completeness
+    check::<SearchTracksParams>("SearchTracksParams");
+    check::<GetTrackParams>("GetTrackParams");
+    check::<GetPlaylistTracksParams>("GetPlaylistTracksParams");
+    check::<PreviewChangesParams>("PreviewChangesParams");
+    check::<ClearChangesParams>("ClearChangesParams");
+    check::<SuggestNormalizationsParams>("SuggestNormalizationsParams");
+    check::<LookupDiscogsParams>("LookupDiscogsParams");
+    check::<LookupBeatportParams>("LookupBeatportParams");
+    check::<AnalyzeTrackAudioParams>("AnalyzeTrackAudioParams");
+    check::<AnalyzeAudioBatchParams>("AnalyzeAudioBatchParams");
+    check::<ResolveTrackDataParams>("ResolveTrackDataParams");
+    check::<ResolveTracksDataParams>("ResolveTracksDataParams");
+    check::<ReadFileTagsParams>("ReadFileTagsParams");
+    check::<ExtractCoverArtParams>("ExtractCoverArtParams");
+    check::<EmbedCoverArtParams>("EmbedCoverArtParams");
+}

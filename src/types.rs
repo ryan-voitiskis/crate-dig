@@ -217,6 +217,7 @@ pub enum Confidence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "lowercase")]
 pub enum Provider {
     Discogs,

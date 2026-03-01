@@ -125,6 +125,7 @@ fn is_riff_info_field(field: &str) -> bool {
 
 /// Which WAV tag layers to target on write.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, schemars::JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "snake_case")]
 pub enum WavTarget {
     Id3v2,

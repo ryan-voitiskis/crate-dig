@@ -106,6 +106,7 @@ pub struct UpdateTracksParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(inline)]
 pub struct TrackChangeInput {
     #[schemars(description = "Track ID")]
     pub track_id: String,
@@ -120,6 +121,7 @@ pub struct TrackChangeInput {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(inline)]
 pub struct WriteXmlPlaylistInput {
     #[schemars(description = "Playlist name")]
     pub name: String,
@@ -247,6 +249,7 @@ pub struct ResolveTracksDataParams {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "snake_case")]
 pub enum SequencingPriority {
     Balanced,
@@ -256,6 +259,7 @@ pub enum SequencingPriority {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "snake_case")]
 pub enum HarmonicMixingStyle {
     Conservative,
@@ -264,6 +268,7 @@ pub enum HarmonicMixingStyle {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "snake_case")]
 pub enum EnergyPhase {
     Warmup,
@@ -273,6 +278,7 @@ pub enum EnergyPhase {
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(rename_all = "snake_case")]
 pub enum EnergyCurvePreset {
     WarmupBuildPeakRelease,
@@ -282,6 +288,7 @@ pub enum EnergyCurvePreset {
 }
 
 #[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[schemars(inline)]
 #[serde(untagged)]
 pub enum EnergyCurveInput {
     Preset(EnergyCurvePreset),
@@ -429,6 +436,7 @@ pub(super) struct WriteFileTagsParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(inline)]
 pub(super) struct WriteFileTagsEntry {
     #[schemars(description = "Path to the audio file")]
     pub path: String,
@@ -471,57 +479,99 @@ pub(super) struct EmbedCoverArtParams {
     pub picture_type: Option<String>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize)]
 #[serde(tag = "operation")]
 pub(super) enum AuditOperation {
     #[serde(rename = "scan")]
     Scan {
-        #[schemars(description = "Directory path to audit (trailing / enforced)")]
         #[serde(rename = "scope")]
         path_prefix: String,
-
-        #[schemars(description = "Re-read all files including unchanged (default: false)")]
         revalidate: Option<bool>,
-
-        #[schemars(description = "Issue types to exclude from detection (e.g. [\"GENRE_SET\"])")]
         skip_issue_types: Option<Vec<String>>,
     },
 
     #[serde(rename = "query_issues")]
     QueryIssues {
-        #[schemars(description = "Directory path prefix to filter issues")]
         #[serde(rename = "scope")]
         path_prefix: String,
-
-        #[schemars(description = "Filter by status: open | resolved | accepted | deferred")]
         status: Option<String>,
-
-        #[schemars(description = "Filter by issue type (e.g. WAV_TAG3_MISSING)")]
         issue_type: Option<String>,
-
-        #[schemars(description = "Max results (default: 100)")]
         limit: Option<u32>,
-
-        #[schemars(description = "Offset for pagination (default: 0)")]
         offset: Option<u32>,
     },
 
     #[serde(rename = "resolve_issues")]
     ResolveIssues {
-        #[schemars(description = "Issue IDs to resolve")]
         issue_ids: Vec<i64>,
-
-        #[schemars(description = "Resolution: accepted_as_is | wont_fix | deferred")]
         resolution: String,
-
-        #[schemars(description = "Optional user comment")]
         note: Option<String>,
     },
 
     #[serde(rename = "get_summary")]
     GetSummary {
-        #[schemars(description = "Directory path prefix for summary")]
         #[serde(rename = "scope")]
         path_prefix: String,
     },
+}
+
+impl schemars::JsonSchema for AuditOperation {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed("AuditOperation")
+    }
+
+    fn json_schema(_gen: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!({
+            "type": "object",
+            "required": ["operation"],
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["scan", "query_issues", "resolve_issues", "get_summary"],
+                    "description": "The audit operation to perform"
+                },
+                "scope": {
+                    "type": "string",
+                    "description": "Directory path prefix (required for scan, query_issues, get_summary)"
+                },
+                "revalidate": {
+                    "type": "boolean",
+                    "description": "Re-read all files including unchanged (default: false). Only for scan."
+                },
+                "skip_issue_types": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Issue types to exclude from detection (e.g. [\"GENRE_SET\"]). Only for scan."
+                },
+                "status": {
+                    "type": "string",
+                    "description": "Filter by status: open | resolved | accepted | deferred. Only for query_issues."
+                },
+                "issue_type": {
+                    "type": "string",
+                    "description": "Filter by issue type (e.g. WAV_TAG3_MISSING). Only for query_issues."
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results (default: 100). Only for query_issues."
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Offset for pagination (default: 0). Only for query_issues."
+                },
+                "issue_ids": {
+                    "type": "array",
+                    "items": { "type": "integer" },
+                    "description": "Issue IDs to resolve. Required for resolve_issues."
+                },
+                "resolution": {
+                    "type": "string",
+                    "description": "Resolution: accepted_as_is | wont_fix | deferred. Required for resolve_issues."
+                },
+                "note": {
+                    "type": "string",
+                    "description": "Optional user comment. Only for resolve_issues."
+                }
+            }
+        })
+    }
 }
