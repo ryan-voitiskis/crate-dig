@@ -277,7 +277,38 @@ fn has_year_suffix(name: &str) -> bool {
     }
 }
 
-pub fn classify_track_context(path: &Path) -> AuditContext {
+/// Pre-pass: detect directories that contain 2+ files with track-number
+/// prefixes (e.g. `01 `, `02-`, `03.`). These are album directories even
+/// without a year suffix.
+fn detect_album_dirs(paths: &[std::path::PathBuf]) -> HashSet<std::path::PathBuf> {
+    static TRACK_PREFIX: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\d{2,3}[\s.\-]").expect("TRACK_PREFIX must compile"));
+
+    let mut counts: HashMap<std::path::PathBuf, usize> = HashMap::new();
+    for path in paths {
+        let parent = match path.parent() {
+            Some(p) => p,
+            None => continue,
+        };
+        let stem = match path.file_stem().and_then(|s| s.to_str()) {
+            Some(s) => s,
+            None => continue,
+        };
+        if TRACK_PREFIX.is_match(stem) {
+            *counts.entry(parent.to_path_buf()).or_default() += 1;
+        }
+    }
+    counts
+        .into_iter()
+        .filter(|&(_, count)| count >= 2)
+        .map(|(dir, _)| dir)
+        .collect()
+}
+
+pub fn classify_track_context(
+    path: &Path,
+    album_dirs: &HashSet<std::path::PathBuf>,
+) -> AuditContext {
     let parent = match path.parent() {
         Some(p) => p,
         None => return AuditContext::LooseTrack,
@@ -289,18 +320,17 @@ pub fn classify_track_context(path: &Path) -> AuditContext {
     };
 
     // Check for disc subdirectories (CD1, CD2, Disc 1, etc.)
-    let effective_dir_name = if is_disc_subdir(dir_name) {
+    let (effective_parent, effective_dir_name) = if is_disc_subdir(dir_name) {
         // Go up one more level for the album dir
-        match parent
-            .parent()
-            .and_then(|p| p.file_name())
-            .and_then(|n| n.to_str())
-        {
-            Some(n) => n,
+        match parent.parent() {
+            Some(album_dir) => match album_dir.file_name().and_then(|n| n.to_str()) {
+                Some(n) => (album_dir, n),
+                None => return AuditContext::LooseTrack,
+            },
             None => return AuditContext::LooseTrack,
         }
     } else {
-        dir_name
+        (parent, dir_name)
     };
 
     // Check if in a play/ directory
@@ -311,10 +341,15 @@ pub fn classify_track_context(path: &Path) -> AuditContext {
 
     let normalized = normalize_dir_name(effective_dir_name);
     if has_year_suffix(&normalized) {
-        AuditContext::AlbumTrack
-    } else {
-        AuditContext::LooseTrack
+        return AuditContext::AlbumTrack;
     }
+
+    // Pre-pass detected album directory (2+ files with track-number prefixes)
+    if album_dirs.contains(effective_parent) {
+        return AuditContext::AlbumTrack;
+    }
+
+    AuditContext::LooseTrack
 }
 
 /// Get the effective album directory name, climbing past disc subdirectories.
@@ -1066,6 +1101,9 @@ pub fn scan(
         })
         .unwrap_or_default();
 
+    // Pre-pass: detect album dirs by counting track-number prefixes
+    let album_dirs = detect_album_dirs(&disk_files);
+
     // 4. Process files in batches (transaction auto-rolls-back on early exit)
     let mut batch_count = 0usize;
     let now = now_iso();
@@ -1106,7 +1144,7 @@ pub fn scan(
             let read_result = tags::read_file_tags(file_path, None, false);
 
             // Determine context
-            let context = classify_track_context(file_path);
+            let context = classify_track_context(file_path, &album_dirs);
 
             // Run checks
             let mut detected: Vec<DetectedIssue> = Vec::new();
@@ -1398,31 +1436,31 @@ mod tests {
     #[test]
     fn classify_album_track_with_year() {
         let p = Path::new("/music/Artist/Album Name (2024)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
     }
 
     #[test]
     fn classify_album_track_with_tech_specs_and_year() {
         let p = Path::new("/music/Artist/Album [FLAC] (2024)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
     }
 
     #[test]
     fn classify_loose_track_in_play_dir() {
         let p = Path::new("/music/play/Artist - Track.wav");
-        assert_eq!(classify_track_context(p), AuditContext::LooseTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::LooseTrack);
     }
 
     #[test]
     fn classify_loose_track_no_year() {
         let p = Path::new("/music/Artist/SomeDir/Artist - Track.flac");
-        assert_eq!(classify_track_context(p), AuditContext::LooseTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::LooseTrack);
     }
 
     #[test]
     fn classify_disc_subdir() {
         let p = Path::new("/music/Artist/Album (2020)/CD1/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
     }
 
 
@@ -2169,7 +2207,61 @@ mod tests {
     #[test]
     fn classify_album_with_catalog_suffix() {
         let p = Path::new("/music/Artist/Album (2017, Label - Cat)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
+        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
+    }
+
+    // -- detect_album_dirs --
+
+    #[test]
+    fn detect_album_dirs_two_numbered() {
+        let paths = vec![
+            std::path::PathBuf::from("/music/Artist/Mix/01 Track.flac"),
+            std::path::PathBuf::from("/music/Artist/Mix/02 Track.flac"),
+        ];
+        let dirs = detect_album_dirs(&paths);
+        assert!(dirs.contains(Path::new("/music/Artist/Mix")));
+    }
+
+    #[test]
+    fn detect_album_dirs_one_numbered_not_detected() {
+        let paths = vec![
+            std::path::PathBuf::from("/music/Artist/Mix/01 Track.flac"),
+            std::path::PathBuf::from("/music/Artist/Mix/Intro.flac"),
+        ];
+        let dirs = detect_album_dirs(&paths);
+        assert!(!dirs.contains(Path::new("/music/Artist/Mix")));
+    }
+
+    #[test]
+    fn detect_album_dirs_zero_numbered() {
+        let paths = vec![
+            std::path::PathBuf::from("/music/Artist/Mix/Intro.flac"),
+            std::path::PathBuf::from("/music/Artist/Mix/Outro.flac"),
+        ];
+        let dirs = detect_album_dirs(&paths);
+        assert!(dirs.is_empty());
+    }
+
+    #[test]
+    fn classify_with_album_dirs_no_year() {
+        let album_dirs: HashSet<std::path::PathBuf> =
+            [std::path::PathBuf::from("/music/Artist/Giegling Mix")].into();
+        let p = Path::new("/music/Artist/Giegling Mix/01 Track.flac");
+        assert_eq!(
+            classify_track_context(p, &album_dirs),
+            AuditContext::AlbumTrack
+        );
+    }
+
+    #[test]
+    fn classify_disc_subdir_with_album_dirs() {
+        let album_dirs: HashSet<std::path::PathBuf> =
+            [std::path::PathBuf::from("/music/Artist/Mix")].into();
+        let p = Path::new("/music/Artist/Mix/CD1/01 Track.flac");
+        assert_eq!(
+            classify_track_context(p, &album_dirs),
+            AuditContext::AlbumTrack
+        );
     }
 
     // -- TECH_SPEC_RE: hi-res --
