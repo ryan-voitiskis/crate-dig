@@ -344,8 +344,10 @@ pub fn classify_track_context(
         return AuditContext::AlbumTrack;
     }
 
-    // Pre-pass detected album directory (2+ files with track-number prefixes)
-    if album_dirs.contains(effective_parent) {
+    // Pre-pass detected album directory (2+ files with track-number prefixes).
+    // Check both effective parent (grandparent for disc subdirs) and direct parent
+    // (the disc subdir itself, which is what the pre-pass registers).
+    if album_dirs.contains(effective_parent) || album_dirs.contains(parent) {
         return AuditContext::AlbumTrack;
     }
 
@@ -479,6 +481,11 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
                 rest.trim_start_matches(['-', ' '])
             } else if rest.starts_with(". ") || rest.starts_with('.') {
                 rest
+            } else if rest.len() >= 2
+                && rest.as_bytes()[0] == b'-'
+                && !rest.as_bytes()[1].is_ascii_digit()
+            {
+                &rest[1..]
             } else {
                 return (None, stem);
             };
@@ -499,6 +506,12 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
             // "NN. Title" alternate format — keep the dot+rest so
             // parse_album_filename's ". " branch can split it.
             rest
+        } else if rest.len() >= 2
+            && rest.as_bytes()[0] == b'-'
+            && !rest.as_bytes()[1].is_ascii_digit()
+        {
+            // "NN-Title" format (dash directly into title, no space)
+            &rest[1..]
         } else {
             // No valid separator after track number — not a valid track-numbered filename
             return (None, stem);
@@ -854,7 +867,7 @@ pub fn check_filename(
         let mut drifts = Vec::new();
 
         if let (Some(fn_artist), Some(t_artist)) = (&parsed.artist, &tag_artist) {
-            let filename_artist_folded = casefold_text(fn_artist.trim());
+            let filename_artist_folded = casefold_text(&normalize_for_drift(fn_artist.trim()));
             let tag_artist_folded = casefold_text(&normalize_for_drift(t_artist.trim()));
             if !filename_artist_folded.is_empty()
                 && !tag_artist_folded.is_empty()
@@ -871,7 +884,7 @@ pub fn check_filename(
         if let (Some(fn_title), Some(t_title)) = (&parsed.title, &tag_title) {
             // Strip (Original Mix) from filename title for comparison
             let fn_t_clean = fn_title.replace(" (Original Mix)", "");
-            let filename_title_folded = casefold_text(fn_t_clean.trim());
+            let filename_title_folded = casefold_text(&normalize_for_drift(fn_t_clean.trim()));
             let tag_title_folded = casefold_text(&normalize_for_drift(t_title.trim()));
             if !filename_title_folded.is_empty()
                 && !tag_title_folded.is_empty()
@@ -2364,6 +2377,75 @@ mod tests {
                 .iter()
                 .any(|i| i.issue_type == IssueType::FilenameTagDrift),
             "Colon in tag should match dash in filename after normalization"
+        );
+    }
+
+    // -- NN-Title (no space after dash) parsing --
+
+    #[test]
+    fn parse_album_nn_dash_no_space() {
+        let p = Path::new("/music/Artist/Album (2024)/01-Dreamin.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("01"));
+        assert_eq!(parsed.title.as_deref(), Some("Dreamin"));
+    }
+
+    #[test]
+    fn parse_album_nn_dash_no_space_with_artist() {
+        let p = Path::new("/music/Artist/Album (2024)/08-Snoop Doggy Dogg - Gold Rush.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("08"));
+        assert_eq!(parsed.artist.as_deref(), Some("Snoop Doggy Dogg"));
+        assert_eq!(parsed.title.as_deref(), Some("Gold Rush"));
+    }
+
+    #[test]
+    fn parse_album_three_digit_dash_no_space() {
+        let p = Path::new("/music/Artist/Album (2024)/100-Track.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("100"));
+        assert_eq!(parsed.title.as_deref(), Some("Track"));
+    }
+
+    #[test]
+    fn parse_album_nn_dash_digit_not_parsed_as_track() {
+        // "01-02" — dash followed by digit should NOT be parsed as NN-Title
+        let p = Path::new("/music/Artist/Album (2024)/01-02 Artist - Title.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        // Neither disc-track (bytes[1] is '1' not '-') nor NN-Title (digit after dash)
+        assert_eq!(parsed.track_num, None);
+    }
+
+    // -- Disc subdir with album_dirs pre-pass --
+
+    #[test]
+    fn classify_disc_subdir_detected_by_prepass() {
+        // CD1 is in album_dirs (pre-pass detected it), grandparent has no year suffix
+        let album_dirs: HashSet<std::path::PathBuf> =
+            [std::path::PathBuf::from("/music/Artist/Live 1992-2014/CD1")].into();
+        let p = Path::new("/music/Artist/Live 1992-2014/CD1/01 Artist - Track.flac");
+        assert_eq!(
+            classify_track_context(p, &album_dirs),
+            AuditContext::AlbumTrack
+        );
+    }
+
+    // -- Symmetric drift normalization --
+
+    #[test]
+    fn check_filename_no_drift_with_question_mark_both_sides() {
+        let result = make_single(&[("artist", "Artist"), ("title", "Why?")]);
+        let issues = check_filename(
+            Path::new("/music/play/Artist - Why?.flac"),
+            &result,
+            &AuditContext::LooseTrack,
+            &HashSet::new(),
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.issue_type == IssueType::FilenameTagDrift),
+            "Question mark in both filename and tag should not trigger drift"
         );
     }
 }

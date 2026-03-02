@@ -17,3 +17,9 @@ scoring, and greedy set sequencing with energy-curve shaping.
 - Companion service: Discogs broker in TypeScript on Cloudflare Workers + D1.
 
 Use Conventional Commits.
+
+## MCP Development Loop
+
+This project IS the MCP server. When modifying server code, `cargo build --release`
+then ask the user to run `/mcp` to reconnect — the running server is the old binary
+until restarted. Always build release (`.mcp.json` points to `target/release/`).
