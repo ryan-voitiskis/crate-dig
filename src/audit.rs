@@ -221,7 +221,7 @@ fn is_disc_subdir(name: &str) -> bool {
 static TECH_SPEC_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
         r"(?i)",
-        r"\[(?:flac|wav|mp3|aiff|aac|alac)\]",                   // [FLAC], [WAV], …
+        r"\[(?:flac|wav|mp3|aiff|aac|alac|hi-?res)\]",            // [FLAC], [Hi-Res], …
         r"|\b(?:flac|wav|mp3|aiff|aac|alac)\b",                  // bare FLAC, wav, …
         r"|\b(?:16|24|32)\s?-\s?\d{2,3}(?:\.\d+)?\s*(?:khz|hz)?", // 24-44.1kHz
         r"|\b(?:16|24|32)\s?bit",                                 // 24bit, 16 bit
@@ -266,7 +266,12 @@ fn has_year_suffix(name: &str) -> bool {
     }
     if let Some(open) = trimmed.rfind('(') {
         let inside = &trimmed[open + 1..trimmed.len() - 1];
-        inside.len() == 4 && inside.parse::<u16>().is_ok()
+        if inside.len() >= 4 && inside[..4].bytes().all(|b| b.is_ascii_digit()) {
+            if let Ok(year) = inside[..4].parse::<u16>() {
+                return (1900..=2099).contains(&year);
+            }
+        }
+        false
     } else {
         false
     }
@@ -369,7 +374,7 @@ fn parse_album_filename(stem: &str) -> ParsedFilename {
 
     // Check for disc-track format: D-NN
     let (track_num_str, remainder) = if bytes.len() >= 5
-        && bytes[1] == b'-'
+        && (bytes[1] == b'-' || bytes[1] == b'.')
         && bytes[0].is_ascii_digit()
         && bytes[2].is_ascii_digit()
         && bytes[3].is_ascii_digit()
@@ -419,7 +424,32 @@ fn parse_album_filename(stem: &str) -> ParsedFilename {
 }
 
 fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>, &'a str) {
+    let bytes = stem.as_bytes();
     if first_two.chars().all(|c| c.is_ascii_digit()) {
+        // Check for 3-digit track number (e.g. "100 Artist - Title")
+        if bytes.len() > 2
+            && bytes[2].is_ascii_digit()
+            && (bytes.len() == 3
+                || bytes[3] == b' '
+                || bytes[3] == b'-'
+                || bytes[3] == b'.')
+        {
+            let num = stem[..3].to_string();
+            let rest = &stem[3..];
+            let remainder = if let Some(stripped) = rest.strip_prefix(" - ") {
+                stripped
+            } else if let Some(stripped) = rest.strip_prefix(' ') {
+                stripped
+            } else if rest.starts_with("- ") {
+                rest.trim_start_matches(['-', ' '])
+            } else if rest.starts_with(". ") || rest.starts_with('.') {
+                rest
+            } else {
+                return (None, stem);
+            };
+            return (Some(num), remainder);
+        }
+
         let num = first_two.to_string();
         let rest = &stem[2..];
         let remainder = if let Some(stripped) = rest.strip_prefix(" - ") {
@@ -509,6 +539,24 @@ fn is_wav(result: &FileReadResult) -> bool {
 
 fn casefold_text(s: &str) -> String {
     s.case_fold().collect()
+}
+
+/// Normalize characters that filesystems forbid or commonly substitute before
+/// drift comparison.  Maps  `/→-`, `*→_`, `:→-`, `"→'`, `?→` (removed),
+/// `|→-`, `<→(`, `>→)`.  This prevents false FILENAME_TAG_DRIFT when a tag
+/// contains chars that the filesystem forced to substitutes.
+fn normalize_for_drift(s: &str) -> String {
+    s.chars()
+        .filter_map(|c| match c {
+            '/' | ':' | '|' => Some('-'),
+            '*' => Some('_'),
+            '"' => Some('\''),
+            '?' => None,
+            '<' => Some('('),
+            '>' => Some(')'),
+            _ => Some(c),
+        })
+        .collect()
 }
 
 pub fn check_tags(
@@ -772,7 +820,7 @@ pub fn check_filename(
 
         if let (Some(fn_artist), Some(t_artist)) = (&parsed.artist, &tag_artist) {
             let filename_artist_folded = casefold_text(fn_artist.trim());
-            let tag_artist_folded = casefold_text(t_artist.trim());
+            let tag_artist_folded = casefold_text(&normalize_for_drift(t_artist.trim()));
             if !filename_artist_folded.is_empty()
                 && !tag_artist_folded.is_empty()
                 && filename_artist_folded != tag_artist_folded
@@ -789,7 +837,7 @@ pub fn check_filename(
             // Strip (Original Mix) from filename title for comparison
             let fn_t_clean = fn_title.replace(" (Original Mix)", "");
             let filename_title_folded = casefold_text(fn_t_clean.trim());
-            let tag_title_folded = casefold_text(t_title.trim());
+            let tag_title_folded = casefold_text(&normalize_for_drift(t_title.trim()));
             if !filename_title_folded.is_empty()
                 && !tag_title_folded.is_empty()
                 && filename_title_folded != tag_title_folded
@@ -1376,6 +1424,7 @@ mod tests {
         let p = Path::new("/music/Artist/Album (2020)/CD1/01 Artist - Track.flac");
         assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
     }
+
 
     // -- has_year_suffix --
 
@@ -2096,6 +2145,133 @@ mod tests {
             store::get_audit_file(&conn, blocked_path)
                 .unwrap()
                 .is_some()
+        );
+    }
+
+    // -- has_year_suffix: compound parenthetical content --
+
+    #[test]
+    fn year_suffix_compound_years() {
+        assert!(has_year_suffix("Album (1969, 2004)"));
+        assert!(has_year_suffix("Album (2017, Label - Cat)"));
+        assert!(has_year_suffix("Album (2020 Remaster)"));
+    }
+
+    #[test]
+    fn year_suffix_range_validation() {
+        assert!(has_year_suffix("Album (1900)"));
+        assert!(has_year_suffix("Album (2099)"));
+        assert!(!has_year_suffix("Album (1899)"));
+        assert!(!has_year_suffix("Album (2100)"));
+        assert!(!has_year_suffix("Album (0001)"));
+    }
+
+    #[test]
+    fn classify_album_with_catalog_suffix() {
+        let p = Path::new("/music/Artist/Album (2017, Label - Cat)/01 Artist - Track.flac");
+        assert_eq!(classify_track_context(p), AuditContext::AlbumTrack);
+    }
+
+    // -- TECH_SPEC_RE: hi-res --
+
+    #[test]
+    fn normalize_strips_hi_res() {
+        assert_eq!(normalize_dir_name("Album [Hi-Res] (2024)"), "Album (2024)");
+        assert_eq!(normalize_dir_name("Album [HiRes]"), "Album");
+    }
+
+    // -- D.NN disc-dot parsing --
+
+    #[test]
+    fn parse_album_disc_dot_format() {
+        let p = Path::new("/music/Artist/Album (2024)/1.01 Artist - Track.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("1.01"));
+        assert_eq!(parsed.artist.as_deref(), Some("Artist"));
+        assert_eq!(parsed.title.as_deref(), Some("Track"));
+    }
+
+    // -- 3-digit track numbers --
+
+    #[test]
+    fn parse_album_three_digit_track() {
+        let p = Path::new("/music/Artist/Album (2024)/100 Artist - Track.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("100"));
+        assert_eq!(parsed.artist.as_deref(), Some("Artist"));
+        assert_eq!(parsed.title.as_deref(), Some("Track"));
+    }
+
+    #[test]
+    fn parse_album_two_digit_no_regression() {
+        let p = Path::new("/music/Artist/Album (2024)/01 Artist - Track.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("01"));
+        assert_eq!(parsed.artist.as_deref(), Some("Artist"));
+        assert_eq!(parsed.title.as_deref(), Some("Track"));
+    }
+
+    #[test]
+    fn parse_album_three_digit_dot_format() {
+        let p = Path::new("/music/Artist/Album (2024)/100. Track Title.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("100"));
+        assert_eq!(parsed.title.as_deref(), Some("Track Title"));
+    }
+
+    // -- Drift normalization --
+
+    #[test]
+    fn drift_normalize_slash_to_dash() {
+        assert_eq!(normalize_for_drift("AC/DC"), "AC-DC");
+    }
+
+    #[test]
+    fn drift_normalize_colon_to_dash() {
+        assert_eq!(normalize_for_drift("Title: Subtitle"), "Title- Subtitle");
+    }
+
+    #[test]
+    fn drift_normalize_asterisk_to_underscore() {
+        assert_eq!(normalize_for_drift("F*ck"), "F_ck");
+    }
+
+    #[test]
+    fn drift_normalize_question_removed() {
+        assert_eq!(normalize_for_drift("Why?"), "Why");
+    }
+
+    #[test]
+    fn check_filename_no_drift_with_slash_in_tag() {
+        let result = make_single(&[("artist", "AC/DC"), ("title", "Thunderstruck")]);
+        let issues = check_filename(
+            Path::new("/music/play/AC-DC - Thunderstruck.flac"),
+            &result,
+            &AuditContext::LooseTrack,
+            &HashSet::new(),
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.issue_type == IssueType::FilenameTagDrift),
+            "Slash in tag should match dash in filename after normalization"
+        );
+    }
+
+    #[test]
+    fn check_filename_no_drift_with_colon_in_tag() {
+        let result = make_single(&[("artist", "Artist"), ("title", "Part 1: The Beginning")]);
+        let issues = check_filename(
+            Path::new("/music/play/Artist - Part 1- The Beginning.flac"),
+            &result,
+            &AuditContext::LooseTrack,
+            &HashSet::new(),
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.issue_type == IssueType::FilenameTagDrift),
+            "Colon in tag should match dash in filename after normalization"
         );
     }
 }
