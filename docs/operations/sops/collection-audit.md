@@ -163,7 +163,7 @@ For `EMPTY_ARTIST`, `EMPTY_TITLE`, `MISSING_TRACK_NUM`, `MISSING_ALBUM`, `MISSIN
 
 ### 4b: Filename issues
 
-For `BAD_FILENAME`, `FILENAME_TAG_DRIFT`, `MISSING_YEAR_IN_DIR`:
+For `BAD_FILENAME`, `MISSING_YEAR_IN_DIR`:
 
 1. Present the mismatch details from the `detail` JSON
 2. Ask user which is correct (filename vs tags, or neither)
@@ -174,6 +174,30 @@ For `BAD_FILENAME`, `FILENAME_TAG_DRIFT`, `MISSING_YEAR_IN_DIR`:
    audit_state(resolve_issues, issue_ids=[...], resolution="deferred",
      note="Needs rename but file is imported — manual Rekordbox relocate required")
    ```
+
+### 4b-2: FILENAME_TAG_DRIFT — character substitution handling
+
+Many FILENAME_TAG_DRIFT issues are caused by download tools (Bandcamp, SoulSeek, etc.) substituting characters that are awkward or forbidden in filenames. On macOS (the only supported platform), the filesystem allows all characters except `/` and null, but download tools still substitute for portability or readability.
+
+**Common substitution patterns** (macOS download tools):
+
+<!-- dprint-ignore -->
+| Tag character | Filename substitute | Source               |
+| ------------- | ------------------- | -------------------- |
+| `?`           | `_`                 | Bandcamp, SoulSeek   |
+| `/`           | `_` or `-`          | Most tools           |
+| `:`           | `-` or ` ` or deleted | Various             |
+| `"`           | `'` or deleted      | Various              |
+| `<` / `>`     | `(` / `)` or deleted | Various             |
+
+**Agent workflow for FILENAME_TAG_DRIFT:**
+
+1. Read the `detail` JSON — it contains `filename` and `tag` values for each drifted field
+2. Compare the two values. If the only differences are character substitutions from the table above, the **tag value is authoritative** — propose a tag-based fix (no action needed, tags are already correct)
+3. If the drift is not a simple substitution (e.g., completely different artist names, truncation, reordering), look up the track via `lookup_discogs` or `lookup_beatport` to determine the correct value
+4. If the correct value matches the tag, resolve as `accepted_as_is` with a note explaining the substitution
+5. If neither filename nor tag is correct, propose a tag fix with the looked-up value
+6. If ambiguous after lookup, flag for user review — do not guess
 
 ### 4c: Genre tags
 
@@ -239,4 +263,4 @@ Present the summary to the user: scope, files scanned, pass rate, fixes applied 
 | `ORIGINAL_MIX_SUFFIX` | All files    | Rename-safe  | Filename contains `(Original Mix)`                    | Strip suffix (if not imported)|
 | `TECH_SPECS_IN_DIR`   | Directories  | Rename-safe  | Directory contains `[FLAC]`, `[WAV]`, `24-96`, etc.  | Strip from dir name           |
 | `MISSING_YEAR_IN_DIR` | Album dirs   | Review       | Album directory missing `(YYYY)` suffix               | Discogs lookup                |
-| `FILENAME_TAG_DRIFT`  | All files    | Review       | Filename artist/title disagrees with tag values       | User review                   |
+| `FILENAME_TAG_DRIFT`  | All files    | Review       | Filename artist/title disagrees with tag values       | Agent classifies substitution vs real drift (§4b-2) |

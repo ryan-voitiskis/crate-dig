@@ -439,9 +439,10 @@ fn parse_album_filename(stem: &str) -> ParsedFilename {
                 Some(title.to_string())
             },
         }
-    } else if let Some(sep_pos) = remainder.find(". ") {
-        // Acceptable alternate: "NN. Title"
-        let title = remainder[sep_pos + 2..].trim();
+    } else if let Some(title) = remainder.strip_prefix(". ") {
+        // Acceptable alternate: "NN. Title" — only match leading ". " to avoid
+        // splitting on interior dots (e.g. "feat. Someone").
+        let title = title.trim();
         ParsedFilename {
             track_num: track_num_str,
             artist: None,
@@ -479,8 +480,10 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
                 stripped
             } else if rest.starts_with("- ") {
                 rest.trim_start_matches(['-', ' '])
-            } else if rest.starts_with(". ") || rest.starts_with('.') {
-                rest
+            } else if let Some(stripped) = rest.strip_prefix(". ") {
+                stripped
+            } else if let Some(stripped) = rest.strip_prefix('.') {
+                stripped
             } else if rest.len() >= 2
                 && rest.as_bytes()[0] == b'-'
                 && !rest.as_bytes()[1].is_ascii_digit()
@@ -502,10 +505,12 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
             stripped
         } else if rest.starts_with("- ") {
             rest.trim_start_matches(['-', ' '])
-        } else if rest.starts_with(". ") || rest.starts_with('.') {
-            // "NN. Title" alternate format — keep the dot+rest so
-            // parse_album_filename's ". " branch can split it.
-            rest
+        } else if let Some(stripped) = rest.strip_prefix(". ") {
+            // "NN. Title" alternate format — strip dot+space prefix
+            stripped
+        } else if let Some(stripped) = rest.strip_prefix('.') {
+            // "NN.Title" alternate format — strip dot prefix
+            stripped
         } else if rest.len() >= 2
             && rest.as_bytes()[0] == b'-'
             && !rest.as_bytes()[1].is_ascii_digit()
@@ -882,10 +887,11 @@ pub fn check_filename(
         }
 
         if let (Some(fn_title), Some(t_title)) = (&parsed.title, &tag_title) {
-            // Strip (Original Mix) from filename title for comparison
+            // Strip (Original Mix) from both sides for comparison
             let fn_t_clean = fn_title.replace(" (Original Mix)", "");
+            let tag_t_clean = t_title.replace(" (Original Mix)", "");
             let filename_title_folded = casefold_text(&normalize_for_drift(fn_t_clean.trim()));
-            let tag_title_folded = casefold_text(&normalize_for_drift(t_title.trim()));
+            let tag_title_folded = casefold_text(&normalize_for_drift(tag_t_clean.trim()));
             if !filename_title_folded.is_empty()
                 && !tag_title_folded.is_empty()
                 && filename_title_folded != tag_title_folded
@@ -2427,6 +2433,47 @@ mod tests {
         assert_eq!(
             classify_track_context(p, &album_dirs),
             AuditContext::AlbumTrack
+        );
+    }
+
+    // -- Dot-space prefix stripping --
+
+    #[test]
+    fn parse_album_dot_format_with_artist() {
+        // "01. Artist - Title" — the ". " prefix must not leak into artist
+        let p = Path::new("/music/Artist/Album (2024)/01. Roza Terenzi - Loose.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("01"));
+        assert_eq!(parsed.artist.as_deref(), Some("Roza Terenzi"));
+        assert_eq!(parsed.title.as_deref(), Some("Loose"));
+    }
+
+    #[test]
+    fn parse_album_feat_dot_no_false_split() {
+        // "feat." interior dot must not split the title
+        let p = Path::new("/music/Artist/Album (2024)/03 Artist feat. Someone.flac");
+        let parsed = parse_filename(p, &AuditContext::AlbumTrack);
+        assert_eq!(parsed.track_num.as_deref(), Some("03"));
+        assert_eq!(parsed.title.as_deref(), Some("Artist feat. Someone"));
+    }
+
+    // -- Original Mix symmetric stripping --
+
+    #[test]
+    fn drift_original_mix_in_tag_only() {
+        // Tag has (Original Mix) but filename doesn't — should not drift
+        let result = make_single(&[("artist", "Artist"), ("title", "Track (Original Mix)")]);
+        let issues = check_filename(
+            Path::new("/music/play/Artist - Track.flac"),
+            &result,
+            &AuditContext::LooseTrack,
+            &HashSet::new(),
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.issue_type == IssueType::FilenameTagDrift),
+            "(Original Mix) in tag only should not trigger drift"
         );
     }
 
