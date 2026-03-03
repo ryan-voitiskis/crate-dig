@@ -239,10 +239,9 @@ For enrichment/audio/set workflows, the common sequence is:
 - [`docs/rekordbox/README.md`](docs/rekordbox/README.md) — Rekordbox corpus map and manifest-first usage
 - [`docs/reference/rekordbox-internals.md`](docs/reference/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
 - [`docs/developer/rekordbox-gotchas.md`](docs/developer/rekordbox-gotchas.md) — Rekordbox schema/XML edge cases and invariants used by code paths
-- [`docs/developer/sql-patterns.md`](docs/developer/sql-patterns.md) — Query-building and binding patterns used in DB access code
+- [`docs/developer/rekordbox-gotchas.md#queries`](docs/developer/rekordbox-gotchas.md#queries) — Query-building and binding patterns used in DB access code
 - [`docs/operations/runbooks/backup-and-restore.md`](docs/operations/runbooks/backup-and-restore.md) — Backup usage and restore procedures
-- [`docs/integrations/discogs/auth.md`](docs/integrations/discogs/auth.md) — Discogs broker setup, first-run auth, and re-auth/reset guidance
-- [`docs/integrations/discogs/auth-plan.md`](docs/integrations/discogs/auth-plan.md) — Discogs broker architecture decisions and phased implementation plan
+- [`README.md#discogs-auth-flow`](README.md#discogs-auth-flow) — Discogs broker setup, first-run auth, and re-auth/reset guidance
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Development workflow, testing expectations, and pull request checklist
 - [`SECURITY.md`](SECURITY.md) — Supported versions and vulnerability reporting process
 - [`AGENTS.md`](AGENTS.md) — Agent/operator workflow notes for Codex and compatible hosts

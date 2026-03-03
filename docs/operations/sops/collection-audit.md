@@ -12,7 +12,7 @@ Detect and fix naming/tagging convention violations in a music collection. Follo
 - **Stop on ambiguity.** If the correct fix isn't clear, flag for user review — never guess.
 - **Verify after fixing.** Re-scan after every fix batch.
 - **Never delete audio files.** Renaming and tag editing only.
-- **WAV dual-tag rule.** `write_file_tags` handles this automatically (default `wav_targets: ["id3v2", "riff_info"]`). WAV tag layers are written sequentially, not atomically — if a write fails partway through, the file may have inconsistent tags across layers. If a WAV write reports an error, treat the file's tag state as unknown and re-verify with `read_file_tags` before retrying.
+- **WAV dual-tag rule.** `write_file_tags` handles this automatically (default `wav_targets: ["id3v2", "riff_info"]`). For default dual-layer WAV writes, the tool uses an atomic path (copy -> write both layers -> rename), so partial failures do not leave split-layer state in the original file. Single-target WAV writes are direct (non-atomic). If any WAV write reports an error, re-verify with `read_file_tags` before retrying.
 - **Rekordbox path awareness.** Before any rename, **manually check** whether the file is imported in Rekordbox (e.g., `search_tracks` by path). Imported files must **never be renamed** — Rekordbox cannot update paths via XML import (creates duplicates). The user must manually relocate via Rekordbox after any external rename. The audit engine does not enforce this automatically.
 
 ## Prerequisites
