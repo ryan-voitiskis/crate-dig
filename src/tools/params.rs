@@ -228,8 +228,14 @@ pub struct AnalyzeAudioBatchParams {
     pub playlist_id: Option<String>,
     #[schemars(description = "Max tracks to analyze (default 20)")]
     pub max_tracks: Option<u32>,
+    #[schemars(description = "Offset for pagination (skip first N tracks in result set)")]
+    pub offset: Option<u32>,
     #[schemars(description = "Skip tracks already in cache (default true)")]
     pub skip_cached: Option<bool>,
+    #[schemars(
+        description = "Max concurrent track analyses (default: half CPU cores, min 2, max 16)"
+    )]
+    pub concurrency: Option<u32>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]

@@ -69,6 +69,9 @@ struct AnalyzeArgs {
     /// Skip Essentia analysis, only run stratum-dsp
     #[arg(long)]
     stratum_only: bool,
+    /// Max concurrent track analyses (default: half CPU cores, min 2, max 16)
+    #[arg(long, short = 'j')]
+    concurrency: Option<u32>,
 }
 
 #[derive(clap::Args)]
@@ -236,6 +239,7 @@ fn cache_status_for_track(
     Ok((has_stratum, has_essentia))
 }
 
+#[cfg(test)]
 fn handle_decode_result(
     decode_result: Result<Result<(Vec<f32>, u32), audio::AudioError>, tokio::task::JoinError>,
     track_index: usize,
@@ -258,6 +262,7 @@ fn handle_decode_result(
     }
 }
 
+#[cfg(test)]
 fn handle_analysis_result(
     analysis_result: Result<
         Result<audio::StratumResult, audio::AudioError>,
@@ -283,40 +288,13 @@ fn handle_analysis_result(
     }
 }
 
+#[cfg(test)]
 fn mark_track_outcome(analyzed: &mut u32, failed: &mut u32, success: bool) {
     if success {
         *analyzed += 1;
     } else {
         *failed += 1;
     }
-}
-
-async fn run_and_cache_essentia(
-    store_conn: &rusqlite::Connection,
-    python: &str,
-    file_path: &str,
-    file_size: i64,
-    file_mtime: i64,
-) -> Result<(), String> {
-    let result = audio::run_essentia(python, file_path)
-        .await
-        .map_err(|e| e.to_string())?;
-    let version = if result.analyzer_version.is_empty() {
-        "unknown"
-    } else {
-        &result.analyzer_version
-    };
-    let analysis_json = serde_json::to_string(&result).unwrap_or_default();
-    store::set_audio_analysis(
-        store_conn,
-        file_path,
-        audio::ANALYZER_ESSENTIA,
-        file_size,
-        file_mtime,
-        version,
-        &analysis_json,
-    )
-    .map_err(|e| format!("Cache write error: {e}"))
 }
 
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -339,7 +317,11 @@ async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::error::Error>
 
     // Open internal store (cache)
     let store_path = store::default_path();
-    let store_conn = store::open(store_path.to_str().ok_or("Invalid store path encoding")?)?;
+    let store_path_str = store_path
+        .to_str()
+        .ok_or("Invalid store path encoding")?
+        .to_string();
+    let store_conn = store::open(&store_path_str)?;
 
     // Probe essentia
     let essentia_python = if args.stratum_only {
@@ -404,134 +386,316 @@ async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::error::Error>
         if has_stratum && has_essentia {
             cached_count += 1;
         } else {
-            to_analyze.push((track, !has_stratum, !has_essentia));
+            to_analyze.push((track.clone(), !has_stratum, !has_essentia));
         }
     }
 
     let total = tracks.len();
     let pending = to_analyze.len();
-    tracing::info!("Scanning {total} tracks ({cached_count} cached, {pending} to analyze)");
+
+    // Compute concurrency
+    let concurrency = match args.concurrency {
+        Some(n) => n.clamp(1, 16),
+        None => {
+            let cpus = std::thread::available_parallelism()
+                .map(|n| n.get() as u32)
+                .unwrap_or(4);
+            (cpus / 2).clamp(2, 16)
+        }
+    } as usize;
+
+    tracing::info!(
+        "Scanning {total} tracks ({cached_count} cached, {pending} to analyze, concurrency={concurrency})"
+    );
 
     if to_analyze.is_empty() {
         tracing::info!("All tracks already cached. Nothing to do.");
         return Ok(());
     }
 
+    // Drop pre-filter connection — writer task will open its own
+    drop(store_conn);
+
     let batch_start = Instant::now();
-    let mut analyzed = 0u32;
-    let mut failed = 0u32;
+    let analyzed = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let failed = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+    let completed_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
-    for (i, (track, needs_stratum, needs_essentia)) in to_analyze.iter().enumerate() {
-        let idx = i + 1;
-        let label = format!("{} - {}", track.artist, track.title);
-
-        // Resolve file path
-        let file_path = match audio::resolve_audio_path(&track.file_path) {
-            Ok(p) => p,
-            Err(_) => {
-                tracing::warn!("[{idx}/{pending}] SKIP {label}: File not found");
-                failed += 1;
-                continue;
-            }
-        };
-
-        // Get file metadata for cache
-        let metadata = match std::fs::metadata(&file_path) {
-            Ok(m) => m,
+    // Spawn cache writer task
+    let (cache_tx, mut cache_rx) =
+        tokio::sync::mpsc::channel::<CliCacheWriteMsg>(concurrency * 4);
+    let writer_store_path = store_path_str.clone();
+    let writer_handle = tokio::task::spawn_blocking(move || {
+        let conn = match store::open(&writer_store_path) {
+            Ok(c) => c,
             Err(e) => {
-                tracing::warn!("[{idx}/{pending}] SKIP {label}: Cannot stat file: {e}");
-                failed += 1;
-                continue;
+                tracing::error!("Cache writer: failed to open store: {e}");
+                return;
             }
         };
-
-        let file_size = metadata.len() as i64;
-        let file_mtime = file_mtime_unix(&metadata);
-
-        let track_start = Instant::now();
-
-        // Stratum analysis
-        if *needs_stratum {
-            let path_clone = file_path.clone();
-            let decode_result =
-                tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone)).await;
-
-            let (samples, sample_rate) =
-                match handle_decode_result(decode_result, idx, pending, &label, &mut failed) {
-                    Some(value) => value,
-                    None => continue,
-                };
-
-            let analysis_result = tokio::task::spawn_blocking(move || {
-                audio::analyze_with_stratum(&samples, sample_rate)
-            })
-            .await;
-
-            let result =
-                match handle_analysis_result(analysis_result, idx, pending, &label, &mut failed) {
-                    Some(result) => result,
-                    None => continue,
-                };
-
-            let features_json = serde_json::to_string(&result)?;
-            store::set_audio_analysis(
-                &store_conn,
-                &file_path,
-                audio::ANALYZER_STRATUM,
-                file_size,
-                file_mtime,
-                &result.analyzer_version,
-                &features_json,
-            )?;
-
-            let mut track_success = true;
-            let mut essentia_status = String::new();
-            if *needs_essentia && let Some(ref python) = essentia_python {
-                match run_and_cache_essentia(&store_conn, python, &file_path, file_size, file_mtime)
-                    .await
-                {
-                    Ok(()) => essentia_status = " +essentia".to_string(),
-                    Err(e) => {
-                        essentia_status = format!(" (essentia failed: {e})");
-                        track_success = false;
-                    }
-                }
-            }
-
-            let elapsed = track_start.elapsed().as_secs_f64();
-            tracing::info!(
-                "[{idx}/{pending}] {label} ... BPM={:.1} Key={}{essentia_status} ({elapsed:.1}s)",
-                result.bpm,
-                result.key_camelot,
-            );
-            mark_track_outcome(&mut analyzed, &mut failed, track_success);
-        } else if *needs_essentia {
-            // Only needs essentia (stratum already cached)
-            if let Some(ref python) = essentia_python {
-                let elapsed_start = Instant::now();
-                match run_and_cache_essentia(&store_conn, python, &file_path, file_size, file_mtime)
-                    .await
-                {
-                    Ok(()) => {
-                        let elapsed = elapsed_start.elapsed().as_secs_f64();
-                        tracing::info!("[{idx}/{pending}] {label} ... +essentia ({elapsed:.1}s)");
-                        mark_track_outcome(&mut analyzed, &mut failed, true);
-                    }
-                    Err(e) => {
-                        tracing::error!("[{idx}/{pending}] FAIL {label}: Essentia error: {e}");
-                        mark_track_outcome(&mut analyzed, &mut failed, false);
-                    }
-                }
+        while let Some(msg) = cache_rx.blocking_recv() {
+            if let Err(e) = store::set_audio_analysis(
+                &conn,
+                &msg.file_path,
+                &msg.analyzer,
+                msg.file_size,
+                msg.file_mtime,
+                &msg.analyzer_version,
+                &msg.features_json,
+            ) {
+                tracing::error!(
+                    "Cache writer: failed to write {} for {}: {e}",
+                    msg.analyzer,
+                    msg.file_path
+                );
             }
         }
+    });
+
+    // Spawn analysis tasks bounded by semaphore
+    let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(concurrency));
+    let mut handles = Vec::with_capacity(pending);
+
+    for (track, needs_stratum, needs_essentia) in to_analyze {
+        let permit = sem.clone().acquire_owned().await?;
+        let label = format!("{} - {}", track.artist, track.title);
+        let essentia_python = essentia_python.clone();
+        let cache_tx = cache_tx.clone();
+        let analyzed = analyzed.clone();
+        let failed = failed.clone();
+        let completed_count = completed_count.clone();
+
+        handles.push(tokio::spawn(async move {
+            let result = cli_analyze_single_track(
+                &track.file_path,
+                needs_stratum,
+                needs_essentia,
+                essentia_python.as_deref(),
+                &cache_tx,
+            )
+            .await;
+
+            let idx = completed_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+
+            match result {
+                Ok(outcome) => {
+                    let elapsed = outcome.elapsed;
+                    match outcome.kind {
+                        CliTrackOutcome::StratumAndEssentia {
+                            bpm,
+                            key_camelot,
+                            essentia_ok,
+                        } => {
+                            let essentia_status = if essentia_ok {
+                                " +essentia"
+                            } else {
+                                " (essentia failed)"
+                            };
+                            tracing::info!(
+                                "[{idx}/{pending}] {label} ... BPM={bpm:.1} Key={key_camelot}{essentia_status} ({elapsed:.1}s)"
+                            );
+                            if essentia_ok {
+                                analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            } else {
+                                failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            }
+                        }
+                        CliTrackOutcome::StratumOnly { bpm, key_camelot } => {
+                            tracing::info!(
+                                "[{idx}/{pending}] {label} ... BPM={bpm:.1} Key={key_camelot} ({elapsed:.1}s)"
+                            );
+                            analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        }
+                        CliTrackOutcome::EssentiaOnly { ok } => {
+                            if ok {
+                                tracing::info!(
+                                    "[{idx}/{pending}] {label} ... +essentia ({elapsed:.1}s)"
+                                );
+                                analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            } else {
+                                tracing::error!(
+                                    "[{idx}/{pending}] FAIL {label}: Essentia error ({elapsed:.1}s)"
+                                );
+                                failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                            }
+                        }
+                    }
+                }
+                Err(msg) => {
+                    tracing::warn!("[{idx}/{pending}] SKIP {label}: {msg}");
+                    failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                }
+            }
+
+            drop(permit);
+        }));
     }
 
+    // Await all tasks
+    for handle in handles {
+        let _ = handle.await;
+    }
+
+    // Shut down writer
+    drop(cache_tx);
+    let _ = writer_handle.await;
+
+    let analyzed = analyzed.load(std::sync::atomic::Ordering::Relaxed);
+    let failed = failed.load(std::sync::atomic::Ordering::Relaxed);
     let total_time = batch_start.elapsed();
     let mins = total_time.as_secs() / 60;
     let secs = total_time.as_secs() % 60;
     tracing::info!("Done: {analyzed} analyzed, {failed} failed ({mins}m {secs}s)");
 
     Ok(())
+}
+
+struct CliCacheWriteMsg {
+    file_path: String,
+    analyzer: String,
+    file_size: i64,
+    file_mtime: i64,
+    analyzer_version: String,
+    features_json: String,
+}
+
+enum CliTrackOutcome {
+    StratumAndEssentia {
+        bpm: f64,
+        key_camelot: String,
+        essentia_ok: bool,
+    },
+    StratumOnly {
+        bpm: f64,
+        key_camelot: String,
+    },
+    EssentiaOnly {
+        ok: bool,
+    },
+}
+
+struct CliTrackResult {
+    kind: CliTrackOutcome,
+    elapsed: f64,
+}
+
+async fn cli_analyze_single_track(
+    raw_file_path: &str,
+    needs_stratum: bool,
+    needs_essentia: bool,
+    essentia_python: Option<&str>,
+    cache_tx: &tokio::sync::mpsc::Sender<CliCacheWriteMsg>,
+) -> Result<CliTrackResult, String> {
+    let file_path =
+        audio::resolve_audio_path(raw_file_path).map_err(|_| "File not found".to_string())?;
+    let metadata =
+        std::fs::metadata(&file_path).map_err(|e| format!("Cannot stat file: {e}"))?;
+    let file_size = metadata.len() as i64;
+    let file_mtime = file_mtime_unix(&metadata);
+    let track_start = Instant::now();
+
+    if needs_stratum {
+        // Decode + analyze stratum
+        let path_clone = file_path.clone();
+        let (samples, sample_rate) =
+            tokio::task::spawn_blocking(move || audio::decode_to_samples(&path_clone))
+                .await
+                .map_err(|e| format!("Decode task failed: {e}"))?
+                .map_err(|e| format!("Decode error: {e}"))?;
+
+        let stratum_result = tokio::task::spawn_blocking(move || {
+            audio::analyze_with_stratum(&samples, sample_rate)
+        })
+        .await
+        .map_err(|e| format!("Analysis task failed: {e}"))?
+        .map_err(|e| format!("Analysis error: {e}"))?;
+
+        let features_json = serde_json::to_string(&stratum_result).unwrap_or_default();
+        let _ = cache_tx
+            .send(CliCacheWriteMsg {
+                file_path: file_path.clone(),
+                analyzer: audio::ANALYZER_STRATUM.to_string(),
+                file_size,
+                file_mtime,
+                analyzer_version: stratum_result.analyzer_version.clone(),
+                features_json,
+            })
+            .await;
+
+        if needs_essentia {
+            if let Some(python) = essentia_python {
+                let essentia_ok =
+                    cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
+                        .await;
+                return Ok(CliTrackResult {
+                    kind: CliTrackOutcome::StratumAndEssentia {
+                        bpm: stratum_result.bpm,
+                        key_camelot: stratum_result.key_camelot,
+                        essentia_ok,
+                    },
+                    elapsed: track_start.elapsed().as_secs_f64(),
+                });
+            }
+        }
+
+        Ok(CliTrackResult {
+            kind: CliTrackOutcome::StratumOnly {
+                bpm: stratum_result.bpm,
+                key_camelot: stratum_result.key_camelot,
+            },
+            elapsed: track_start.elapsed().as_secs_f64(),
+        })
+    } else if needs_essentia {
+        if let Some(python) = essentia_python {
+            let ok =
+                cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
+                    .await;
+            return Ok(CliTrackResult {
+                kind: CliTrackOutcome::EssentiaOnly { ok },
+                elapsed: track_start.elapsed().as_secs_f64(),
+            });
+        }
+        Err("Essentia not available".to_string())
+    } else {
+        Err("Nothing to analyze".to_string())
+    }
+}
+
+async fn cli_run_and_send_essentia(
+    python: &str,
+    file_path: &str,
+    file_size: i64,
+    file_mtime: i64,
+    cache_tx: &tokio::sync::mpsc::Sender<CliCacheWriteMsg>,
+) -> bool {
+    match audio::run_essentia(python, file_path)
+        .await
+        .map_err(|e| e.to_string())
+    {
+        Ok(features) => {
+            let version = if features.analyzer_version.is_empty() {
+                "unknown".to_string()
+            } else {
+                features.analyzer_version.clone()
+            };
+            let features_json = serde_json::to_string(&features).unwrap_or_default();
+            let _ = cache_tx
+                .send(CliCacheWriteMsg {
+                    file_path: file_path.to_string(),
+                    analyzer: audio::ANALYZER_ESSENTIA.to_string(),
+                    file_size,
+                    file_mtime,
+                    analyzer_version: version,
+                    features_json,
+                })
+                .await;
+            true
+        }
+        Err(e) => {
+            tracing::error!("Essentia error for {file_path}: {e}");
+            false
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -162,14 +162,193 @@ pub(super) struct BatchTrackAnalysis {
     pub(super) track_id: String,
     pub(super) title: String,
     pub(super) artist: String,
-    pub(super) file_path: String,
-    pub(super) file_size: i64,
-    pub(super) file_mtime: i64,
     pub(super) stratum_dsp: serde_json::Value,
     pub(super) stratum_cache_hit: bool,
     pub(super) essentia: Option<serde_json::Value>,
     pub(super) essentia_cache_hit: Option<bool>,
     pub(super) essentia_error: Option<String>,
+}
+
+enum CacheWriteMsg {
+    Audio {
+        file_path: String,
+        analyzer: &'static str,
+        file_size: i64,
+        file_mtime: i64,
+        analyzer_version: String,
+        features_json: String,
+    },
+}
+
+async fn analyze_single_track(
+    track_id: String,
+    title: String,
+    artist: String,
+    raw_file_path: String,
+    skip_cached: bool,
+    essentia_python: Option<String>,
+    store_path: String,
+    cache_tx: tokio::sync::mpsc::Sender<CacheWriteMsg>,
+) -> Result<BatchTrackAnalysis, serde_json::Value> {
+    // Resolve file path
+    let file_path = audio::resolve_audio_path(&raw_file_path).map_err(|e| {
+        serde_json::json!({
+            "track_id": &track_id, "artist": &artist, "title": &title,
+            "analyzer": audio::ANALYZER_STRATUM,
+            "error": format!("File path error: {e}"),
+        })
+    })?;
+
+    let metadata = std::fs::metadata(&file_path).map_err(|e| {
+        serde_json::json!({
+            "track_id": &track_id, "artist": &artist, "title": &title,
+            "analyzer": audio::ANALYZER_STRATUM,
+            "error": format!("Cannot stat file: {e}"),
+        })
+    })?;
+    let file_size = metadata.len() as i64;
+    let file_mtime = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    // Open read-only cache connection for this task
+    let cache_conn = store::open_read_only(&store_path).map_err(|e| {
+        serde_json::json!({
+            "track_id": &track_id, "artist": &artist, "title": &title,
+            "analyzer": audio::ANALYZER_STRATUM,
+            "error": format!("Cache open error: {e}"),
+        })
+    })?;
+
+    // Check stratum cache
+    let stratum_cached = if skip_cached {
+        check_analysis_cache(
+            &cache_conn,
+            &file_path,
+            audio::ANALYZER_STRATUM,
+            file_size,
+            file_mtime,
+        )
+        .ok()
+        .flatten()
+    } else {
+        None
+    };
+
+    // Check essentia cache
+    let essentia_cached = if skip_cached && essentia_python.is_some() {
+        check_analysis_cache(
+            &cache_conn,
+            &file_path,
+            audio::ANALYZER_ESSENTIA,
+            file_size,
+            file_mtime,
+        )
+        .ok()
+        .flatten()
+    } else {
+        None
+    };
+
+    // Drop the read connection before running analysis
+    drop(cache_conn);
+
+    // Run uncached analyzers in parallel via tokio::join!
+    let stratum_fut = async {
+        if let Some(json_str) = &stratum_cached {
+            let val: serde_json::Value =
+                serde_json::from_str(json_str).map_err(|e| format!("Cache parse error: {e}"))?;
+            return Ok::<(serde_json::Value, bool), String>((val, true));
+        }
+        let analysis = analyze_stratum(&file_path).await?;
+        let features_json =
+            serde_json::to_string(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
+        let val =
+            serde_json::to_value(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
+        let _ = cache_tx
+            .send(CacheWriteMsg::Audio {
+                file_path: file_path.clone(),
+                analyzer: audio::ANALYZER_STRATUM,
+                file_size,
+                file_mtime,
+                analyzer_version: analysis.analyzer_version,
+                features_json,
+            })
+            .await;
+        Ok((val, false))
+    };
+
+    let essentia_python_clone = essentia_python.clone();
+    let file_path_clone = file_path.clone();
+    let cache_tx_clone = cache_tx.clone();
+    let essentia_fut = async {
+        let python_path = match &essentia_python_clone {
+            Some(p) => p,
+            None => return (None, None, None), // essentia not available
+        };
+        if let Some(json_str) = &essentia_cached {
+            match serde_json::from_str(json_str) {
+                Ok(val) => return (Some(val), Some(true), None),
+                Err(e) => return (None, None, Some(format!("Cache parse error: {e}"))),
+            }
+        }
+        match audio::run_essentia(python_path, &file_path_clone)
+            .await
+            .map_err(|e| e.to_string())
+        {
+            Ok(features) => {
+                let version = if features.analyzer_version.is_empty() {
+                    "unknown".to_string()
+                } else {
+                    features.analyzer_version.clone()
+                };
+                let features_json = match serde_json::to_string(&features) {
+                    Ok(j) => j,
+                    Err(e) => return (None, None, Some(format!("Serialize error: {e}"))),
+                };
+                let val = match serde_json::to_value(&features) {
+                    Ok(v) => v,
+                    Err(e) => return (None, None, Some(format!("Serialize error: {e}"))),
+                };
+                let _ = cache_tx_clone
+                    .send(CacheWriteMsg::Audio {
+                        file_path: file_path_clone.clone(),
+                        analyzer: audio::ANALYZER_ESSENTIA,
+                        file_size,
+                        file_mtime,
+                        analyzer_version: version,
+                        features_json,
+                    })
+                    .await;
+                (Some(val), Some(false), None)
+            }
+            Err(e) => (None, None, Some(e)),
+        }
+    };
+
+    let (stratum_result, (essentia_val, essentia_cache_hit, essentia_error)) =
+        tokio::join!(stratum_fut, essentia_fut);
+
+    let (stratum_dsp, stratum_cache_hit) = stratum_result.map_err(|e| {
+        serde_json::json!({
+            "track_id": &track_id, "artist": &artist, "title": &title,
+            "analyzer": audio::ANALYZER_STRATUM, "error": e,
+        })
+    })?;
+
+    Ok(BatchTrackAnalysis {
+        track_id,
+        title,
+        artist,
+        stratum_dsp,
+        stratum_cache_hit,
+        essentia: essentia_val,
+        essentia_cache_hit,
+        essentia_error,
+    })
 }
 
 pub(super) async fn handle_analyze_audio_batch(
@@ -186,7 +365,7 @@ pub(super) async fn handle_analyze_audio_batch(
             params.playlist_id.as_deref(),
             params.filters,
             params.max_tracks,
-            None,
+            params.offset,
             &ResolveTracksOpts {
                 default_max_tracks: Some(20),
                 max_tracks_cap: Some(200),
@@ -197,225 +376,140 @@ pub(super) async fn handle_analyze_audio_batch(
 
     let total = tracks.len();
 
+    // Compute concurrency
+    let concurrency = match params.concurrency {
+        Some(n) => n.clamp(1, 16),
+        None => {
+            let cpus = std::thread::available_parallelism()
+                .map(|n| n.get() as u32)
+                .unwrap_or(4);
+            (cpus / 2).clamp(2, 16)
+        }
+    } as usize;
+
+    let essentia_python = server.essentia_python_path();
+    let essentia_available = essentia_python.is_some();
+    let store_path = server.cache_store_path();
+
+    // Ensure the DB exists and is migrated before spawning readers
+    {
+        let _conn = server.cache_store_conn()?;
+    }
+
+    // Spawn cache writer task
+    let (cache_tx, mut cache_rx) = tokio::sync::mpsc::channel::<CacheWriteMsg>(concurrency * 4);
+    let writer_store_path = store_path.clone();
+    let writer_handle = tokio::task::spawn_blocking(move || {
+        let conn = match store::open(&writer_store_path) {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("Cache writer: failed to open store: {e}");
+                return;
+            }
+        };
+        while let Some(msg) = cache_rx.blocking_recv() {
+            match msg {
+                CacheWriteMsg::Audio {
+                    file_path,
+                    analyzer,
+                    file_size,
+                    file_mtime,
+                    analyzer_version,
+                    features_json,
+                } => {
+                    if let Err(e) = store::set_audio_analysis(
+                        &conn,
+                        &file_path,
+                        analyzer,
+                        file_size,
+                        file_mtime,
+                        &analyzer_version,
+                        &features_json,
+                    ) {
+                        tracing::error!("Cache writer: failed to write {analyzer} for {file_path}: {e}");
+                    }
+                }
+            }
+        }
+    });
+
+    // Spawn analysis tasks bounded by semaphore
+    let sem = std::sync::Arc::new(tokio::sync::Semaphore::new(concurrency));
+    let mut handles = Vec::with_capacity(total);
+
+    for track in &tracks {
+        let permit = sem.clone().acquire_owned().await.map_err(|e| {
+            mcp_internal_error(format!("Semaphore error: {e}"))
+        })?;
+        let track_id = track.id.clone();
+        let title = track.title.clone();
+        let artist = track.artist.clone();
+        let raw_file_path = track.file_path.clone();
+        let essentia_python = essentia_python.clone();
+        let store_path = store_path.clone();
+        let cache_tx = cache_tx.clone();
+
+        handles.push(tokio::spawn(async move {
+            let result = analyze_single_track(
+                track_id,
+                title,
+                artist,
+                raw_file_path,
+                skip_cached,
+                essentia_python,
+                store_path,
+                cache_tx,
+            )
+            .await;
+            drop(permit);
+            result
+        }));
+    }
+
+    // Collect results in order
     let mut progress = BatchProgress::new();
     let mut essentia_analyzed = 0usize;
     let mut essentia_cached = 0usize;
     let mut essentia_failed = 0usize;
     let mut rows: Vec<BatchTrackAnalysis> = Vec::new();
 
-    for track in &tracks {
-        let file_path = match resolve_file_path(&track.file_path) {
-            Ok(path) => path,
-            Err(e) => {
-                progress.failures.push(serde_json::json!({
-                    "track_id": track.id,
-                    "artist": track.artist,
-                    "title": track.title,
-                    "analyzer": audio::ANALYZER_STRATUM,
-                    "error": format!("File path error: {e}"),
-                }));
-                continue;
-            }
-        };
-
-        let metadata = match std::fs::metadata(&file_path) {
-            Ok(metadata) => metadata,
-            Err(e) => {
-                progress.failures.push(serde_json::json!({
-                    "track_id": track.id,
-                    "artist": track.artist,
-                    "title": track.title,
-                    "analyzer": audio::ANALYZER_STRATUM,
-                    "error": format!("Cannot stat file: {e}"),
-                }));
-                continue;
-            }
-        };
-        let file_size = metadata.len() as i64;
-        let file_mtime = metadata
-            .modified()
-            .ok()
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
-
-        // Stratum-dsp: check cache then analyze
-        let mut stratum_dsp: Option<serde_json::Value> = None;
-        let mut stratum_cache_hit = false;
-
-        if skip_cached {
-            let store = server.cache_store_conn()?;
-            match check_analysis_cache(
-                &store,
-                &file_path,
-                audio::ANALYZER_STRATUM,
-                file_size,
-                file_mtime,
-            ) {
-                Ok(Some(json_str)) => match serde_json::from_str(&json_str) {
-                    Ok(val) => {
-                        stratum_dsp = Some(val);
-                        stratum_cache_hit = true;
-                        progress.cached += 1;
-                    }
-                    Err(e) => {
-                        progress.failures.push(serde_json::json!({
-                            "track_id": track.id, "artist": track.artist,
-                            "title": track.title, "analyzer": audio::ANALYZER_STRATUM,
-                            "error": format!("Cache parse error: {e}"),
-                        }));
-                        continue;
-                    }
-                },
-                Ok(None) => {}
-                Err(e) => {
-                    progress.failures.push(serde_json::json!({
-                        "track_id": track.id, "artist": track.artist,
-                        "title": track.title, "analyzer": audio::ANALYZER_STRATUM,
-                        "error": e,
-                    }));
-                    continue;
-                }
-            }
-        }
-
-        if stratum_dsp.is_none() {
-            match analyze_stratum(&file_path).await {
-                Ok(analysis) => {
-                    let features_json = serde_json::to_string(&analysis)
-                        .map_err(|e| mcp_internal_error(format!("{e}")))?;
-                    let store = server.cache_store_conn()?;
-                    store::set_audio_analysis(
-                        &store,
-                        &file_path,
-                        audio::ANALYZER_STRATUM,
-                        file_size,
-                        file_mtime,
-                        &analysis.analyzer_version,
-                        &features_json,
-                    )
-                    .map_err(|e| mcp_internal_error(format!("Cache write error: {e}")))?;
-                    stratum_dsp = Some(
-                        serde_json::to_value(&analysis)
-                            .map_err(|e| mcp_internal_error(format!("{e}")))?,
-                    );
+    for handle in handles {
+        match handle.await {
+            Ok(Ok(row)) => {
+                if row.stratum_cache_hit {
+                    progress.cached += 1;
+                } else {
                     progress.processed += 1;
                 }
-                Err(e) => {
-                    progress.failures.push(serde_json::json!({
-                        "track_id": track.id, "artist": track.artist,
-                        "title": track.title, "analyzer": audio::ANALYZER_STRATUM,
-                        "error": e,
-                    }));
-                    continue;
+                match row.essentia_cache_hit {
+                    Some(true) => essentia_cached += 1,
+                    Some(false) => essentia_analyzed += 1,
+                    None if row.essentia_error.is_some() => essentia_failed += 1,
+                    _ => {}
                 }
-            }
-        }
-
-        rows.push(BatchTrackAnalysis {
-            track_id: track.id.clone(),
-            title: track.title.clone(),
-            artist: track.artist.clone(),
-            file_path,
-            file_size,
-            file_mtime,
-            stratum_dsp: stratum_dsp.ok_or_else(|| {
-                mcp_internal_error("Missing stratum-dsp result in batch".to_string())
-            })?,
-            stratum_cache_hit,
-            essentia: None,
-            essentia_cache_hit: None,
-            essentia_error: None,
-        });
-    }
-
-    // Essentia pass
-    let essentia_python = server.essentia_python_path();
-    let essentia_available = essentia_python.is_some();
-
-    if let Some(python_path) = essentia_python.as_deref() {
-        for row in &mut rows {
-            if skip_cached {
-                let store = server.cache_store_conn()?;
-                match check_analysis_cache(
-                    &store,
-                    &row.file_path,
-                    audio::ANALYZER_ESSENTIA,
-                    row.file_size,
-                    row.file_mtime,
-                ) {
-                    Ok(Some(json_str)) => match serde_json::from_str(&json_str) {
-                        Ok(val) => {
-                            row.essentia = Some(val);
-                            row.essentia_cache_hit = Some(true);
-                            essentia_cached += 1;
-                            continue;
-                        }
-                        Err(e) => {
-                            let msg = format!("Cache parse error: {e}");
-                            row.essentia_error = Some(msg.clone());
-                            essentia_failed += 1;
-                            progress.failures.push(serde_json::json!({
-                                "track_id": &row.track_id, "artist": &row.artist,
-                                "title": &row.title, "analyzer": audio::ANALYZER_ESSENTIA, "error": msg,
-                            }));
-                            continue;
-                        }
-                    },
-                    Ok(None) => {}
-                    Err(e) => {
-                        row.essentia_error = Some(e.clone());
-                        essentia_failed += 1;
-                        progress.failures.push(serde_json::json!({
-                            "track_id": &row.track_id, "artist": &row.artist,
-                            "title": &row.title, "analyzer": audio::ANALYZER_ESSENTIA, "error": e,
-                        }));
-                        continue;
-                    }
-                }
-            }
-
-            match audio::run_essentia(python_path, &row.file_path)
-                .await
-                .map_err(|e| e.to_string())
-            {
-                Ok(features) => {
-                    let version = if features.analyzer_version.is_empty() {
-                        "unknown"
-                    } else {
-                        &features.analyzer_version
-                    };
-                    let features_json = serde_json::to_string(&features)
-                        .map_err(|e| mcp_internal_error(format!("{e}")))?;
-                    let store = server.cache_store_conn()?;
-                    store::set_audio_analysis(
-                        &store,
-                        &row.file_path,
-                        audio::ANALYZER_ESSENTIA,
-                        row.file_size,
-                        row.file_mtime,
-                        version,
-                        &features_json,
-                    )
-                    .map_err(|e| mcp_internal_error(format!("Cache write error: {e}")))?;
-                    row.essentia = Some(
-                        serde_json::to_value(&features)
-                            .map_err(|e| mcp_internal_error(format!("{e}")))?,
-                    );
-                    row.essentia_cache_hit = Some(false);
-                    essentia_analyzed += 1;
-                }
-                Err(e) => {
-                    row.essentia_error = Some(e.clone());
-                    essentia_failed += 1;
+                if let Some(ref err) = row.essentia_error {
                     progress.failures.push(serde_json::json!({
                         "track_id": &row.track_id, "artist": &row.artist,
-                        "title": &row.title, "analyzer": audio::ANALYZER_ESSENTIA, "error": e,
+                        "title": &row.title, "analyzer": audio::ANALYZER_ESSENTIA,
+                        "error": err,
                     }));
                 }
+                rows.push(row);
+            }
+            Ok(Err(failure)) => {
+                progress.failures.push(failure);
+            }
+            Err(e) => {
+                progress.failures.push(serde_json::json!({
+                    "error": format!("Task panicked: {e}"),
+                }));
             }
         }
     }
+
+    // Shut down writer
+    drop(cache_tx);
+    let _ = writer_handle.await;
 
     let results: Vec<serde_json::Value> = rows
         .into_iter()
@@ -444,6 +538,7 @@ pub(super) async fn handle_analyze_audio_batch(
             "essentia_analyzed": essentia_analyzed,
             "essentia_cached": essentia_cached,
             "essentia_failed": essentia_failed,
+            "concurrency": concurrency,
         },
         "results": results,
         "failures": progress.failures,

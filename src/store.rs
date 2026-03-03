@@ -43,6 +43,13 @@ pub fn open(path: &str) -> Result<Connection, rusqlite::Error> {
     Ok(conn)
 }
 
+/// Open a read-only connection (no migrations). For concurrent reader tasks.
+pub fn open_read_only(path: &str) -> Result<Connection, rusqlite::Error> {
+    let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    conn.execute_batch("PRAGMA busy_timeout = 5000;")?;
+    Ok(conn)
+}
+
 fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS enrichment_cache (
