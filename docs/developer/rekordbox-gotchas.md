@@ -17,6 +17,14 @@ Implementation-specific gotchas for reklawdbox development. For the broader list
 - All queries use dynamic building with indexed positional parameters (`?1`, `?2`, ...) and `Vec<Box<dyn ToSql>>` for bind values
 - The base `TRACK_SELECT` joins 7 tables via `LEFT JOIN`; every query filters deleted tracks and sampler samples
 
+## Reload Tag
+
+- Rekordbox's Reload Tag re-reads file tags into the library DB — useful for bulk metadata updates without XML import
+- **WAV files:** Only RIFF INFO is read. Supported fields: artist, title, album, genre, year, comment. That's it.
+- **Label/publisher is not in RIFF INFO** — cannot be set via file tags on WAV. Use XML import or manual entry.
+- After reload, any manually edited track info in Rekordbox is **replaced** by the file tag values
+- FLAC/MP3/M4A/AIFF have richer tag support (including label via publisher field)
+
 ## XML
 
 - XML rating values: `0/51/102/153/204/255` (not `0-5`) — use `stars_to_rating()` / `rating_to_stars()` in `src/types.rs`

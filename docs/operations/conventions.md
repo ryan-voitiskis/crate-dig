@@ -113,13 +113,41 @@ What Rekordbox reads on import by format:
 | Artist    | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
 | Title     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
 | Album     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
+| Genre     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
 | Year      | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
 | Track     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
+| Comment   | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
+| Label     | Vorbis Comment  | **Not supported** | ID3v2 (tag 2)   |
 | Cover art | Embedded (auto) | **Not imported**  | Embedded (auto) |
 
 **WAV critical:** Rekordbox reads **only** RIFF INFO (tag 3) from WAV files. ID3v2 (tag 2) is ignored. Both must be written — tag 2 for general compatibility, tag 3 for Rekordbox.
 
 **WAV cover art:** Rekordbox cannot import cover art from WAV files. Embed in tag 2 for other apps; WAV tracks need manual cover art in Rekordbox after import.
+
+**WAV label:** RIFF INFO has no publisher/label field. For WAV files, Label is DB-only — set it via XML import or manually in Rekordbox.
+
+### Reload Tag workflow
+
+Rekordbox's **Reload Tag** (right-click → Reload Tag) re-reads file tags and updates the library DB. This provides a faster alternative to XML import for fields that Rekordbox reads from file tags.
+
+**WAV Reload Tag field support** (RIFF INFO only):
+
+<!-- dprint-ignore -->
+| Field   | Reload works? | Notes                                   |
+| ------- | ------------- | --------------------------------------- |
+| Artist  | Yes           |                                         |
+| Title   | Yes           |                                         |
+| Album   | Yes           |                                         |
+| Genre   | Yes           | Verified 2026-03-03                     |
+| Year    | Yes           |                                         |
+| Comment | Yes           |                                         |
+| Label   | **No**        | RIFF INFO has no publisher field        |
+| BPM     | **No**        | Not in RIFF INFO; Rekordbox uses its own analysis |
+| Key     | **No**        | Not in RIFF INFO; Rekordbox uses its own analysis |
+
+**Workflow:** `write_file_tags` → select tracks in Rekordbox → Reload Tag.
+
+After reloading, any previously edited track information is replaced with the reloaded values.
 
 ### Required tags
 
@@ -145,6 +173,6 @@ What Rekordbox reads on import by format:
 
 ### Genre policy
 
-Genre tags are left blank in files. Genre is managed exclusively through Rekordbox via the [genre classification SOP](sops/genre-classification.md).
+Genre is written to file tags via `write_file_tags` and loaded into Rekordbox via Reload Tag. Classification follows the [genre classification SOP](sops/genre-classification.md).
 
 **Pre-existing genre tags:** If genre tags are already set from source downloads (Bandcamp, Juno, etc.), flag for user review with three options: **(a)** clear the tag, **(b)** keep as-is and document the exception, **(c)** migrate the value to comments before clearing. Do not auto-clear without user approval.
