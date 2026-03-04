@@ -1,6 +1,6 @@
 # Spec: Agent Onboarding & SOP Discovery
 
-Status: Implemented
+Status: Implemented (community section deferred)
 
 ## Problem
 
@@ -122,9 +122,9 @@ agent consumption:
 - Token-conscious: aim for <2000 tokens per SOP
 
 These could live at URLs like:
-- `reklawdbox.com/agents/genre-classification/`
-- `reklawdbox.com/agents/set-building/`
-- `reklawdbox.com/agents/collection-audit/`
+- `reklawdbox.com/agent/genre-classification/`
+- `reklawdbox.com/agent/set-building/`
+- `reklawdbox.com/agent/collection-audit/`
 
 Or as a dedicated section within each existing workflow page (e.g. an
 "Agent Instructions" tab or collapsible block).
@@ -153,7 +153,7 @@ Total context cost for a guided workflow: ~2700 tokens upfront, versus
 | --- | --- | --- | --- |
 | Internal SOPs | `docs/sops/` | Contributors | Detailed procedures, decision rationale |
 | Site workflows | `site/src/content/docs/workflows/` | Humans | Readable guides with context |
-| Agent SOPs | `site/src/content/docs/agents/` (new) | Agents | Token-optimized step-by-step instructions |
+| Agent SOPs | `site/src/content/docs/agent/` (new) | Agents | Token-optimized step-by-step instructions |
 | `help` tool | MCP server | Agents | Discovery and routing |
 | `ServerInfo` | MCP protocol | Agents | Bootstrap orientation |
 
@@ -172,14 +172,18 @@ optimized for token efficiency and tool-call sequencing.
 Steps 1-2 are small code changes. Step 3 is content work. Step 4 is
 structural.
 
+## Resolved Questions
+
+- **`help` format:** Structured JSON. Easier for agents to parse; the `tip`
+  field directs to WebFetch for prose SOPs.
+- **SOPs as separate pages or embedded:** Separate `/agent/` directory. Keeps
+  human workflow pages clean; agent pages are plain markdown for clean
+  WebFetch/llms.txt output.
+- **`format` parameter:** Not needed. JSON-only is sufficient; all current MCP
+  hosts handle it well.
+
 ## Open Questions
 
-- Should `help` return markdown or structured JSON? JSON is easier for agents
-  to parse; markdown is more natural in conversation.
-- Should the agent-optimized SOPs be separate pages or embedded in existing
-  workflow pages (e.g. via Starlight tabs)?
-- How to version agent SOPs relative to the server? If a tool's parameters
-  change, the SOP on the site needs updating. Should the `help` tool include
-  a version hint so agents can detect staleness?
-- Should the `help` tool accept a `format` parameter (e.g. `json` vs
-  `markdown`) for different MCP hosts?
+- **Versioning:** How to version agent SOPs relative to the server? If a tool's
+  parameters change, the SOP on the site needs updating. Deferred until a
+  breakage actually occurs.

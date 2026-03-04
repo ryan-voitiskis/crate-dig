@@ -24,7 +24,7 @@ struct Workflow {
 const WORKFLOWS: &[Workflow] = &[
     Workflow {
         name: "Genre Classification",
-        keywords: &["genre", "classify", "classification", "tag", "tagging"],
+        keywords: &["genre", "classify", "classification"],
         summary: "Classify genres using Discogs, Beatport, and audio evidence.",
         url: "https://reklawdbox.com/agent/genre-classification/",
         key_tools: &[
