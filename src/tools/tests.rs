@@ -4030,7 +4030,7 @@ fn flatten_schema_has_top_level_filter_properties() {
         let root = schema.as_value();
         let props = root
             .get("properties")
-            .expect(&format!("{type_name} schema should have properties"));
+            .unwrap_or_else(|| panic!("{type_name} schema should have properties"));
         for field in expected {
             assert!(
                 props.get(*field).is_some(),

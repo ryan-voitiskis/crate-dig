@@ -26,6 +26,7 @@ mod tests {
     // Helper: build a TrackProfile without DB access
     // -----------------------------------------------------------------------
 
+    #[allow(clippy::too_many_arguments)]
     fn synth_profile(
         id: &str,
         key: &str,

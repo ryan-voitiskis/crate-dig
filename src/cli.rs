@@ -622,8 +622,9 @@ async fn cli_analyze_single_track(
             })
             .await;
 
-        if needs_essentia {
-            if let Some(python) = essentia_python {
+        if needs_essentia
+            && let Some(python) = essentia_python
+        {
                 let essentia_ok =
                     cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
                         .await;
@@ -635,7 +636,6 @@ async fn cli_analyze_single_track(
                     },
                     elapsed: track_start.elapsed().as_secs_f64(),
                 });
-            }
         }
 
         Ok(CliTrackResult {

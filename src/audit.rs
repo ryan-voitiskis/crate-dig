@@ -271,10 +271,11 @@ fn has_year_suffix(name: &str) -> bool {
     }
     if let Some(open) = trimmed.rfind('(') {
         let inside = &trimmed[open + 1..trimmed.len() - 1];
-        if inside.len() >= 4 && inside[..4].bytes().all(|b| b.is_ascii_digit()) {
-            if let Ok(year) = inside[..4].parse::<u16>() {
-                return (1900..=2099).contains(&year);
-            }
+        if inside.len() >= 4
+            && inside[..4].bytes().all(|b| b.is_ascii_digit())
+            && let Ok(year) = inside[..4].parse::<u16>()
+        {
+            return (1900..=2099).contains(&year);
         }
         false
     } else {
@@ -408,10 +409,11 @@ fn ancestor_has_year(path: &Path) -> bool {
     for _ in 0..2 {
         match current {
             Some(dir) => {
-                if let Some(name) = dir.file_name().and_then(|n| n.to_str()) {
-                    if has_year_suffix(name) || has_year_suffix(&normalize_dir_name(name)) {
-                        return true;
-                    }
+                if let Some(name) = dir.file_name().and_then(|n| n.to_str())
+                    && (has_year_suffix(name)
+                        || has_year_suffix(&normalize_dir_name(name)))
+                {
+                    return true;
                 }
                 current = dir.parent();
             }

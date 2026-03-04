@@ -175,11 +175,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn taxonomy_not_empty() {
-        assert!(!GENRES.is_empty());
-    }
-
-    #[test]
     fn taxonomy_sorted() {
         let mut sorted = GENRES.to_vec();
         sorted.sort_by_key(|a| a.to_lowercase());

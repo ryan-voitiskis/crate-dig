@@ -180,6 +180,7 @@ enum CacheWriteMsg {
     },
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn analyze_single_track(
     track_id: String,
     title: String,
