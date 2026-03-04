@@ -1,0 +1,38 @@
+name: Broker CI
+
+on:
+  push:
+    paths:
+      - "broker/**"
+      - ".github/workflows/broker-ci.yml"
+  pull_request:
+    paths:
+      - "broker/**"
+      - ".github/workflows/broker-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  broker-test:
+    name: Broker Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: broker
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: broker/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test

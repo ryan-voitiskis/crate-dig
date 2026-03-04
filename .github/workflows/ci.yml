@@ -1,4 +1,4 @@
-name: Corpus CI
+name: CI
 
 on:
   push:
@@ -30,6 +30,45 @@ jobs:
 
       - name: Run cargo test
         run: cargo test
+
+  release-build:
+    name: Release Build
+    runs-on: ubuntu-latest
+    needs: cargo-test
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        with:
+          toolchain: stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      - name: Build release binary
+        run: cargo build --release
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        with:
+          toolchain: stable
+          components: clippy
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      - name: Run clippy
+        run: cargo clippy --all-targets
 
   corpus-validate:
     name: Corpus Validate
