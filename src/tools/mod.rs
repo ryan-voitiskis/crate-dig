@@ -204,8 +204,8 @@ impl ReklawdboxServer {
     }
 
     #[tool(description = "Get workflow guides, capability map, and reklawdbox.com URLs")]
-    async fn help(&self) -> Result<CallToolResult, McpError> {
-        handle_help()
+    async fn help(&self, params: Parameters<HelpParams>) -> Result<CallToolResult, McpError> {
+        handle_help(params.0)
     }
 
     #[tool(
