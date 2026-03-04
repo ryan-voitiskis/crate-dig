@@ -17,6 +17,7 @@ mod enrich_handlers;
 mod enrichment;
 mod essentia;
 mod file_tag_handlers;
+mod help_handler;
 mod library_handlers;
 mod params;
 mod resolve;
@@ -37,6 +38,7 @@ use enrichment::*;
 pub(crate) use essentia::probe_essentia_python_path;
 use essentia::*;
 use file_tag_handlers::*;
+use help_handler::*;
 use library_handlers::*;
 use params::*;
 use resolve::*;
@@ -199,6 +201,11 @@ impl ReklawdboxServer {
     #[tool(description = "Get the configured genre taxonomy")]
     async fn get_genre_taxonomy(&self) -> Result<CallToolResult, McpError> {
         handle_get_genre_taxonomy()
+    }
+
+    #[tool(description = "Get workflow guides, capability map, and reklawdbox.com URLs")]
+    async fn help(&self) -> Result<CallToolResult, McpError> {
+        handle_help()
     }
 
     #[tool(
@@ -432,8 +439,18 @@ impl ServerHandler for ReklawdboxServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             instructions: Some(
-                "Rekordbox library management server. Search tracks, manage genres, \
-                 stage metadata changes, and export to XML for reimport."
+                "Rekordbox library management server. Read-only DB access, staged XML export.\n\
+                 \n\
+                 Capabilities:\n\
+                 - Library search and track inspection\n\
+                 - Audio analysis (BPM, key, energy) via stratum-dsp + Essentia\n\
+                 - Metadata enrichment via Discogs and Beatport\n\
+                 - Genre classification with evidence-based recommendations\n\
+                 - Transition scoring and DJ set sequencing\n\
+                 - Collection auditing (naming, tagging, missing metadata)\n\
+                 \n\
+                 Quick start: call read_library to see the collection.\n\
+                 Guided workflows: call help for workflow guides with links to reklawdbox.com."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

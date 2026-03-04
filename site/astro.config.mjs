@@ -1,5 +1,6 @@
 // @ts-check
 import starlight from '@astrojs/starlight'
+import starlightLlmsTxt from 'starlight-llms-txt'
 import { defineConfig, passthroughImageService } from 'astro/config'
 
 export default defineConfig({
@@ -15,6 +16,9 @@ export default defineConfig({
         label: 'GitHub',
         href: 'https://github.com/ryan-voitiskis/reklawdbox',
       }],
+      plugins: [
+        starlightLlmsTxt(),
+      ],
       sidebar: [
         {
           label: 'Getting Started',
@@ -31,6 +35,10 @@ export default defineConfig({
         {
           label: 'Reference',
           autogenerate: { directory: 'reference' },
+        },
+        {
+          label: 'Agent SOPs',
+          autogenerate: { directory: 'agent' },
         },
         {
           label: 'Troubleshooting',
