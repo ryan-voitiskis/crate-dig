@@ -16,48 +16,50 @@ Year source priority: directory name > file tags > Rekordbox DB > Discogs. In pr
 
 Two manual batches (300 issues) established the pattern, then 8 parallel subagents processed the remaining 1,519 issues.
 
-| Phase | Issues Processed | Written | Deferred |
-|-------|-----------------|---------|----------|
-| Manual batches 1-2 | 300 | 219 | 81 |
-| Subagent wave 1 (offsets 0-600) | 800 | ~601 | 190 |
-| Subagent wave 2 (offsets 800-1400) | ~800 | ~714 | 0 |
-| **Rescan auto-resolve** | 1,129 | — | — |
+| Phase                              | Issues Processed | Written | Deferred |
+| ---------------------------------- | ---------------- | ------- | -------- |
+| Manual batches 1-2                 | 300              | 219     | 81       |
+| Subagent wave 1 (offsets 0-600)    | 800              | ~601    | 190      |
+| Subagent wave 2 (offsets 800-1400) | ~800             | ~714    | 0        |
+| **Rescan auto-resolve**            | 1,129            | —       | —        |
 
 ## Results
 
-| Metric | Count |
-|--------|-------|
-| Starting open issues | 1,686 |
-| **Ending open issues** | **0** |
-| Year tags written (new) | ~714 |
-| Files already had correct year | ~983 |
-| Auto-resolved by rescan | 1,129 |
-| Accepted by agents | 200 |
-| Deferred | 271 |
-| Stale paths (file not found) | 41 |
+| Metric                         | Count |
+| ------------------------------ | ----- |
+| Starting open issues           | 1,686 |
+| **Ending open issues**         | **0** |
+| Year tags written (new)        | ~714  |
+| Files already had correct year | ~983  |
+| Auto-resolved by rescan        | 1,129 |
+| Accepted by agents             | 200   |
+| Deferred                       | 271   |
+| Stale paths (file not found)   | 41    |
 
 ## Deferred Issues (271 → 0 remaining)
 
 Initially 271 tracks were deferred. Follow-up passes resolved all of them:
 
-| Directory | Tracks | Resolution |
-|-----------|--------|------------|
-| CCCP Edits 4 | 4 | **Fixed** — year=2021 from Bandcamp |
-| CCCP Edits 5 | 4 | **Fixed** — year=2022 from Bandcamp |
-| CCCP Edits 7 | 5 | **Fixed** — year=2023 from Bandcamp |
-| Glenn Miller (discs 5-13) | 180+11 | **Fixed** — year=1991 from dirname; earlier agent incorrectly reported "file not found" but paths were valid |
-| Chic / The Studio Album Collection 1977-1992 | 68 | **Fixed** — per-track year mapped from Discogs discography across 8 studio albums (1977–1992) |
+| Directory                                    | Tracks | Resolution                                                                                                   |
+| -------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| CCCP Edits 4                                 | 4      | **Fixed** — year=2021 from Bandcamp                                                                          |
+| CCCP Edits 5                                 | 4      | **Fixed** — year=2022 from Bandcamp                                                                          |
+| CCCP Edits 7                                 | 5      | **Fixed** — year=2023 from Bandcamp                                                                          |
+| Glenn Miller (discs 5-13)                    | 180+11 | **Fixed** — year=1991 from dirname; earlier agent incorrectly reported "file not found" but paths were valid |
+| Chic / The Studio Album Collection 1977-1992 | 68     | **Fixed** — per-track year mapped from Discogs discography across 8 studio albums (1977–1992)                |
 
 Note: Resolving deferred Chic and Glenn Miller issues required a bugfix to `store.rs` — `resolve_audit_issues` and `mark_issues_resolved_for_path` had `WHERE status = 'open'` filters that prevented deferred issues from being auto-resolved on rescan. Fixed to include `status IN ('open', 'deferred')`.
 
 ## Tool Observations
 
 **Worked well:**
+
 - `write_file_tags` batch writes (up to 200 per call) made bulk tagging feasible
 - `audit_state` scan → auto-resolve loop is clean; one final rescan cleared all 1,129 remaining issues
 - Automatic dual-layer WAV writing (id3v2 + riff_info) required no special handling
 
 **Friction:**
+
 - `query_issues` at 200 results (~73KB JSON) exceeds token limits; responses get saved to temp files. A compact response mode (path + issue_id only) would help bulk workflows.
 - Parallel subagents can't coordinate; some overlap occurred (offset 1000 re-confirmed tags already written by offset 800). Harmless but wasteful.
 - Glenn Miller paths in Rekordbox DB are stale (files renamed on disk). One agent recovered by listing actual directory contents; another deferred. A `--match-by-directory` fallback in the audit scanner could handle this.
