@@ -17,6 +17,47 @@ This SOP uses existing MCP tools to classify genres across a Rekordbox collectio
 
 ---
 
+## Step 0: Metadata Quality Pre-check
+
+**Goal:** Catch tracks with missing metadata that will cause enrichment failures.
+
+### Tool call
+
+```
+search_tracks(has_genre=false)
+```
+
+### Evaluate result
+
+Scan results for tracks with empty `artist` or `title` fields. These will fail Discogs/Beatport lookups.
+
+### Present to user
+
+```
+METADATA QUALITY CHECK — [N] tracks missing required fields
+
+  MISSING ARTIST ([N] tracks)
+    ID         TITLE
+    ─────────────────────────────
+    abc123     Some Track Title
+    ...
+
+  MISSING TITLE ([N] tracks)
+    ID         ARTIST
+    ─────────────────────────────
+    def456     Some Artist
+    ...
+
+Options:
+  fix metadata  — fix these fields before proceeding (via update_tracks or write_file_tags)
+  skip these    — exclude these tracks from classification
+  proceed       — continue anyway (enrichment will fail for these tracks)
+```
+
+If no tracks have missing fields, skip this step silently and proceed to Step 1.
+
+---
+
 ## Step 1: Check Cache Coverage
 
 **Goal:** Determine whether the collection has enough cached data to start classification.
@@ -167,6 +208,43 @@ Options per genre:
 
 ---
 
+## Step 2b: Classification Tolerance
+
+**Goal:** Set how the agent handles genre disagreements during classification.
+
+### Present to user
+
+```
+Classification tolerance mode:
+
+  strict    — All disagreements need user input, even within the same genre family
+              (e.g. Techno vs Deep Techno still flagged).
+  relaxed   — Same-family disagreements auto-resolve to the more specific genre;
+              cross-family conflicts flagged. (Recommended)
+  trusting  — Agent decides most cases; only ambiguous cross-family conflicts flagged.
+
+Which mode? [strict / relaxed / trusting]
+```
+
+Store the chosen mode in working memory for the session. Default to **relaxed** if the user doesn't specify.
+
+### Genre Family Reference
+
+Five families defined in `src/genre.rs`:
+
+<!-- dprint-ignore -->
+| Family | Genres |
+|-----------|--------|
+| House | House, Deep House, Tech House, Afro House, Gospel House, Progressive House, Garage, Speed Garage, Disco |
+| Techno | Techno, Deep Techno, Minimal, Dub Techno, Ambient Techno, Hard Techno, Drone Techno, Acid, Electro |
+| Bass | Drum & Bass, Jungle, Dubstep, Breakbeat, UK Bass, Grime, Bassline, Broken Beat |
+| Downtempo | Ambient, Downtempo, Dub, Dub Reggae, IDM, Experimental |
+| Other | Everything not listed above (Hip Hop, Trance, etc.) |
+
+"Same family" = both candidates appear in the same row. "Cross-family" = different rows or either is in Other.
+
+---
+
 ## Step 3: Classify Ungenred Tracks
 
 **Goal:** Suggest genres for tracks with no current genre, in reviewable batches.
@@ -174,7 +252,7 @@ Options per genre:
 ### Tool call
 
 ```
-resolve_tracks_data(has_genre=false, max_tracks=30)
+resolve_tracks_data(has_genre=false, max_tracks=50, format="classification")
 ```
 
 ### For each track, apply the Decision Tree (below)
@@ -186,7 +264,7 @@ Produce a classification for every track in the batch. Then group and present.
 Group tracks by confidence level. Use this table format:
 
 ```
-BATCH 1 — 30 tracks (12 high, 10 medium, 5 low, 3 insufficient)
+BATCH 1 — 50 tracks (20 high, 16 medium, 9 low, 5 insufficient)
 
 HIGH CONFIDENCE (12 tracks)
   #  ARTIST              TITLE                    SUGGESTED    EVIDENCE
@@ -254,7 +332,16 @@ update_tracks(changes=[
 
 ### Repeat
 
-Call `resolve_tracks_data` again with the same filters. The `has_genre` filter queries the Rekordbox DB, which is unchanged until XML import — so the same tracks will appear across calls. To avoid re-processing, pass `track_ids` of the remaining unprocessed tracks, or track which track IDs have already been classified and exclude them client-side. Continue until all ungenred tracks are processed.
+Call `resolve_tracks_data` again for the next batch. The `has_genre` filter queries the Rekordbox DB, which is unchanged until XML import — so the same tracks will appear across calls.
+
+**Batch tracking workflow:**
+
+1. Initialize an empty `classified_ids` list at the start of Step 3.
+2. After each batch response (user approves/rejects/changes), add ALL track IDs from the batch to `classified_ids` — regardless of whether they were approved, rejected, or skipped.
+3. For subsequent batches, pass `track_ids` of the remaining unprocessed tracks (all ungenred track IDs minus `classified_ids`).
+4. Stop when no unprocessed tracks remain.
+
+This ensures no track is presented twice and progress is monotonic.
 
 ---
 
@@ -267,7 +354,7 @@ Only run this step if the user requests it after ungenred tracks are done.
 ### Tool call
 
 ```
-resolve_tracks_data(has_genre=true, max_tracks=50)
+resolve_tracks_data(has_genre=true, max_tracks=50, format="classification")
 ```
 
 ### Filter for conflicts
@@ -375,10 +462,13 @@ Apply this for every track during classification. This is the concrete logic, no
 8. **Split Discogs, no Beatport:** `discogs_genres` has multiple entries. `beatport_genre` is null.
    → `suggested_genre` = pick the Discogs genre that appears most frequently in the styles list (count how many raw styles mapped to each canonical). Confidence = **low**. Note the split in rationale.
 
-9. **Discogs and Beatport disagree:** `beatport_genre` is non-null, NOT in `discogs_genres`, and `discogs_genres` is non-empty.
-   → `suggested_genre` = null. Confidence = **insufficient**. Present both options to user. Do not pick one.
+9. **Discogs and Beatport disagree:** `beatport_genre` is non-null, NOT in `discogs_genres`, and `discogs_genres` is non-empty. Apply tolerance-aware sub-steps:
 
-9b. **Discogs/Beatport disagree + audio features available:** If Step 9 is true and Essentia features are present, compare both candidates against audio expectations and pick the better fit.
+9a. **Same-family check:** Look up the genre family of `beatport_genre` and each entry in `discogs_genres`. If ALL candidates (Beatport + Discogs) belong to the same family:
+   - **Strict mode:** → `suggested_genre` = null. Confidence = **insufficient**. Present both options.
+   - **Relaxed/Trusting mode:** → `suggested_genre` = the most specific genre among the candidates. Confidence = **medium**. Note "same-family auto-resolved (tolerance: relaxed/trusting)." The more specific genre is the one that is a sub-genre (e.g. Deep Techno is more specific than Techno; Deep House is more specific than House). If specificity is ambiguous, prefer Beatport's genre.
+
+9b. **Cross-family disagreement + audio features available:** If Step 9a did not resolve (candidates span multiple families) and Essentia features are present, compare both candidates against audio expectations and pick the better fit.
 Use these discriminators:
 
 - `spectral_centroid_mean`: lower favors darker genres, higher favors brighter genres.
@@ -392,6 +482,8 @@ Use these discriminators:
   - Techno vs Electro: Electro often has lower regularity and sparser onset patterns.
     If audio clearly favors one option, set `suggested_genre` to that option with **low** confidence and note "audio-assisted tie-break."
     If audio remains ambiguous, keep **insufficient** and present both options.
+
+9c. **Cross-family disagreement, no audio:** If Step 9b does not apply (no Essentia features), → `suggested_genre` = null. Confidence = **insufficient**. Present both options to user.
 
 10. **No enrichment data at all:** Both `discogs_genres` and `beatport_genre` are empty/null.
     → Fall through to Step C (audio-only).
@@ -418,6 +510,9 @@ Use BPM + Essentia features to suggest a likely family. Danceability uses Essent
 | 80-115 | any | > 1.0 | any | any | Hip Hop or Downtempo |
 | 60-110 | < 0.5 | < 0.8 | Low | Low | Ambient |
 | 128-145 | > 0.85 | > 1.0 | Mid-High | High | Hard Techno |
+| 110-120 | > 0.8 | > 1.2 | Mid-High | Mid | Electro |
+| 140-160 | > 0.9 | > 1.5 | Mid-High | High | Hard Techno |
+| 115-125 | 0.6-0.8 | > 1.0 | Mid | Mid-High | Broken Beat |
 
 Centroid guidelines for table matching:
 
@@ -430,6 +525,10 @@ Centroid guidelines for table matching:
 If a track matches one row: confidence = **low**, note "audio-only inference."
 If a track matches multiple rows or none: confidence = **insufficient**.
 If Essentia is not available, use BPM alone — always **insufficient** unless BPM is strongly diagnostic (e.g., 170 = almost certainly DnB).
+
+**Null centroid handling:** When `spectral_centroid_mean` is null (Essentia data missing or incomplete), match on the remaining columns only (BPM, rhythm regularity, danceability, dynamic complexity). Downgrade the confidence by one level (high→medium, medium→low, low→insufficient).
+
+**Nearest-match fallback:** If no row matches exactly, find the closest row by BPM (smallest absolute BPM difference to the track's BPM midpoint). Present the nearest row's genre at **insufficient** confidence with the note "nearest audio match (BPM delta: ±N)".
 
 ### Step D: Compare to current genre
 
