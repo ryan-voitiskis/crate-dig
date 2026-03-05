@@ -384,7 +384,7 @@ pub(super) async fn handle_analyze_audio_batch(
             let cpus = std::thread::available_parallelism()
                 .map(|n| n.get() as u32)
                 .unwrap_or(4);
-            (cpus / 2).clamp(2, 16)
+            (cpus.saturating_sub(2)).clamp(2, 16)
         }
     } as usize;
 

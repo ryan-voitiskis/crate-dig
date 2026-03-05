@@ -696,7 +696,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                 let cpus = std::thread::available_parallelism()
                     .map(|n| n.get() as u32)
                     .unwrap_or(4);
-                (cpus / 2).clamp(2, 16) as usize
+                (cpus.saturating_sub(2)).clamp(2, 16) as usize
             };
             let sem = Arc::new(tokio::sync::Semaphore::new(analysis_concurrency));
             let mut handles = Vec::with_capacity(analysis_pending.len());
