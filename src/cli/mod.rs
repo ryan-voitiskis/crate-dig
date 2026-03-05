@@ -9,7 +9,7 @@ use clap::Parser;
 use crate::{audio, store};
 
 #[derive(Parser)]
-#[command(name = "reklawdbox")]
+#[command(name = "reklawdbox", version)]
 enum Cli {
     /// Batch audio analysis (stratum-dsp + Essentia)
     Analyze(analyze::AnalyzeArgs),

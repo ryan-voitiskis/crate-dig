@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Release
+    runs-on: macos-14 # ARM64
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@efa25f7f19611383d5b0ccf2d1c8914531636bf9 # master
+        with:
+          toolchain: stable
+          targets: aarch64-apple-darwin
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+
+      - name: Run tests
+        run: cargo test
+
+      - name: Build release binary
+        run: cargo build --release --target aarch64-apple-darwin
+
+      - name: Package tarball
+        id: package
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ARCHIVE="reklawdbox-${TAG}-aarch64-apple-darwin.tar.gz"
+          STAGING="staging"
+
+          mkdir "$STAGING"
+          cp target/aarch64-apple-darwin/release/reklawdbox "$STAGING/"
+          cp LICENSE "$STAGING/"
+
+          tar -czf "$ARCHIVE" -C "$STAGING" .
+
+          SHA256=$(shasum -a 256 "$ARCHIVE" | awk '{print $1}')
+          echo "archive=$ARCHIVE" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+          echo "### Release checksums" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "SHA256($ARCHIVE) = $SHA256" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        with:
+          files: ${{ steps.package.outputs.archive }}
+          generate_release_notes: true
+          body: |
+            ## Checksums
+            ```
+            SHA256(${{ steps.package.outputs.archive }}) = ${{ steps.package.outputs.sha256 }}
+            ```
+
+            ## Install
+            ```bash
+            brew tap ryan-voitiskis/reklawdbox
+            brew install reklawdbox
+            ```

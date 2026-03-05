@@ -2,7 +2,7 @@
   "mcpServers": {
     "reklawdbox": {
       "type": "stdio",
-      "command": "./target/release/reklawdbox",
+      "command": "/opt/homebrew/bin/reklawdbox",
       "env": {
         "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
         "REKLAWDBOX_DISCOGS_BROKER_URL": "<set-broker-url>",

@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Build reklawdbox from source and configure your MCP host.
+description: Install reklawdbox and configure your MCP host.
 sidebar:
   label: Setup Guide
   order: 0
@@ -10,25 +10,32 @@ import { Steps, Tabs, TabItem, Aside } from '@astrojs/starlight/components';
 
 ## Prerequisites
 
-- **Rust toolchain** — install via [rustup](https://rustup.rs/) if you don't have it
 - **macOS on Apple Silicon** (ARM64) — reklawdbox targets `aarch64-apple-darwin`
 - **Rekordbox 7.x** installed with at least one collection imported
 
-## Build
+## Install
 
-<Steps>
+<Tabs>
+  <TabItem label="Homebrew (recommended)">
+    ```bash
+    brew tap ryan-voitiskis/reklawdbox
+    brew install reklawdbox
+    ```
 
-1. Clone the repository and build the release binary:
+    The binary is installed to `/opt/homebrew/bin/reklawdbox`.
+  </TabItem>
+  <TabItem label="Build from source">
+    Requires the [Rust toolchain](https://rustup.rs/).
 
-   ```bash
-   git clone https://github.com/ryan-voitiskis/reklawdbox.git
-   cd reklawdbox
-   cargo build --release
-   ```
+    ```bash
+    git clone https://github.com/ryan-voitiskis/reklawdbox.git
+    cd reklawdbox
+    cargo build --release
+    ```
 
-2. The binary is at `./target/release/reklawdbox`. You can leave it in place or copy it somewhere on your `PATH`.
-
-</Steps>
+    The binary is at `./target/release/reklawdbox`.
+  </TabItem>
+</Tabs>
 
 ## MCP host configuration
 
@@ -44,7 +51,7 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
       -e REKLAWDBOX_DISCOGS_BROKER_URL="<broker-url>" \
       -e REKLAWDBOX_DISCOGS_BROKER_TOKEN="<broker-token>" \
       -e CRATE_DIG_ESSENTIA_PYTHON="/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python" \
-      -- ./target/release/reklawdbox
+      -- /opt/homebrew/bin/reklawdbox
     ```
 
     Or add an `.mcp.json` file in the project root:
@@ -54,7 +61,7 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
       "mcpServers": {
         "reklawdbox": {
           "type": "stdio",
-          "command": "./target/release/reklawdbox",
+          "command": "/opt/homebrew/bin/reklawdbox",
           "env": {
             "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
             "REKLAWDBOX_DISCOGS_BROKER_URL": "<broker-url>",
@@ -65,6 +72,8 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
       }
     }
     ```
+
+    If you built from source, use `./target/release/reklawdbox` instead.
   </TabItem>
   <TabItem label="Claude Desktop">
     Add the following to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
@@ -74,7 +83,7 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
       "mcpServers": {
         "reklawdbox": {
           "type": "stdio",
-          "command": "./target/release/reklawdbox",
+          "command": "/opt/homebrew/bin/reklawdbox",
           "env": {
             "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
             "REKLAWDBOX_DISCOGS_BROKER_URL": "<broker-url>",
@@ -85,6 +94,8 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
       }
     }
     ```
+
+    If you built from source, use `./target/release/reklawdbox` instead.
   </TabItem>
   <TabItem label="Codex">
     Codex requires a wrapper script since it doesn't support `env` in its MCP config.
@@ -97,7 +108,7 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
     export REKLAWDBOX_DISCOGS_BROKER_URL="<broker-url>"
     export REKLAWDBOX_DISCOGS_BROKER_TOKEN="<broker-token>"
     export CRATE_DIG_ESSENTIA_PYTHON="/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python"
-    exec ./target/release/reklawdbox
+    exec /opt/homebrew/bin/reklawdbox
     ```
 
     Then register it:
@@ -110,6 +121,10 @@ Register reklawdbox as an MCP server with your host. Pick your client below.
 
 <Aside type="tip">
   reklawdbox auto-detects the Rekordbox database at `~/Library/Pioneer/rekordbox/master.db`. You only need to set `REKORDBOX_DB_PATH` if your database is in a non-standard location or you have multiple Rekordbox installations.
+</Aside>
+
+<Aside type="caution" title="Secrets in MCP config">
+  The `REKLAWDBOX_DISCOGS_BROKER_TOKEN` is a secret. When using `.mcp.json`, ensure the file is listed in `.gitignore` so it is never committed to version control.
 </Aside>
 
 ## Verify

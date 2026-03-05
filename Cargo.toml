@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 description = "MCP server for Rekordbox library management"
+repository = "https://github.com/ryan-voitiskis/reklawdbox"
+homepage = "https://reklawdbox.com"
 
 [dependencies]
 chrono = "0.4"
@@ -35,3 +37,7 @@ unicode-casefold = "0.2"
 [dev-dependencies]
 rmcp = { version = "0.15", features = ["client", "transport-io"] }
 tempfile = "3"
+
+[profile.release]
+lto = "thin"
+strip = true

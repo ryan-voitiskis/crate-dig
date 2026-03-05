@@ -61,6 +61,10 @@ where
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().any(|a| a == "--version" || a == "-V") {
+        println!("reklawdbox {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
     load_env_from_mcp_json();
     if should_run_cli(std::env::args()) {
         tracing_subscriber::fmt()
