@@ -10,6 +10,7 @@ chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
 globset = "0.4"
+indicatif = "0.17"
 lofty = "0.23"
 percent-encoding = "2"
 rand = "0.9"
@@ -26,6 +27,7 @@ strum = { version = "0.27", features = ["derive"] }
 symphonia = { version = "0.5", features = ["mp3", "flac", "pcm", "aac"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 unicode-casefold = "0.2"

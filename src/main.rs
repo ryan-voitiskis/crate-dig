@@ -29,7 +29,7 @@ where
         let a = arg.as_ref();
         matches!(
             a,
-            "analyze" | "read-tags" | "write-tags" | "extract-art" | "embed-art"
+            "analyze" | "hydrate" | "read-tags" | "write-tags" | "extract-art" | "embed-art"
         )
     })
 }
@@ -64,6 +64,11 @@ mod tests {
     #[test]
     fn runs_cli_for_analyze_subcommand() {
         assert!(should_run_cli(vec!["reklawdbox", "analyze"].into_iter()));
+    }
+
+    #[test]
+    fn runs_cli_for_hydrate_subcommand() {
+        assert!(should_run_cli(vec!["reklawdbox", "hydrate"].into_iter()));
     }
 
     #[test]
