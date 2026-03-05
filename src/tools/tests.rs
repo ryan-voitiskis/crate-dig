@@ -1382,40 +1382,6 @@ fn enrich_tracks_invalid_provider_rejected_by_serde() {
 }
 
 #[tokio::test]
-async fn lookup_discogs_without_auth_returns_actionable_remediation() {
-    if matches!(
-        discogs::BrokerConfig::from_env(),
-        discogs::BrokerConfigStatus::Ok(_)
-    ) || discogs::legacy_credentials_configured()
-    {
-        eprintln!("Skipping auth-remediation test: local Discogs env is already configured");
-        return;
-    }
-
-    let server = ReklawdboxServer::new(None);
-    let err = server
-        .lookup_discogs(Parameters(LookupDiscogsParams {
-            track_id: None,
-            artist: Some("No Auth Artist".to_string()),
-            title: Some("No Auth Title".to_string()),
-            album: None,
-            force_refresh: Some(true),
-        }))
-        .await
-        .expect_err("lookup_discogs should fail with actionable remediation when auth is missing");
-
-    let msg = format!("{err}");
-    assert!(
-        msg.contains("Discogs auth is not configured"),
-        "error should explain missing auth, got: {msg}"
-    );
-    assert!(
-        msg.contains(discogs::BROKER_URL_ENV),
-        "error should mention broker URL env var, got: {msg}"
-    );
-}
-
-#[tokio::test]
 async fn lookup_discogs_no_match_payload_is_consistent_across_live_and_cache_paths() {
     let db_conn =
         create_single_track_test_db("discogs-no-match-track", "/tmp/discogs-no-match.flac");

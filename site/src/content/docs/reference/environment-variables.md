@@ -17,12 +17,12 @@ The auto-detection path works for standard macOS Rekordbox installations. Only s
 
 ## Discogs enrichment
 
-| Variable                          | Description                       | Required                                   |
-| --------------------------------- | --------------------------------- | ------------------------------------------ |
-| `REKLAWDBOX_DISCOGS_BROKER_URL`   | URL of the Discogs broker service | Yes, for Discogs lookups                   |
-| `REKLAWDBOX_DISCOGS_BROKER_TOKEN` | Auth token for the broker         | Yes (unless broker allows unauthenticated) |
+| Variable                          | Description                       | Default                                                         |
+| --------------------------------- | --------------------------------- | --------------------------------------------------------------- |
+| `REKLAWDBOX_DISCOGS_BROKER_URL`   | URL of the Discogs broker service | Built-in production broker URL                                  |
+| `REKLAWDBOX_DISCOGS_BROKER_TOKEN` | Auth token for the broker         | Built-in token                                                  |
 
-The broker is a separate Cloudflare Workers service that handles Discogs OAuth and rate limiting on your behalf. Without these variables, `lookup_discogs` and `enrich_tracks` skip Discogs entirely.
+The broker is a separate Cloudflare Workers service that handles Discogs OAuth and rate limiting on your behalf. Both variables have compiled-in defaults pointing to the production broker — you only need to set them to override for local development.
 
 ## Audio analysis
 
@@ -57,7 +57,7 @@ The cache database stores Discogs/Beatport enrichment results, audio analysis ou
 
 ## Deprecated (legacy Discogs direct auth)
 
-These variables still work as a fallback but are not the recommended path. Use the broker variables above instead.
+These variables still work as a fallback but are not the recommended path. The built-in broker handles auth and rate limiting automatically.
 
 | Variable                          | Description                 |
 | --------------------------------- | --------------------------- |
@@ -78,11 +78,8 @@ A complete `mcp_servers` config block with all commonly used variables:
   "mcpServers": {
     "reklawdbox": {
       "type": "stdio",
-      "command": "./target/release/reklawdbox",
+      "command": "/opt/homebrew/bin/reklawdbox",
       "env": {
-        "REKORDBOX_DB_PATH": "/Users/<you>/Library/Pioneer/rekordbox/master.db",
-        "REKLAWDBOX_DISCOGS_BROKER_URL": "<broker-url>",
-        "REKLAWDBOX_DISCOGS_BROKER_TOKEN": "<broker-token>",
         "CRATE_DIG_ESSENTIA_PYTHON": "/Users/<you>/.local/share/reklawdbox/essentia-venv/bin/python"
       }
     }
@@ -90,4 +87,4 @@ A complete `mcp_servers` config block with all commonly used variables:
 }
 ```
 
-Replace `<you>` with your macOS username. The `command` path assumes you built from source — adjust to wherever your reklawdbox binary lives.
+Replace `<you>` with your macOS username. If you built from source, use `./target/release/reklawdbox` as the command. The Rekordbox database path and Discogs broker are auto-configured with sensible defaults.

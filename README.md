@@ -164,11 +164,10 @@ Restart the MCP host/server after updating config.
 
 ## Discogs Auth Flow
 
-1. Configure `REKLAWDBOX_DISCOGS_BROKER_URL` and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` (default broker mode requires token auth; only omit if broker explicitly enables unauthenticated local-dev mode).
-2. Call `lookup_discogs` for any track.
-3. If auth is missing, the tool returns an actionable message with an `auth_url`.
-4. Open the `auth_url`, approve Discogs access, then run `lookup_discogs` again.
-5. The broker session token is stored in local internal SQLite; Discogs OAuth secrets remain broker-side only.
+1. Call `lookup_discogs` for any track. The built-in broker is preconfigured — no env vars needed.
+2. On first use, the tool returns an actionable message with an `auth_url`.
+3. Open the `auth_url`, approve Discogs access, then run `lookup_discogs` again.
+4. The broker session token is stored in local internal SQLite; Discogs OAuth secrets remain broker-side only.
 
 ## Tools
 

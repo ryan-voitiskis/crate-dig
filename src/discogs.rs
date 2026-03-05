@@ -7,6 +7,11 @@ use std::sync::OnceLock;
 pub const BROKER_URL_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_URL";
 pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
 
+const DEFAULT_BROKER_URL: &str =
+    "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
+const DEFAULT_BROKER_TOKEN: &str =
+    "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
+
 pub const LEGACY_KEY_ENV: &str = "REKLAWDBOX_DISCOGS_KEY";
 pub const LEGACY_SECRET_ENV: &str = "REKLAWDBOX_DISCOGS_SECRET";
 pub const LEGACY_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_TOKEN";
@@ -32,15 +37,14 @@ pub enum BrokerConfigStatus {
 
 impl BrokerConfig {
     pub fn from_env() -> BrokerConfigStatus {
-        let raw_base_url = match std::env::var(BROKER_URL_ENV) {
-            Ok(v) => v,
-            Err(_) => return BrokerConfigStatus::NotConfigured,
-        };
+        let raw_base_url = std::env::var(BROKER_URL_ENV)
+            .unwrap_or_else(|_| DEFAULT_BROKER_URL.to_string());
         let base_url = match normalize_base_url(&raw_base_url) {
             Some(url) => url,
             None => return BrokerConfigStatus::InvalidUrl(raw_base_url),
         };
-        let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
+        let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV)
+            .or_else(|| Some(DEFAULT_BROKER_TOKEN.to_string()));
         BrokerConfigStatus::Ok(Self {
             base_url,
             broker_token,
