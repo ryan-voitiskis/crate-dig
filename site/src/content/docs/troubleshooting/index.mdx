@@ -39,9 +39,9 @@ These live in the same directory as `master.db`.
 
 ### "Discogs auth is not configured"
 
-**Cause:** `REKLAWDBOX_DISCOGS_BROKER_URL` is not set in your MCP host config.
+**Cause:** The Discogs broker is unreachable or returned an unexpected error. Note that `REKLAWDBOX_DISCOGS_BROKER_URL` and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` have compiled-in defaults pointing to the production broker — you do **not** need to set them unless you are self-hosting.
 
-**Fix:** Add both `REKLAWDBOX_DISCOGS_BROKER_URL` and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` to your MCP config environment variables. See [Getting Started](/getting-started/) for the full config example.
+**Fix:** Check your network connectivity. If you are using a custom broker, verify that both `REKLAWDBOX_DISCOGS_BROKER_URL` and `REKLAWDBOX_DISCOGS_BROKER_TOKEN` are correct in your MCP config.
 
 ### "Discogs sign-in is still pending"
 
