@@ -96,7 +96,7 @@ Each playlist object:
 When there are no staged changes and no playlists, the response includes `"message": "No changes to write."` and no file is created.
 
 <Aside type="caution">
-  `write_xml` **drains all staged changes** on export — including changes unrelated to the playlists being exported. If you have pending metadata edits from a different workflow, use `preview_changes` to review them before calling `write_xml`, or use `clear_changes` to discard unwanted staged changes first.
+  On successful export, `write_xml` **drains all staged changes** — including changes unrelated to the playlists being exported. If the export fails, staged changes are restored. If you have pending metadata edits from a different workflow, use `preview_changes` to review them before calling `write_xml`, or use `clear_changes` to discard unwanted staged changes first.
 </Aside>
 
 <Aside type="note">
