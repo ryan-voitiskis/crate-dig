@@ -14,16 +14,9 @@ Classify genres across your collection using cached evidence from Discogs, Beatp
   No auto-tagging. Every genre change requires your explicit approval before it is staged or exported.
 </Aside>
 
-## Cache coverage targets
+## Cache coverage
 
-Run `cache_coverage` before starting:
-
-| Provider | Ready | Needs hydration |
-|---|---|---|
-| stratum-dsp | > 90% | < 50% |
-| Essentia | > 80% (optional) | < 50% |
-| Discogs | > 70% | < 50% |
-| Beatport | > 50% | < 30% |
+All providers must be at 100% before starting. Run `cache_coverage(has_genre=false)` to check. If any provider is below 100%, hydrate first.
 
 <Aside type="tip">
   Run audio analysis first (local, fast), then enrichment (external, rate-limited). This order minimizes wall-clock time.

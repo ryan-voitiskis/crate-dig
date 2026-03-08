@@ -11,11 +11,7 @@
 cache_coverage(has_genre=false)
 ```
 
-- stratum_dsp > 90% and discogs > 70% → proceed
-- Any provider < 50% → recommend hydration first
-- User declines hydration → proceed with "based on partial evidence" caveat
-
-### Hydration (if needed)
+All providers must be at 100% before proceeding. If not, hydrate first:
 
 ```
 analyze_audio_batch(has_genre=false, skip_cached=true, max_tracks=200)
@@ -23,7 +19,7 @@ enrich_tracks(has_genre=false, skip_cached=true, providers=["discogs"], max_trac
 enrich_tracks(has_genre=false, skip_cached=true, providers=["beatport"], max_tracks=50)
 ```
 
-Repeat until targets met. Report progress between batches.
+Repeat until all providers reach 100%. Report progress between batches.
 
 ## Steps
 

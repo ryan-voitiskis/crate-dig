@@ -25,8 +25,8 @@ The agent handles the tedious parts (lookups, matching, scoring). You make the f
 
 All workflows operate on cached data. Before starting any workflow, check your cache coverage with `cache_coverage`:
 
-- **stratum-dsp > 90%** and **enrichment > 70%** = ready to go
-- **Any provider < 50%** = hydrate first with `analyze_audio_batch` (local, fast) and `enrich_tracks` (external, rate-limited)
+- **All providers at 100%** = ready to go
+- **Any provider below 100%** = hydrate first with `analyze_audio_batch` (local, fast) and `enrich_tracks` (external, rate-limited)
 
 Running analysis and enrichment upfront means the actual workflow steps are fast — no waiting on network requests or audio processing mid-flow.
 
@@ -55,4 +55,4 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 
 If you just acquired new music, start with [Batch Import](/workflows/batch-import/). If your collection has inconsistent genres, follow up with [Genre Classification](/workflows/genre-classification/). If your tags and filenames are messy, run a [Collection Audit](/workflows/collection-audit/). If your metadata is already clean and you want to build a set, go straight to [Set Building](/workflows/set-building/).
 
-All workflows share the same prerequisite: good cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
+All workflows share the same prerequisite: 100% cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
