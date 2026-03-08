@@ -267,8 +267,7 @@ async fn analyze_single_track(
         let analysis = analyze_stratum(&file_path).await?;
         let features_json =
             serde_json::to_string(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
-        let val =
-            serde_json::to_value(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
+        let val = serde_json::to_value(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
         let _ = cache_tx
             .send(CacheWriteMsg::Audio {
                 file_path: file_path.clone(),
@@ -427,7 +426,9 @@ pub(super) async fn handle_analyze_audio_batch(
                         &analyzer_version,
                         &features_json,
                     ) {
-                        tracing::error!("Cache writer: failed to write {analyzer} for {file_path}: {e}");
+                        tracing::error!(
+                            "Cache writer: failed to write {analyzer} for {file_path}: {e}"
+                        );
                     }
                 }
             }
@@ -439,9 +440,11 @@ pub(super) async fn handle_analyze_audio_batch(
     let mut handles = Vec::with_capacity(total);
 
     for track in &tracks {
-        let permit = sem.clone().acquire_owned().await.map_err(|e| {
-            mcp_internal_error(format!("Semaphore error: {e}"))
-        })?;
+        let permit = sem
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|e| mcp_internal_error(format!("Semaphore error: {e}")))?;
         let track_id = track.id.clone();
         let title = track.title.clone();
         let artist = track.artist.clone();

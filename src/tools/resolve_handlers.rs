@@ -200,7 +200,13 @@ pub(super) fn handle_cache_coverage(
             let mut seen = std::collections::HashSet::new();
             track_keys
                 .iter()
-                .filter_map(|(a, _, _)| if seen.insert(a.as_str()) { Some(a.as_str()) } else { None })
+                .filter_map(|(a, _, _)| {
+                    if seen.insert(a.as_str()) {
+                        Some(a.as_str())
+                    } else {
+                        None
+                    }
+                })
                 .collect()
         };
 
@@ -209,7 +215,13 @@ pub(super) fn handle_cache_coverage(
             let mut seen = std::collections::HashSet::new();
             track_keys
                 .iter()
-                .filter_map(|(_, _, p)| if seen.insert(p.as_str()) { Some(p.as_str()) } else { None })
+                .filter_map(|(_, _, p)| {
+                    if seen.insert(p.as_str()) {
+                        Some(p.as_str())
+                    } else {
+                        None
+                    }
+                })
                 .collect()
         };
 
@@ -223,12 +235,18 @@ pub(super) fn handle_cache_coverage(
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
 
         // Build borrowed-key sets to avoid per-track clones during counting.
-        let discogs_ref: std::collections::HashSet<(&str, &str)> =
-            discogs_set.iter().map(|(a, t)| (a.as_str(), t.as_str())).collect();
-        let beatport_ref: std::collections::HashSet<(&str, &str)> =
-            beatport_set.iter().map(|(a, t)| (a.as_str(), t.as_str())).collect();
-        let audio_ref: std::collections::HashSet<(&str, &str)> =
-            audio_set.iter().map(|(p, a)| (p.as_str(), a.as_str())).collect();
+        let discogs_ref: std::collections::HashSet<(&str, &str)> = discogs_set
+            .iter()
+            .map(|(a, t)| (a.as_str(), t.as_str()))
+            .collect();
+        let beatport_ref: std::collections::HashSet<(&str, &str)> = beatport_set
+            .iter()
+            .map(|(a, t)| (a.as_str(), t.as_str()))
+            .collect();
+        let audio_ref: std::collections::HashSet<(&str, &str)> = audio_set
+            .iter()
+            .map(|(p, a)| (p.as_str(), a.as_str()))
+            .collect();
 
         for (norm_artist, norm_title, audio_key) in &track_keys {
             let has_discogs = discogs_ref.contains(&(norm_artist.as_str(), norm_title.as_str()));
@@ -506,9 +524,7 @@ fn resolve_single_track_compact(
         } else {
             let mut entries: Vec<serde_json::Value> = genre_counts
                 .into_iter()
-                .map(|(genre, count)| {
-                    serde_json::json!({"genre": genre, "style_count": count})
-                })
+                .map(|(genre, count)| serde_json::json!({"genre": genre, "style_count": count}))
                 .collect();
             // Sort for deterministic output
             entries.sort_by(|a, b| {
@@ -539,9 +555,8 @@ fn resolve_single_track_compact(
         .unwrap_or(serde_json::Value::Null);
 
     // Parse stratum cache for bpm, key
-    let stratum_json = stratum_cache.and_then(|sc| {
-        serde_json::from_str::<serde_json::Value>(&sc.features_json).ok()
-    });
+    let stratum_json = stratum_cache
+        .and_then(|sc| serde_json::from_str::<serde_json::Value>(&sc.features_json).ok());
 
     let stratum_bpm = stratum_json
         .as_ref()
@@ -559,9 +574,8 @@ fn resolve_single_track_compact(
         .map(|sk| sk.eq_ignore_ascii_case(&track.key));
 
     // Parse essentia cache
-    let essentia_data = essentia_cache.and_then(|ec| {
-        serde_json::from_str::<audio::EssentiaOutput>(&ec.features_json).ok()
-    });
+    let essentia_data = essentia_cache
+        .and_then(|ec| serde_json::from_str::<audio::EssentiaOutput>(&ec.features_json).ok());
 
     // Build audio sub-object
     let audio_obj = if stratum_json.is_some() || essentia_data.is_some() {

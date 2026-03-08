@@ -261,15 +261,13 @@ async fn enrich_single_track(
 
     if let Some(ref conn) = cache_conn {
         if want_discogs
-            && let Ok(Some(_)) =
-                store::get_enrichment(conn, "discogs", &norm_artist, &norm_title)
+            && let Ok(Some(_)) = store::get_enrichment(conn, "discogs", &norm_artist, &norm_title)
         {
             result.cached += 1;
             discogs_cached = true;
         }
         if want_beatport
-            && let Ok(Some(_)) =
-                store::get_enrichment(conn, "beatport", &norm_artist, &norm_title)
+            && let Ok(Some(_)) = store::get_enrichment(conn, "beatport", &norm_artist, &norm_title)
         {
             result.cached += 1;
             beatport_cached = true;
@@ -565,10 +563,7 @@ pub(super) async fn handle_enrich_tracks(
     let total = total_tracks.saturating_mul(providers.len());
 
     // Compute concurrency
-    let concurrency = params
-        .concurrency
-        .map(|n| n.clamp(1, 8))
-        .unwrap_or(4) as usize;
+    let concurrency = params.concurrency.map(|n| n.clamp(1, 8)).unwrap_or(4) as usize;
 
     let store_path = server.cache_store_path();
 
@@ -628,9 +623,11 @@ pub(super) async fn handle_enrich_tracks(
     let mut handles = Vec::with_capacity(total_tracks);
 
     for track in &tracks {
-        let permit = sem.clone().acquire_owned().await.map_err(|e| {
-            mcp_internal_error(format!("Semaphore error: {e}"))
-        })?;
+        let permit = sem
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|e| mcp_internal_error(format!("Semaphore error: {e}")))?;
 
         let server = server.clone();
         let track_id = track.id.clone();

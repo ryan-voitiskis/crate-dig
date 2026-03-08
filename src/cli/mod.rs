@@ -180,10 +180,8 @@ fn display_field_name(field: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        cache_status_for_track, file_mtime_unix, is_cache_fresh,
-    };
     use super::analyze::{handle_analysis_result, handle_decode_result, mark_track_outcome};
+    use super::{cache_status_for_track, file_mtime_unix, is_cache_fresh};
     use crate::{audio::AudioError, audio::StratumResult, store, store::CachedAudioAnalysis};
     use std::time::Duration;
 

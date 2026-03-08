@@ -681,12 +681,7 @@ pub fn get_open_issues_by_types(
     let mut results = Vec::new();
     let mut rows = stmt.raw_query();
     while let Some(row) = rows.next()? {
-        results.push((
-            row.get(0)?,
-            row.get(1)?,
-            row.get(2)?,
-            row.get(3)?,
-        ));
+        results.push((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?));
     }
     Ok(results)
 }
@@ -1508,19 +1503,37 @@ mod tests {
     #[test]
     fn test_batch_enrichment_existence() {
         let (_dir, conn) = open_temp_store();
-        set_enrichment(&conn, "discogs", "artist_a", "title_1", Some("exact"), Some("{}")).unwrap();
-        set_enrichment(&conn, "discogs", "artist_a", "title_2", Some("exact"), Some("{}")).unwrap();
+        set_enrichment(
+            &conn,
+            "discogs",
+            "artist_a",
+            "title_1",
+            Some("exact"),
+            Some("{}"),
+        )
+        .unwrap();
+        set_enrichment(
+            &conn,
+            "discogs",
+            "artist_a",
+            "title_2",
+            Some("exact"),
+            Some("{}"),
+        )
+        .unwrap();
         set_enrichment(&conn, "beatport", "artist_b", "title_3", None, Some("{}")).unwrap();
 
         // Discogs: artist_a has two titles
-        let discogs = batch_enrichment_existence(&conn, "discogs", &["artist_a", "artist_b"]).unwrap();
+        let discogs =
+            batch_enrichment_existence(&conn, "discogs", &["artist_a", "artist_b"]).unwrap();
         assert!(discogs.contains(&("artist_a".to_string(), "title_1".to_string())));
         assert!(discogs.contains(&("artist_a".to_string(), "title_2".to_string())));
         // artist_b has no discogs entry
         assert!(!discogs.contains(&("artist_b".to_string(), "title_3".to_string())));
 
         // Beatport: artist_b has one title
-        let beatport = batch_enrichment_existence(&conn, "beatport", &["artist_a", "artist_b"]).unwrap();
+        let beatport =
+            batch_enrichment_existence(&conn, "beatport", &["artist_a", "artist_b"]).unwrap();
         assert!(beatport.contains(&("artist_b".to_string(), "title_3".to_string())));
         assert!(!beatport.contains(&("artist_a".to_string(), "title_1".to_string())));
 
@@ -1536,11 +1549,33 @@ mod tests {
     #[test]
     fn test_batch_audio_analysis_existence() {
         let (_dir, conn) = open_temp_store();
-        set_audio_analysis(&conn, "/music/a.flac", "stratum-dsp", 100, 1000, "1.0", "{}").unwrap();
+        set_audio_analysis(
+            &conn,
+            "/music/a.flac",
+            "stratum-dsp",
+            100,
+            1000,
+            "1.0",
+            "{}",
+        )
+        .unwrap();
         set_audio_analysis(&conn, "/music/a.flac", "essentia", 100, 1000, "1.0", "{}").unwrap();
-        set_audio_analysis(&conn, "/music/b.flac", "stratum-dsp", 200, 2000, "1.0", "{}").unwrap();
+        set_audio_analysis(
+            &conn,
+            "/music/b.flac",
+            "stratum-dsp",
+            200,
+            2000,
+            "1.0",
+            "{}",
+        )
+        .unwrap();
 
-        let result = batch_audio_analysis_existence(&conn, &["/music/a.flac", "/music/b.flac", "/music/c.flac"]).unwrap();
+        let result = batch_audio_analysis_existence(
+            &conn,
+            &["/music/a.flac", "/music/b.flac", "/music/c.flac"],
+        )
+        .unwrap();
         assert_eq!(result.len(), 3);
         assert!(result.contains(&("/music/a.flac".to_string(), "stratum-dsp".to_string())));
         assert!(result.contains(&("/music/a.flac".to_string(), "essentia".to_string())));
@@ -1556,7 +1591,9 @@ mod tests {
     #[test]
     fn test_batch_audio_analysis_existence_chunking() {
         let (_dir, conn) = open_temp_store();
-        let paths: Vec<String> = (0..1000).map(|i| format!("/music/track_{i}.flac")).collect();
+        let paths: Vec<String> = (0..1000)
+            .map(|i| format!("/music/track_{i}.flac"))
+            .collect();
         for p in &paths {
             set_audio_analysis(&conn, p, "stratum-dsp", 100, 1000, "1.0", "{}").unwrap();
         }

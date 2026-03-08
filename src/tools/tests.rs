@@ -151,8 +151,8 @@ fn create_real_server_with_temp_store(
         .to_str()
         .expect("temp store path should be UTF-8")
         .to_string();
-    let store_conn = store::open(&store_path_str)
-        .expect("internal store should open for integration test");
+    let store_conn =
+        store::open(&store_path_str).expect("internal store should open for integration test");
 
     let server = create_server_with_store_path(db_conn, store_conn, http, Some(store_path_str));
     Some((server, store_dir))
@@ -4772,14 +4772,8 @@ fn tool_schemas_are_claude_api_compatible() {
         let schema = schemars::schema_for!(T);
         let json = serde_json::to_string(&schema).unwrap();
 
-        assert!(
-            !json.contains(r#""$ref""#),
-            "{name} schema contains $ref"
-        );
-        assert!(
-            !json.contains(r#""$defs""#),
-            "{name} schema contains $defs"
-        );
+        assert!(!json.contains(r#""$ref""#), "{name} schema contains $ref");
+        assert!(!json.contains(r#""$defs""#), "{name} schema contains $defs");
 
         // Top-level oneOf/anyOf is forbidden (nested inside properties is ok)
         let root = schema.as_value();

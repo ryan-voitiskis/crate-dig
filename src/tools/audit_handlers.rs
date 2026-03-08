@@ -31,21 +31,17 @@ pub(super) async fn handle_audit_state(
                     .map_err(|e| format!("Failed to open internal store: {e}"))?;
 
                 // Try to load Rekordbox imported paths for annotation
-                let imported = rekordbox_db_path.and_then(|db_path| {
-                    match db::open(&db_path) {
-                        Ok(rb_conn) => {
-                            match db::paths_imported_in_scope(&rb_conn, &path_prefix) {
-                                Ok(set) => Some(set),
-                                Err(e) => {
-                                    tracing::warn!("Failed to query imported paths: {e}");
-                                    None
-                                }
-                            }
-                        }
+                let imported = rekordbox_db_path.and_then(|db_path| match db::open(&db_path) {
+                    Ok(rb_conn) => match db::paths_imported_in_scope(&rb_conn, &path_prefix) {
+                        Ok(set) => Some(set),
                         Err(e) => {
-                            tracing::warn!("Failed to open Rekordbox DB for audit: {e}");
+                            tracing::warn!("Failed to query imported paths: {e}");
                             None
                         }
+                    },
+                    Err(e) => {
+                        tracing::warn!("Failed to open Rekordbox DB for audit: {e}");
+                        None
                     }
                 });
 

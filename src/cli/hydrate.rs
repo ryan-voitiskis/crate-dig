@@ -271,8 +271,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     drop(store_conn);
 
     let total_tracks = tracks.len();
-    let total_work =
-        discogs_pending.len() + beatport_pending.len() + analysis_pending.len();
+    let total_work = discogs_pending.len() + beatport_pending.len() + analysis_pending.len();
 
     if total_work == 0 {
         println!("Found {total_tracks} tracks matching filters.");
@@ -383,7 +382,9 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     let mp_clone = mp.clone();
     tokio::spawn(async move {
         if tokio::signal::ctrl_c().await.is_ok() {
-            mp_clone.println("Shutting down gracefully... (waiting for in-flight tasks)").ok();
+            mp_clone
+                .println("Shutting down gracefully... (waiting for in-flight tasks)")
+                .ok();
             cancel_clone.cancel();
         }
     });
@@ -554,13 +555,15 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                         )
                         .await
                         .map_err(|e| e.to_string()),
-                        None => discogs::lookup_with_legacy_credentials(
-                            &client,
-                            &track.artist,
-                            &track.title,
-                            Some(&track.album),
-                        )
-                        .await,
+                        None => {
+                            discogs::lookup_with_legacy_credentials(
+                                &client,
+                                &track.artist,
+                                &track.title,
+                                Some(&track.album),
+                            )
+                            .await
+                        }
                     };
 
                     let (match_quality, response_json) = match result {
@@ -825,7 +828,8 @@ async fn cli_ensure_discogs_auth(
 
             // Start device auth flow
             println!("Discogs: starting broker authentication...");
-            let pending = discogs::device_session_start(client, &cfg).await
+            let pending = discogs::device_session_start(client, &cfg)
+                .await
                 .map_err(|e| format!("Failed to start Discogs auth: {e}"))?;
 
             println!("Please authorize at: {}", pending.auth_url);
@@ -842,9 +846,7 @@ async fn cli_ensure_discogs_auth(
             );
             spinner.enable_steady_tick(Duration::from_millis(200));
 
-            let poll_interval = Duration::from_secs(
-                pending.poll_interval_seconds.max(2) as u64,
-            );
+            let poll_interval = Duration::from_secs(pending.poll_interval_seconds.max(2) as u64);
 
             loop {
                 tokio::time::sleep(poll_interval).await;
@@ -861,10 +863,9 @@ async fn cli_ensure_discogs_auth(
 
                 match status.status.as_str() {
                     "authorized" | "finalized" => {
-                        let finalized =
-                            discogs::device_session_finalize(client, &cfg, &pending)
-                                .await
-                                .map_err(|e| format!("Auth finalize failed: {e}"))?;
+                        let finalized = discogs::device_session_finalize(client, &cfg, &pending)
+                            .await
+                            .map_err(|e| format!("Auth finalize failed: {e}"))?;
 
                         let store_conn = store::open(store_path)?;
                         store::set_broker_discogs_session(
@@ -985,8 +986,7 @@ async fn cli_analyze_for_hydrate(
 
                 match analysis {
                     Ok(Ok(result)) => {
-                        let features_json =
-                            serde_json::to_string(&result).unwrap_or_default();
+                        let features_json = serde_json::to_string(&result).unwrap_or_default();
                         let _ = cache_tx
                             .send(HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
                                 file_path: file_path.clone(),
@@ -1018,8 +1018,7 @@ async fn cli_analyze_for_hydrate(
                     } else {
                         features.analyzer_version.clone()
                     };
-                    let features_json =
-                        serde_json::to_string(&features).unwrap_or_default();
+                    let features_json = serde_json::to_string(&features).unwrap_or_default();
                     let _ = cache_tx
                         .send(HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
                             file_path: file_path.clone(),

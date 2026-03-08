@@ -377,9 +377,7 @@ pub(super) fn handle_clear_changes(
     }
 }
 
-pub(super) fn handle_clear_caches(
-    server: &ReklawdboxServer,
-) -> Result<CallToolResult, McpError> {
+pub(super) fn handle_clear_caches(server: &ReklawdboxServer) -> Result<CallToolResult, McpError> {
     let conn = server.cache_store_conn()?;
     let result =
         crate::store::clear_caches(&conn).map_err(|e| mcp_internal_error(format!("{e}")))?;
@@ -396,7 +394,7 @@ pub(super) fn handle_clear_caches(
         },
         "preserved": ["broker_discogs_session"],
     });
-    let text = serde_json::to_string_pretty(&json)
-        .map_err(|e| mcp_internal_error(format!("{e}")))?;
+    let text =
+        serde_json::to_string_pretty(&json).map_err(|e| mcp_internal_error(format!("{e}")))?;
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }

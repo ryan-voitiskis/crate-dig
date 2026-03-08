@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use crate::{audio, db, store, tools};
 
-use super::{cache_probe_for_path, cache_status_for_track, CliCacheWriteMsg};
+use super::{CliCacheWriteMsg, cache_probe_for_path, cache_status_for_track};
 
 #[derive(clap::Args)]
 pub(crate) struct AnalyzeArgs {
@@ -170,8 +170,7 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
     let completed_count = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
 
     // Spawn cache writer task
-    let (cache_tx, mut cache_rx) =
-        tokio::sync::mpsc::channel::<CliCacheWriteMsg>(concurrency * 4);
+    let (cache_tx, mut cache_rx) = tokio::sync::mpsc::channel::<CliCacheWriteMsg>(concurrency * 4);
     let writer_store_path = store_path_str.clone();
     let writer_handle = tokio::task::spawn_blocking(move || {
         let conn = match store::open(&writer_store_path) {
@@ -327,8 +326,7 @@ async fn cli_analyze_single_track(
 ) -> Result<CliTrackResult, String> {
     let file_path =
         audio::resolve_audio_path(raw_file_path).map_err(|_| "File not found".to_string())?;
-    let metadata =
-        std::fs::metadata(&file_path).map_err(|e| format!("Cannot stat file: {e}"))?;
+    let metadata = std::fs::metadata(&file_path).map_err(|e| format!("Cannot stat file: {e}"))?;
     let file_size = metadata.len() as i64;
     let file_mtime = super::file_mtime_unix(&metadata);
     let track_start = Instant::now();
@@ -342,12 +340,11 @@ async fn cli_analyze_single_track(
                 .map_err(|e| format!("Decode task failed: {e}"))?
                 .map_err(|e| format!("Decode error: {e}"))?;
 
-        let stratum_result = tokio::task::spawn_blocking(move || {
-            audio::analyze_with_stratum(&samples, sample_rate)
-        })
-        .await
-        .map_err(|e| format!("Analysis task failed: {e}"))?
-        .map_err(|e| format!("Analysis error: {e}"))?;
+        let stratum_result =
+            tokio::task::spawn_blocking(move || audio::analyze_with_stratum(&samples, sample_rate))
+                .await
+                .map_err(|e| format!("Analysis task failed: {e}"))?
+                .map_err(|e| format!("Analysis error: {e}"))?;
 
         let features_json = serde_json::to_string(&stratum_result).unwrap_or_default();
         let _ = cache_tx
@@ -361,20 +358,18 @@ async fn cli_analyze_single_track(
             })
             .await;
 
-        if needs_essentia
-            && let Some(python) = essentia_python
-        {
-                let essentia_ok =
-                    cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
-                        .await;
-                return Ok(CliTrackResult {
-                    kind: CliTrackOutcome::StratumAndEssentia {
-                        bpm: stratum_result.bpm,
-                        key_camelot: stratum_result.key_camelot,
-                        essentia_ok,
-                    },
-                    elapsed: track_start.elapsed().as_secs_f64(),
-                });
+        if needs_essentia && let Some(python) = essentia_python {
+            let essentia_ok =
+                cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
+                    .await;
+            return Ok(CliTrackResult {
+                kind: CliTrackOutcome::StratumAndEssentia {
+                    bpm: stratum_result.bpm,
+                    key_camelot: stratum_result.key_camelot,
+                    essentia_ok,
+                },
+                elapsed: track_start.elapsed().as_secs_f64(),
+            });
         }
 
         Ok(CliTrackResult {
@@ -386,9 +381,8 @@ async fn cli_analyze_single_track(
         })
     } else if needs_essentia {
         if let Some(python) = essentia_python {
-            let ok =
-                cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
-                    .await;
+            let ok = cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
+                .await;
             return Ok(CliTrackResult {
                 kind: CliTrackOutcome::EssentiaOnly { ok },
                 elapsed: track_start.elapsed().as_secs_f64(),

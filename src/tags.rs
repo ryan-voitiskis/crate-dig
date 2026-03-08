@@ -744,9 +744,8 @@ fn write_file_tags_inner(entry: &WriteEntry) -> Result<FileWriteResult, TagError
         // Atomic dual-layer WAV write: copy → write both layers → rename.
         // Prevents split-state files from partial failures.
         let temp_path = atomic_temp_path(path);
-        fs::copy(path, &temp_path).map_err(|e| {
-            TagError::Io(format!("Failed to create temp copy: {e}"))
-        })?;
+        fs::copy(path, &temp_path)
+            .map_err(|e| TagError::Io(format!("Failed to create temp copy: {e}")))?;
 
         let result = (|| -> Result<(), TagError> {
             for target in &wav_targets {

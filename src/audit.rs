@@ -226,11 +226,11 @@ fn is_disc_subdir(name: &str) -> bool {
 static TECH_SPEC_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(concat!(
         r"(?i)",
-        r"\[(?:flac|wav|mp3|aiff|aac|alac|hi-?res)\]",            // [FLAC], [Hi-Res], …
-        r"|\b(?:flac|wav|mp3|aiff|aac|alac)\b",                  // bare FLAC, wav, …
+        r"\[(?:flac|wav|mp3|aiff|aac|alac|hi-?res)\]", // [FLAC], [Hi-Res], …
+        r"|\b(?:flac|wav|mp3|aiff|aac|alac)\b",        // bare FLAC, wav, …
         r"|\b(?:16|24|32)\s?-\s?\d{2,3}(?:\.\d+)?\s*(?:khz|hz)?", // 24-44.1kHz
-        r"|\b(?:16|24|32)\s?bit",                                 // 24bit, 16 bit
-        r"|\d{2,3}(?:\.\d+)?\s*(?:khz|hz)",                      // 44.1kHz, 96kHz
+        r"|\b(?:16|24|32)\s?bit",                      // 24bit, 16 bit
+        r"|\d{2,3}(?:\.\d+)?\s*(?:khz|hz)",            // 44.1kHz, 96kHz
     ))
     .expect("TECH_SPEC_RE must compile")
 });
@@ -248,10 +248,7 @@ static ORPHAN_DELIM_RE: LazyLock<Regex> = LazyLock::new(|| {
 fn normalize_dir_name(name: &str) -> String {
     let result = TECH_SPEC_RE.replace_all(name, "");
     let result = ORPHAN_DELIM_RE.replace_all(&result, "");
-    let result = result
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
+    let result = result.split_whitespace().collect::<Vec<_>>().join(" ");
     let result = result
         .trim()
         .trim_matches(|c: char| c == '-' || c == '.')
@@ -299,9 +296,8 @@ fn has_year_range(name: &str) -> bool {
 /// Check if a directory name contains a bare (non-parenthesized) 4-digit year
 /// like `Live in Tokyo - 1st December 2013` or `FM Broadcast August 1996`.
 fn has_bare_year(name: &str) -> bool {
-    static BARE_YEAR_RE: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"\b(19|20)\d{2}\b").expect("BARE_YEAR_RE must compile")
-    });
+    static BARE_YEAR_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\b(19|20)\d{2}\b").expect("BARE_YEAR_RE must compile"));
     BARE_YEAR_RE.is_match(name)
 }
 
@@ -410,8 +406,7 @@ fn ancestor_has_year(path: &Path) -> bool {
         match current {
             Some(dir) => {
                 if let Some(name) = dir.file_name().and_then(|n| n.to_str())
-                    && (has_year_suffix(name)
-                        || has_year_suffix(&normalize_dir_name(name)))
+                    && (has_year_suffix(name) || has_year_suffix(&normalize_dir_name(name)))
                 {
                     return true;
                 }
@@ -522,10 +517,7 @@ fn try_parse_track_number<'a>(first_two: &str, stem: &'a str) -> (Option<String>
         // Check for 3-digit track number (e.g. "100 Artist - Title")
         if bytes.len() > 2
             && bytes[2].is_ascii_digit()
-            && (bytes.len() == 3
-                || bytes[3] == b' '
-                || bytes[3] == b'-'
-                || bytes[3] == b'.')
+            && (bytes.len() == 3 || bytes[3] == b' ' || bytes[3] == b'-' || bytes[3] == b'.')
         {
             let num = stem[..3].to_string();
             let rest = &stem[3..];
@@ -1244,9 +1236,7 @@ pub fn scan(
             if let Some(imported_set) = rekordbox_imported {
                 for issue in &mut detected {
                     let is_imported = match issue.issue_type {
-                        IssueType::OriginalMixSuffix => {
-                            Some(imported_set.contains(&path_str))
-                        }
+                        IssueType::OriginalMixSuffix => Some(imported_set.contains(&path_str)),
                         IssueType::TechSpecsInDir => {
                             let parent_dir = file_path
                                 .parent()
@@ -1257,8 +1247,7 @@ pub fn scan(
                         _ => None,
                     };
                     if let (Some(imported), Some(detail)) = (is_imported, &issue.detail)
-                        && let Ok(mut obj) =
-                            serde_json::from_str::<serde_json::Value>(detail)
+                        && let Ok(mut obj) = serde_json::from_str::<serde_json::Value>(detail)
                     {
                         obj["imported"] = serde_json::Value::Bool(imported);
                         issue.detail = Some(obj.to_string());
@@ -1337,9 +1326,7 @@ pub fn scan(
             .map_err(|e| format!("DB error querying issues for import refresh: {e}"))?;
         for (id, path, issue_type, detail) in &issues {
             let is_imported = match issue_type.as_str() {
-                t if t == IssueType::OriginalMixSuffix.as_str() => {
-                    imported_set.contains(path)
-                }
+                t if t == IssueType::OriginalMixSuffix.as_str() => imported_set.contains(path),
                 t if t == IssueType::TechSpecsInDir.as_str() => {
                     let parent_dir = std::path::Path::new(path)
                         .parent()
@@ -1513,33 +1500,47 @@ mod tests {
     #[test]
     fn classify_album_track_with_year() {
         let p = Path::new("/music/Artist/Album Name (2024)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::AlbumTrack
+        );
     }
 
     #[test]
     fn classify_album_track_with_tech_specs_and_year() {
         let p = Path::new("/music/Artist/Album [FLAC] (2024)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::AlbumTrack
+        );
     }
 
     #[test]
     fn classify_loose_track_in_unnamed_dir() {
         let p = Path::new("/music/play/Artist - Track.wav");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::LooseTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::LooseTrack
+        );
     }
 
     #[test]
     fn classify_loose_track_no_year() {
         let p = Path::new("/music/Artist/SomeDir/Artist - Track.flac");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::LooseTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::LooseTrack
+        );
     }
 
     #[test]
     fn classify_disc_subdir() {
         let p = Path::new("/music/Artist/Album (2020)/CD1/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::AlbumTrack
+        );
     }
-
 
     // -- has_year_suffix --
 
@@ -1577,7 +1578,9 @@ mod tests {
 
     #[test]
     fn bare_year_present() {
-        assert!(has_bare_year("Live at Alexandra Palace - London 8th and 9th May 2019"));
+        assert!(has_bare_year(
+            "Live at Alexandra Palace - London 8th and 9th May 2019"
+        ));
         assert!(has_bare_year("FM Broadcast August 1996"));
         assert!(has_bare_year("Live in Tokyo - 1st December 2013"));
     }
@@ -2001,8 +2004,14 @@ mod tests {
         assert_eq!(normalize_dir_name("Track 2400"), "Track 2400");
         assert_eq!(normalize_dir_name("Track 124"), "Track 124");
         // Artist/album name containing "wav" as substring should NOT match
-        assert_eq!(normalize_dir_name("Brainwave Sessions"), "Brainwave Sessions");
-        assert_eq!(normalize_dir_name("New Wave Compilation"), "New Wave Compilation");
+        assert_eq!(
+            normalize_dir_name("Brainwave Sessions"),
+            "Brainwave Sessions"
+        );
+        assert_eq!(
+            normalize_dir_name("New Wave Compilation"),
+            "New Wave Compilation"
+        );
     }
 
     // -- IssueType round-trip --
@@ -2277,7 +2286,13 @@ mod tests {
         no_access.set_mode(0o000);
         std::fs::set_permissions(&blocked_dir, no_access).unwrap();
 
-        let scan_result = scan(&conn, dir.path().to_str().unwrap(), false, &HashSet::new(), None);
+        let scan_result = scan(
+            &conn,
+            dir.path().to_str().unwrap(),
+            false,
+            &HashSet::new(),
+            None,
+        );
 
         std::fs::set_permissions(&blocked_dir, original_perms).unwrap();
 
@@ -2318,7 +2333,10 @@ mod tests {
     #[test]
     fn classify_album_with_catalog_suffix() {
         let p = Path::new("/music/Artist/Album (2017, Label - Cat)/01 Artist - Track.flac");
-        assert_eq!(classify_track_context(p, &HashSet::new()), AuditContext::AlbumTrack);
+        assert_eq!(
+            classify_track_context(p, &HashSet::new()),
+            AuditContext::AlbumTrack
+        );
     }
 
     // -- detect_album_dirs --

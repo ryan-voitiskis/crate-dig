@@ -7,8 +7,7 @@ use std::sync::OnceLock;
 pub const BROKER_URL_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_URL";
 pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
 
-const DEFAULT_BROKER_URL: &str =
-    "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
+const DEFAULT_BROKER_URL: &str = "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
 const DEFAULT_BROKER_TOKEN: &str =
     "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
 
@@ -37,8 +36,8 @@ pub enum BrokerConfigStatus {
 
 impl BrokerConfig {
     pub fn from_env() -> BrokerConfigStatus {
-        let raw_base_url = std::env::var(BROKER_URL_ENV)
-            .unwrap_or_else(|_| DEFAULT_BROKER_URL.to_string());
+        let raw_base_url =
+            std::env::var(BROKER_URL_ENV).unwrap_or_else(|_| DEFAULT_BROKER_URL.to_string());
         let base_url = match normalize_base_url(&raw_base_url) {
             Some(url) => url,
             None => return BrokerConfigStatus::InvalidUrl(raw_base_url),

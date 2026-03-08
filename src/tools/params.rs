@@ -256,7 +256,9 @@ pub struct ResolveTracksDataParams {
     pub playlist_id: Option<String>,
     #[schemars(description = "Max tracks to resolve (default 50)")]
     pub max_tracks: Option<u32>,
-    #[schemars(description = "Response format: 'full' (default) or 'classification' (compact, only decision-tree fields)")]
+    #[schemars(
+        description = "Response format: 'full' (default) or 'classification' (compact, only decision-tree fields)"
+    )]
     pub format: Option<ResolveFormat>,
 }
 

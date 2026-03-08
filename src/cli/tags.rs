@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use crate::tags;
 
-use super::{expand_paths, display_field_name};
+use super::{display_field_name, expand_paths};
 
 #[derive(clap::Args)]
 pub(crate) struct ReadTagsArgs {
