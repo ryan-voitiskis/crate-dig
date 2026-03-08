@@ -49,34 +49,25 @@ Present alias mappings to user. For each debatable alias (marked in result):
 - **Override** — user specifies preferred genre
 - **Skip** — exclude from batch classification
 
-For unknown genres: note them and include in Step 3 batches for evidence-based classification. Do NOT ask the user to manually map without evidence.
+For unknown genres (not in taxonomy and not an alias): collect their track IDs and include them in Step 2 classification batches. Do NOT ask the user to manually map without evidence.
 
 Store overrides in working memory for the session.
 
-### 1b. Classification tolerance
+### 1b. Stage alias normalizations
 
-Present tolerance modes:
+Non-debatable alias mappings (e.g. `Hip-Hop` → `Hip Hop`, `DnB` → `Drum & Bass`) can be staged immediately after user confirms:
 
-- **strict** — All disagreements need user input, even within the same genre family (e.g. Techno vs Deep Techno still flagged).
-- **relaxed** (default) — Same-family disagreements auto-resolve to the more specific genre; cross-family conflicts flagged.
-- **trusting** — Agent decides most cases; only ambiguous cross-family conflicts flagged.
+```
+update_tracks(changes=[{"track_id": "...", "genre": "..."}])
+```
 
-Genre families:
+### 2. Classify tracks
 
-| Family | Genres |
-|--------|--------|
-| House | House, Deep House, Tech House, Afro House, Gospel House, Progressive House, Garage, Speed Garage, Disco |
-| Techno | Techno, Deep Techno, Minimal, Dub Techno, Ambient Techno, Hard Techno, Drone Techno, Acid, Electro |
-| Bass | Drum & Bass, Jungle, Dubstep, Breakbeat, UK Bass, Grime, Bassline, Broken Beat |
-| Downtempo | Ambient, Downtempo, Dub, Dub Reggae, IDM, Experimental |
-| Other | Everything not listed above |
-
-"Same family" = both candidates in the same row. "Cross-family" = different rows or either is in Other.
-
-### 2. Classify ungenred tracks
+Classify both ungenred tracks and unknown-genre tracks (from Step 1) through the same evidence-based pipeline.
 
 ```
 resolve_tracks_data(has_genre=false, max_tracks=50, format="classification")
+resolve_tracks_data(track_ids=[...unknown_ids...], format="classification")
 ```
 
 For each track, apply the decision tree (below).
@@ -150,9 +141,7 @@ Apply for every track during classification.
 
 9. **Discogs and Beatport disagree:** `beatport_genre` NOT in `discogs_genres`:
 
-   9a. **Same-family check:** If ALL candidates belong to the same family:
-   - **Strict:** → confidence = **insufficient**, present both options
-   - **Relaxed/Trusting:** → use the more specific genre, confidence = **medium**
+   9a. **Same-family check:** If ALL candidates belong to the same family → use the more specific genre, confidence = **medium**. (e.g. Deep Techno is more specific than Techno; prefer Beatport if specificity is ambiguous.)
 
    9b. **Cross-family + audio features:** Compare candidates against audio expectations. Discriminators: `spectral_centroid_mean`, `rhythm_regularity`, `dynamic_complexity`, BPM plausibility. If audio favors one → confidence = **low**, note "audio-assisted tie-break."
 
@@ -199,12 +188,20 @@ Check if user overrode any alias mapping in Step 1 that affects this track. If s
 
 ---
 
+## Genre Families
+
+Used by the decision tree (Step B.9a) to determine same-family vs cross-family disagreements.
+
+| Family | Genres |
+|--------|--------|
+| House | House, Deep House, Tech House, Afro House, Gospel House, Progressive House, Garage, Speed Garage, Disco |
+| Techno | Techno, Deep Techno, Minimal, Dub Techno, Ambient Techno, Hard Techno, Drone Techno, Acid, Electro |
+| Bass | Drum & Bass, Jungle, Dubstep, Breakbeat, UK Bass, Grime, Bassline, Broken Beat |
+| Downtempo | Ambient, Downtempo, Dub, Dub Reggae, IDM, Experimental |
+| Other | Everything not listed above |
+
+"Same family" = both candidates in the same row. "Cross-family" = different rows or either is in Other.
+
 ## Key Mismatch Detection
 
-Run as side-check during Steps 2-4. Not a genre decision — useful data surfaced alongside results.
-
-- `key_agreement` = false + Essentia confirms stratum key → **High** priority
-- `key_agreement` = false, no Essentia → **Medium** priority
-- No stratum data → skip
-
-Present key mismatches in a separate section, not mixed into genre suggestions.
+Side-check during Steps 2–4. If `key_agreement` is false, surface it alongside genre results in a separate section. Not a genre decision — just useful data for the user.
