@@ -23,7 +23,15 @@ export default defineConfig({
         href: 'https://github.com/ryan-voitiskis/reklawdbox',
       }],
       plugins: [
-        starlightLlmsTxt(),
+        starlightLlmsTxt({
+          customSets: [
+            {
+              label: 'Agent SOPs',
+              paths: ['agent/**'],
+              description: 'Token-optimized workflow instructions for AI agents',
+            },
+          ],
+        }),
       ],
       sidebar: [
         {
