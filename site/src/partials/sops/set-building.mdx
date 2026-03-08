@@ -1,0 +1,122 @@
+## Constraints
+
+- **Read-only.** Set building never modifies track metadata. It only creates playlist orderings.
+- **Human controls the result.** Agent proposes candidates. User picks, reorders, swaps. Export only what the user approves.
+- **Cache-first.** All transition scoring uses cached audio analysis and enrichment. No external API calls.
+- **Multiple candidates.** Always present at least 2 candidate orderings unless the pool is too small.
+
+## Prerequisites
+
+```
+cache_coverage()
+```
+
+- stratum_dsp > 80% and enrichment > 60% → proceed
+- Low coverage → recommend hydration first (audio analysis, then enrichment)
+
+## Steps
+
+### 1. Collect set parameters
+
+Ask user for:
+- **Duration** — e.g., 60 min (~10-12 tracks), 90 min (~15-18 tracks)
+- **Genre focus** — specific genres, playlist, or "any"
+- **BPM range** — e.g., 120-135, or "flexible"
+- **Energy curve** — warmup→build→peak→release (default), flat, peak_only, or custom
+- **Priority** — balanced (default), harmonic, energy, or genre
+- **Starting track** — optional seed track
+- **Harmonic style** — conservative / balanced (default) / adventurous
+- **BPM drift tolerance** — default 6%
+- **BPM trajectory** — optional start→peak BPM ramp (e.g., "start 122, peak at 130")
+
+Defaults: 60 min, balanced priority, warmup→build→peak→release, balanced harmonic, master tempo on, 6% drift.
+
+Confirm parameters with user before proceeding.
+
+### 2. Build candidate pool
+
+By genre/BPM search:
+
+```
+search_tracks(genre="...", bpm_min=N, bpm_max=N, limit=200)
+```
+
+Or from an existing playlist:
+
+```
+get_playlist_tracks(playlist_id="...")
+```
+
+Then resolve full data:
+
+```
+resolve_tracks_data(track_ids=[...], max_tracks=200)
+```
+
+Filter out tracks missing stratum_dsp analysis or outside BPM range.
+
+Present pool summary: track count, genre breakdown, BPM range, key spread.
+
+Ask user: "Proceed with this pool? / adjust filters / add from another playlist"
+
+### 3. Generate candidates
+
+```
+build_set(
+  track_ids=[...],
+  target_tracks=12,
+  priority="balanced",
+  energy_curve="warmup_build_peak_release",
+  beam_width=3,
+  master_tempo=true,
+  harmonic_style="balanced",
+  bpm_drift_pct=6.0,
+  bpm_range=[122, 130]
+)
+```
+
+Present 2-3 candidates with: track order, key/BPM/genre per track, per-transition scores, energy curve visualization, overall score.
+
+Ask user: "pick A / pick B / compare position # / regenerate / adjust parameters"
+
+### 4. Refine selected set
+
+Interactive editing commands:
+
+| Command | Action |
+|---------|--------|
+| `swap #N TrackID` | Replace track, re-score adjacent transitions |
+| `move #N to #M` | Reorder, re-score affected transitions |
+| `remove #N` | Remove track, re-score new adjacent pair |
+| `insert TrackID after #N` | Add track, score both new transitions |
+| `suggest #N` | Find best replacement using `query_transition_candidates` |
+| `details #N` | Show full data for track at position N |
+| `check` | Re-score and re-display full set |
+| `done` | Finalize and proceed to export |
+
+For `suggest #N`, call:
+
+```
+query_transition_candidates(
+  from_track_id="prev_track",
+  pool_track_ids=[...remaining...],
+  energy_phase="...",
+  target_bpm=N,
+  master_tempo=true,
+  harmonic_style="balanced"
+)
+```
+
+After each edit, use `score_transition()` to validate and show impact.
+
+Ask user after each edit: "Continue editing? / done"
+
+### 5. Export
+
+```
+write_xml(playlists=[{"name": "Set Name", "track_ids": [...]}])
+```
+
+Note: `write_xml` also exports and clears any staged metadata changes. Use `preview_changes` first if other workflows have pending edits.
+
+Report output path. Remind user: File → Import Collection in Rekordbox.

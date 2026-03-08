@@ -1,6 +1,6 @@
 ---
 title: Workflows
-description: Repeatable library management workflows — genre classification, set building, and collection audits.
+description: Repeatable library management workflows — batch import, genre classification, set building, and collection audits.
 sidebar:
   order: 0
 ---
@@ -33,6 +33,10 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 ## Workflows
 
 <CardGrid>
+  <Card title="Batch Import" icon="document">
+    Prepare newly acquired music for Rekordbox import with proper tagging and organization.
+    [Get started](/workflows/batch-import/)
+  </Card>
   <Card title="Genre Classification" icon="pencil">
     Classify genres using Discogs, Beatport, and audio analysis evidence.
     [Get started](/workflows/genre-classification/)
@@ -49,6 +53,6 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 
 ## Where to start
 
-If your collection has inconsistent genres, start with [Genre Classification](/workflows/genre-classification/). If your tags and filenames are messy, start with [Collection Audit](/workflows/collection-audit/). If your metadata is already clean and you want to build a set, go straight to [Set Building](/workflows/set-building/).
+If you just acquired new music, start with [Batch Import](/workflows/batch-import/). If your collection has inconsistent genres, follow up with [Genre Classification](/workflows/genre-classification/). If your tags and filenames are messy, run a [Collection Audit](/workflows/collection-audit/). If your metadata is already clean and you want to build a set, go straight to [Set Building](/workflows/set-building/).
 
-All three workflows share the same prerequisite: good cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
+All workflows share the same prerequisite: good cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.

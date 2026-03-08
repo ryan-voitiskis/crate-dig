@@ -11,9 +11,9 @@ exist on reklawdbox.com, no sense of which tools to use for which task, and no
 way to guide the user through a multi-step procedure like genre classification
 or set building.
 
-Today the SOPs live in `docs/sops/` in the repo. Repo contributors can read
-them. Installed users cannot — and even if they could, dumping 25KB of SOP
-into context for every session is wasteful.
+Today the SOPs live in `site/src/partials/sops/` as MDX partials, shared by
+both the agent SOP pages and human-readable workflow pages on reklawdbox.com.
+Dumping 25KB of SOP into context for every session is wasteful.
 
 ## Goals
 
@@ -151,22 +151,22 @@ Total context cost for a guided workflow: ~2700 tokens upfront, versus
 
 | Content | Location | Audience | Purpose |
 | --- | --- | --- | --- |
-| Internal SOPs | `docs/sops/` | Contributors | Detailed procedures, decision rationale |
-| Site workflows | `site/src/content/docs/workflows/` | Humans | Readable guides with context |
-| Agent SOPs | `site/src/content/docs/agent/` (new) | Agents | Token-optimized step-by-step instructions |
+| SOP partials | `site/src/partials/sops/` | Both | Single-source procedures, imported by agent and workflow pages |
+| Site workflows | `site/src/content/docs/workflows/` | Humans | Readable guides with human context around the SOP partial |
+| Agent SOPs | `site/src/content/docs/agent/` | Agents | Lean pages importing the SOP partial with init blocks |
 | `help` tool | MCP server | Agents | Discovery and routing |
 | `ServerInfo` | MCP protocol | Agents | Bootstrap orientation |
 
-The internal SOPs in `docs/sops/` remain the source of truth. Site workflow
-pages are the human-friendly version. Agent SOP pages are distilled from both,
-optimized for token efficiency and tool-call sequencing.
+The SOP partials in `site/src/partials/sops/` are the single source of truth.
+Both agent and workflow pages import the same partial — workflow pages add
+human-readable context around it, agent pages render it directly with an init block.
 
 ## Implementation Sequence
 
 1. **Expand `ServerInfo.instructions`** — minimal change in `src/tools/mod.rs`.
 2. **Add `help` tool** — new tool in the MCP server, returns static JSON.
-3. **Author agent-optimized SOP pages** on reklawdbox.com — distill from
-   existing `docs/sops/` and site workflow pages.
+3. **Author agent-optimized SOP pages** on reklawdbox.com — import from
+   shared SOP partials in `site/src/partials/sops/`.
 4. **Add community section** to site — `community/` content directory.
 
 Steps 1-2 are small code changes. Step 3 is content work. Step 4 is

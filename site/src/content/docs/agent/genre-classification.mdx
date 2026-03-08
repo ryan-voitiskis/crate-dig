@@ -3,94 +3,16 @@ title: Genre Classification
 description: Agent SOP for evidence-based genre tagging.
 ---
 
+import GenreClassificationSOP from '../../../partials/sops/genre-classification.mdx'
+
 Classify genres across a Rekordbox collection using cached enrichment and audio evidence.
 
-## Prerequisites
+### Init
+
+Copy this into your agent session to start the workflow:
 
 ```
-cache_coverage(has_genre=false)
+Classify genres for [scope] following the reklawdbox genre classification SOP at https://reklawdbox.com/agent/genre-classification/
 ```
 
-- stratum_dsp > 90% and discogs > 70% → proceed
-- Any provider < 50% → recommend hydration first
-- User declines hydration → proceed with "based on partial evidence" caveat
-
-### Hydration (if needed)
-
-```
-analyze_audio_batch(has_genre=false, skip_cached=true, max_tracks=200)
-enrich_tracks(has_genre=false, skip_cached=true, providers=["discogs"], max_tracks=50)
-enrich_tracks(has_genre=false, skip_cached=true, providers=["beatport"], max_tracks=50)
-```
-
-Repeat until targets met. Report progress between batches.
-
-## Steps
-
-### 1. Review taxonomy
-
-```
-get_genre_taxonomy()
-suggest_normalizations()
-```
-
-Present alias mappings to user. For each debatable alias (marked in result):
-- **Accept** — use canonical form
-- **Override** — user specifies preferred genre
-- **Skip** — exclude from batch classification
-
-For unknown genres: ask user to map or leave.
-
-Ask user: "Review these alias mappings before classification?"
-
-### 2. Classify ungenred tracks
-
-```
-resolve_tracks_data(has_genre=false, max_tracks=30)
-```
-
-For each track, apply the decision tree:
-
-**Gather evidence:**
-- `discogs_genres` = deduplicated `maps_to` values from `genre_taxonomy.discogs_style_mappings` (exact/alias only)
-- `beatport_genre` = `maps_to` from `genre_taxonomy.beatport_genre_mapping` (exact/alias only)
-
-**Find consensus:**
-- Beatport in discogs_genres → **high** confidence
-- Only one source has data → **medium** confidence
-- Beatport breaks Discogs tie → **medium** confidence
-- Discogs split, no Beatport → pick most frequent mapping → **low** confidence
-- Sources disagree → use audio features as tiebreak if available, else **insufficient**
-- No enrichment → audio-only fallback using BPM + Essentia features → **low** or **insufficient**
-
-Present grouped by confidence. Format: `# ARTIST — TITLE → SUGGESTED (evidence summary)`
-
-Ask user: "approve all / approve high only / reject # / change # Genre / details # / skip"
-
-### 3. Stage approved changes
-
-```
-update_tracks(changes=[{"track_id": "...", "genre": "..."}])
-```
-
-Repeat Step 2 for remaining tracks (track processed IDs to avoid re-processing).
-
-### 4. Review conflicts (optional)
-
-Only if user requests. Query `resolve_tracks_data(has_genre=true)` and filter for tracks where evidence disagrees with current genre.
-
-Ask user: "Review tracks where evidence conflicts with current genre?"
-
-### 5. Export
-
-```
-preview_changes()
-```
-
-Ask user: "Export these changes to XML?"
-
-```
-write_xml()
-```
-
-Report output path. Remind user to import into Rekordbox.
+<GenreClassificationSOP />

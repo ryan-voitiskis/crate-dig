@@ -1,38 +1,19 @@
-# Batch Import Preparation — Agent SOP
-
-Process newly acquired music (downloaded albums, loose tracks, zips) into an organized structure ready for Rekordbox import. Follow step-by-step.
-
-**Goal:** After this SOP, any processed track can be imported into Rekordbox with Artist, Title, Album, Year, Track Number, and Label displaying correctly. Genre is handled separately via the genre classification SOP.
-
-## Rekordbox Import Readiness
-
-See [conventions.md § Rekordbox import readiness](../conventions.md#rekordbox-import-readiness) for the full format-specific tag mapping table, WAV dual-tag rule, and WAV cover art limitation.
-
 ## Constraints
 
 - **Tags are source of truth.** Write tags before renaming — filenames are derived from tags.
 - **Never set genre.** Leave genre tags empty; handled via genre classification SOP.
 - **Stop on ambiguity.** Never guess artist names, album years, or label names — ask the user.
 - **Process album by album.** Complete one fully before starting the next.
-- **WAV dual-tag rule.** Always write both tag 2 and tag 3 for WAV files.
+- **WAV dual-tag rule.** WAV files need both ID3v2 and RIFF INFO in sync. `write_file_tags` handles this automatically.
 - **Verify before moving.** Confirm tags and filenames before moving to final location.
 
 ## Prerequisites
 
-<!-- dprint-ignore -->
-| Tool | Purpose | Install |
-|------|---------|---------|
-| `reklawdbox` MCP | Tag reading/writing (`read_file_tags`, `write_file_tags`), Discogs/Beatport lookups | This project |
-| `kid3-cli` | File renaming from tags, cover art embedding | `brew install kid3` |
-| `unzip` | Extract zip archives | Pre-installed on macOS |
+| Tool | Purpose |
+|------|---------|
+| `reklawdbox` MCP | Tag reading/writing, Discogs/Beatport lookups, cover art embedding |
 
-`lookup_discogs`, `lookup_beatport`, `read_file_tags`, and `write_file_tags` are MCP tool calls, not shell commands.
-
-**Shell note:** Claude Code does not persist shell state between tool calls. All shell snippets below use literal paths — substitute the actual path for each invocation.
-
-## Convention Reference
-
-See [conventions.md](../conventions.md) for directory structure, file naming, required tags, album directory naming, and album type classification.
+`lookup_discogs`, `lookup_beatport`, `read_file_tags`, `write_file_tags`, `embed_cover_art`, and `extract_cover_art` are MCP tool calls.
 
 ---
 
@@ -98,10 +79,10 @@ For each album subdirectory, follow these steps in order.
 ls -la "/path/to/batch/Album Directory/"
 ```
 
-Read tags for all files in the directory:
+Read tags for all files:
 
 ```
-read_file_tags(paths=["/path/to/batch/Album Directory/"])
+read_file_tags(directory="/path/to/batch/Album Directory/")
 ```
 
 Note: current filename pattern, which tags are present, whether cover art exists.
@@ -151,7 +132,7 @@ Use `write_file_tags` for all tag writes. It handles WAV dual-tagging automatica
 ```
 write_file_tags(writes=[
   {path: "/path/to/album/01 original.flac", tags: {
-    artist: "Track Artist", title: "Track Title", track: 1,
+    artist: "Track Artist", title: "Track Title", track: "1",
     album: "Album Name", year: "YEAR", publisher: "Label Name",
     album_artist: "Artist Name"
   }},
@@ -161,7 +142,6 @@ write_file_tags(writes=[
 
 **Per-track tags** — parse from filenames. Common incoming patterns:
 
-<!-- dprint-ignore -->
 | Pattern | Parse as |
 |---------|----------|
 | `Artist - Album - NN Title.wav` | Track N: Artist - Title |
@@ -172,35 +152,35 @@ write_file_tags(writes=[
 ### Step 6: Verify tags
 
 ```
-read_file_tags(paths=["/path/to/album/"])
+read_file_tags(directory="/path/to/album/")
 ```
 
 Confirm every file has: Artist, Title, Track, Album, Year.
 
 ### Step 7: Rename files from tags
 
-```sh
-kid3-cli -c "select all" \
-         -c "fromtag '%{track} %{artist} - %{title}' 2" \
-         -c "save" .
-```
+Construct target filenames from tags: `NN Artist - Title.ext`
 
-Expected result: `01 Artist Name - Track Title.ext`
+Use `mv -n` (no-clobber) for each file. Validate the target filename is non-empty before renaming.
+
+```sh
+mv -n "/path/to/album/old filename.flac" "/path/to/album/01 Artist Name - Track Title.flac"
+```
 
 If rename produces unexpected results, stop and check tags — rename depends entirely on tag correctness.
 
 ### Step 8: Embed cover art
 
+Check for existing cover art in the directory:
+
 ```sh
-find . -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) -print
+find "/path/to/album/" -maxdepth 1 -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" \) -print
 ```
 
 **Single obvious cover** (`cover.jpg`, `front.jpg`, `folder.jpg`):
 
-```sh
-kid3-cli -c "select all" \
-         -c "set picture:'cover.jpg' 'Cover (front)' ''" \
-         -c "save" .
+```
+embed_cover_art(image_path="/path/to/album/cover.jpg", targets=["/path/to/album/01 Artist - Track.flac", ...])
 ```
 
 **Multiple images:** Ask user which is the cover.
@@ -208,10 +188,11 @@ kid3-cli -c "select all" \
 **No images:** Try `lookup_discogs(...)` — if result includes `cover_image`, download and embed:
 
 ```sh
-curl -s -o "cover.jpg" "COVER_IMAGE_URL"
-kid3-cli -c "select all" \
-         -c "set picture:'cover.jpg' 'Cover (front)' ''" \
-         -c "save" .
+curl -s -o "/path/to/album/cover.jpg" "COVER_IMAGE_URL"
+```
+
+```
+embed_cover_art(image_path="/path/to/album/cover.jpg", targets=["/path/to/album/01 Artist - Track.flac", ...])
 ```
 
 If no cover from Discogs either, note for user to source manually.
@@ -245,7 +226,7 @@ ls -la "/path/to/dest/Artist Name/Album Name (Year)/"
 ```
 
 ```
-read_file_tags(paths=["/path/to/dest/Artist Name/Album Name (Year)/01 Artist - Track.ext"])
+read_file_tags(directory="/path/to/dest/Artist Name/Album Name (Year)/")
 ```
 
 Confirm: files in correct location, `NN Artist - Title.ext` format, all tags present, VA has label subdirectory, cover art embedded.
@@ -264,7 +245,7 @@ Remove `(Original Mix)` suffix. Keep other parenthetical info (`(Remix)`, `(Edit
 cd "/path/to/batch"
 find . -maxdepth 1 -type f -name "* (Original Mix).*" -print0 | while IFS= read -r -d '' f; do
     new_name="${f/ (Original Mix)/}"
-    mv "$f" "$new_name"
+    mv -n "$f" "$new_name"
 done
 ```
 
@@ -280,7 +261,7 @@ read_file_tags(paths=["/path/to/batch/Artist - Title.wav"])
 
 If tags are missing, look up with `lookup_discogs(...)` / `lookup_beatport(...)`.
 
-Write minimum tags (WAV dual-tagging handled automatically):
+Write minimum tags:
 
 ```
 write_file_tags(writes=[{
@@ -291,7 +272,13 @@ write_file_tags(writes=[{
 
 ### Step 3: Embed cover art (if available)
 
-Check for `cover_Artist Name - Track Title.jpg` files. If found, embed. If not, try Discogs `cover_image`. Note any tracks without cover art in the report.
+Check for `cover_Artist Name - Track Title.jpg` files. If found:
+
+```
+embed_cover_art(image_path="/path/to/cover.jpg", targets=["/path/to/track.flac"])
+```
+
+If not, try Discogs `cover_image`. Note any tracks without cover art in the report.
 
 ---
 
@@ -301,14 +288,14 @@ If an album has disc subdirectories (`CD1/`, `CD2/`, `Disc 1/`, etc.):
 
 - Track numbers restart at 01 per disc
 - Cover art at album root (not in disc folders)
-- Set Disc Number tag on each track via `write_file_tags` (WAV dual-tagging handled automatically)
+- Set Disc Number tag on each track via `write_file_tags`
 - Album-wide tags (album, year, publisher) go on all tracks across all discs
 
 ---
 
 ## Phase 5: Final Verification
 
-Summarize: albums processed (single artist vs VA), loose tracks processed, any unresolved items, WAV tracks needing manual cover art in Rekordbox, and next steps (import, cover art, collection audit SOP, genre classification SOP).
+Summarize: albums processed (single artist vs VA), loose tracks processed, any unresolved items, WAV tracks needing manual cover art in Rekordbox, and next steps (import, collection audit SOP, genre classification SOP).
 
 ---
 
@@ -337,7 +324,6 @@ Summarize: albums processed (single artist vs VA), loose tracks processed, any u
 
 ### Album tracks
 
-<!-- dprint-ignore -->
 | Pattern | Parse as |
 |---------|----------|
 | `Artist - Album - NN Title.wav` | Track N: Artist - Title |
@@ -350,7 +336,6 @@ Summarize: albums processed (single artist vs VA), loose tracks processed, any u
 
 ### Loose tracks
 
-<!-- dprint-ignore -->
 | Pattern | Status |
 |---------|--------|
 | `Artist - Title.wav` | Correct |

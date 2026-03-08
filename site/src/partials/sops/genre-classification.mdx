@@ -1,0 +1,210 @@
+## Constraints
+
+- **Taxonomy is compiled.** The alias map in `genre.rs` cannot be changed at runtime. If the user disagrees with a mapping, the agent works around it by using the user's preferred genre directly.
+- **No auto-tagging.** Every genre change requires explicit human approval.
+- **Cache-first.** Classification runs from cached data. If cache is empty for a track, flag as insufficient evidence — do not trigger enrichment mid-classification.
+- **XML export only.** No direct DB writes. All changes flow through `update_tracks` → `preview_changes` → `write_xml`.
+
+## Prerequisites
+
+```
+cache_coverage(has_genre=false)
+```
+
+- stratum_dsp > 90% and discogs > 70% → proceed
+- Any provider < 50% → recommend hydration first
+- User declines hydration → proceed with "based on partial evidence" caveat
+
+### Hydration (if needed)
+
+```
+analyze_audio_batch(has_genre=false, skip_cached=true, max_tracks=200)
+enrich_tracks(has_genre=false, skip_cached=true, providers=["discogs"], max_tracks=50)
+enrich_tracks(has_genre=false, skip_cached=true, providers=["beatport"], max_tracks=50)
+```
+
+Repeat until targets met. Report progress between batches.
+
+## Steps
+
+### 0. Metadata quality pre-check
+
+```
+search_tracks(has_genre=false)
+```
+
+Scan results for tracks with empty `artist` or `title` — these will fail enrichment lookups. If found, present to user with options: fix metadata, skip these, or proceed anyway.
+
+If no tracks have missing fields, skip silently.
+
+### 1. Review taxonomy
+
+```
+get_genre_taxonomy()
+suggest_normalizations()
+```
+
+Present alias mappings to user. For each debatable alias (marked in result):
+- **Accept** — use canonical form
+- **Override** — user specifies preferred genre
+- **Skip** — exclude from batch classification
+
+For unknown genres: note them and include in Step 3 batches for evidence-based classification. Do NOT ask the user to manually map without evidence.
+
+Store overrides in working memory for the session.
+
+### 1b. Classification tolerance
+
+Present tolerance modes:
+
+- **strict** — All disagreements need user input, even within the same genre family (e.g. Techno vs Deep Techno still flagged).
+- **relaxed** (default) — Same-family disagreements auto-resolve to the more specific genre; cross-family conflicts flagged.
+- **trusting** — Agent decides most cases; only ambiguous cross-family conflicts flagged.
+
+Genre families:
+
+| Family | Genres |
+|--------|--------|
+| House | House, Deep House, Tech House, Afro House, Gospel House, Progressive House, Garage, Speed Garage, Disco |
+| Techno | Techno, Deep Techno, Minimal, Dub Techno, Ambient Techno, Hard Techno, Drone Techno, Acid, Electro |
+| Bass | Drum & Bass, Jungle, Dubstep, Breakbeat, UK Bass, Grime, Bassline, Broken Beat |
+| Downtempo | Ambient, Downtempo, Dub, Dub Reggae, IDM, Experimental |
+| Other | Everything not listed above |
+
+"Same family" = both candidates in the same row. "Cross-family" = different rows or either is in Other.
+
+### 2. Classify ungenred tracks
+
+```
+resolve_tracks_data(has_genre=false, max_tracks=50, format="classification")
+```
+
+For each track, apply the decision tree (below).
+
+Present grouped by confidence: `# ARTIST — TITLE → SUGGESTED (evidence summary)`
+
+Ask user: "approve all / approve high only / reject # / change # Genre / details # / skip"
+
+### 3. Stage approved changes
+
+```
+update_tracks(changes=[{"track_id": "...", "genre": "..."}])
+```
+
+Repeat Step 2 for remaining tracks (track processed IDs to avoid re-processing).
+
+**Batch tracking:** Initialize `classified_ids` list. After each batch, add ALL track IDs regardless of outcome. For subsequent batches, pass remaining unprocessed IDs. Stop when none remain.
+
+### 4. Review conflicts (optional)
+
+Only if user requests. Query `resolve_tracks_data(has_genre=true, format="classification")` and filter for tracks where evidence disagrees with current genre.
+
+Present conflicts and key mismatches in separate sections.
+
+### 5. Export
+
+```
+preview_changes()
+```
+
+Ask user: "Export these changes to XML?"
+
+```
+write_xml()
+```
+
+Report output path. Remind user to import into Rekordbox.
+
+---
+
+## Decision Tree
+
+Apply for every track during classification.
+
+### Inputs (from `resolve_tracks_data`)
+
+- `current_genre`: `rekordbox.genre` (may be empty)
+- `current_canonical`: `genre_taxonomy.current_genre_canonical` (may be null)
+- `discogs_mappings`: `genre_taxonomy.discogs_style_mappings[]` — each has `maps_to` and `mapping_type`
+- `beatport_mapping`: `genre_taxonomy.beatport_genre_mapping` — has `maps_to` and `mapping_type`
+- `audio_analysis`: stratum + essentia features (may be null)
+- Session overrides from Step 1
+
+### Step A: Gather mapped genres
+
+1. From `discogs_mappings`, collect entries where `mapping_type` is "exact" or "alias". Extract `maps_to` values, deduplicate → `discogs_genres` (set).
+2. From `beatport_mapping`, if `mapping_type` is "exact" or "alias", take `maps_to` → `beatport_genre` (single value or null).
+3. If `current_genre` is non-empty, use `current_canonical` if available, else `current_genre` as-is → `current`.
+
+### Step B: Find consensus
+
+4. **Full consensus:** `beatport_genre` is non-null AND in `discogs_genres` → confidence = **high**.
+
+5. **Partial consensus (Discogs only):** `beatport_genre` is null, `discogs_genres` has exactly one entry → confidence = **medium**.
+
+6. **Partial consensus (Beatport only):** `discogs_genres` is empty, `beatport_genre` is non-null → confidence = **medium**.
+
+7. **Split Discogs + Beatport agrees with one:** `discogs_genres` has multiple entries, `beatport_genre` is in `discogs_genres` → use `beatport_genre`, confidence = **medium**.
+
+8. **Split Discogs, no Beatport:** `discogs_genres` has multiple entries, `beatport_genre` is null → pick most frequent mapping, confidence = **low**.
+
+9. **Discogs and Beatport disagree:** `beatport_genre` NOT in `discogs_genres`:
+
+   9a. **Same-family check:** If ALL candidates belong to the same family:
+   - **Strict:** → confidence = **insufficient**, present both options
+   - **Relaxed/Trusting:** → use the more specific genre, confidence = **medium**
+
+   9b. **Cross-family + audio features:** Compare candidates against audio expectations. Discriminators: `spectral_centroid_mean`, `rhythm_regularity`, `dynamic_complexity`, BPM plausibility. If audio favors one → confidence = **low**, note "audio-assisted tie-break."
+
+   9c. **Cross-family, no audio:** → confidence = **insufficient**, present both options.
+
+10. **No enrichment data:** Both empty → fall through to Step C.
+
+### Step C: Audio-only fallback
+
+Use BPM + Essentia features to suggest a likely genre.
+
+| BPM | Rhythm Reg | Danceability | Spectral Centroid | Likely genre |
+|-----|-----------|-------------|-------------------|--------------|
+| 160-180 | any | > 1.5 | any | Drum & Bass |
+| 135-150 | > 0.9 | > 2.0 | Mid-High | Trance |
+| 128-145 | > 0.9 | > 1.8 | Mid | Techno |
+| 128-140 | > 0.85 | > 1.2 | Very Low | Deep Techno / Dub Techno |
+| 125-140 | > 0.9 | > 1.0 | Low-Mid | Minimal |
+| 125-135 | > 0.85 | > 1.5 | Low | Deep House |
+| 125-135 | > 0.85 | > 1.5 | Mid-High | Tech House |
+| 118-130 | > 0.8 | > 1.5 | Mid | House |
+| 120-135 | 0.6-0.8 | > 1.0 | Mid | Garage / UK Garage |
+| 120-140 | < 0.7 | > 1.0 | any | Breakbeat |
+| 80-115 | any | > 1.0 | any | Hip Hop or Downtempo |
+| 60-110 | < 0.5 | < 0.8 | Low | Ambient |
+
+Centroid: Very Low < 600 Hz, Low 600-1200, Mid 1200-2500, Mid-High 2500-4000, High > 4000.
+
+- One row match → confidence = **low**, note "audio-only inference."
+- Multiple or no rows → confidence = **insufficient**.
+- When `spectral_centroid_mean` is null, match on remaining columns, downgrade confidence one level.
+- If no row matches, find nearest by BPM → **insufficient**, note "nearest audio match (BPM delta: ±N)".
+
+### Step D: Compare to current genre
+
+11. `current` matches `suggested_genre` → **confirm** (no change).
+12. `current` differs from `suggested_genre` → **conflict** (present both).
+13. `current` is empty → **suggest** (propose `suggested_genre`).
+14. `suggested_genre` is null → **manual** (flag for user).
+
+### Step E: Apply session overrides
+
+Check if user overrode any alias mapping in Step 1 that affects this track. If so, use user's preference.
+
+---
+
+## Key Mismatch Detection
+
+Run as side-check during Steps 2-4. Not a genre decision — useful data surfaced alongside results.
+
+- `key_agreement` = false + Essentia confirms stratum key → **High** priority
+- `key_agreement` = false, no Essentia → **Medium** priority
+- No stratum data → skip
+
+Present key mismatches in a separate section, not mixed into genre suggestions.

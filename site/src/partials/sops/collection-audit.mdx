@@ -1,0 +1,157 @@
+## Constraints
+
+- **Never rename imported files.** Before any rename, check `search_tracks(path="...")` — if the file is in Rekordbox, defer the rename. Rekordbox cannot update paths via XML import (creates duplicates).
+- **Never manually resolve with `resolution="fixed"`** — that value is reserved for the scan engine's auto-resolution.
+- Resolution options: `accepted_as_is`, `deferred`, `wont_fix`.
+- **Read-only by default.** No files modified until user approves a fix plan.
+- **Never delete audio files.** Renaming and tag editing only.
+- **WAV dual-tag rule.** `write_file_tags` handles this automatically.
+
+## Prerequisites
+
+- reklawdbox MCP server connected
+- No external tools required — all tag operations use `audit_state` and `write_file_tags`
+
+## Steps
+
+### 0. Scope and issue type selection
+
+Ask user:
+1. **Scope** — entire collection, specific artist dir, album, play subdirectory, or custom path
+2. **Issue types** — present full list. Specifically ask: "Skip GENRE_SET? It can produce thousands of flags."
+
+Record choices as `skip_issue_types` for the scan.
+
+For large scopes (full collection), inform user the first scan may take tens of seconds.
+
+### 1. Scan
+
+```
+audit_state(scan, scope="/path/", skip_issue_types=["GENRE_SET"])
+```
+
+Review summary: `files_in_scope`, `new_issues` by type, `total_open`.
+
+If `total_open` = 0 → skip to Final Report.
+
+### 2. Review and triage
+
+Query issues by type:
+
+```
+audit_state(query_issues, scope="/path/", status="open", issue_type="WAV_TAG3_MISSING")
+```
+
+Categorize by safety tier:
+
+| Category | Safety tier | Issue types | Action |
+|----------|------------|-------------|--------|
+| Auto-fixable | Safe | `WAV_TAG3_MISSING`, `WAV_TAG_DRIFT`, `ARTIST_IN_TITLE` | → Step 3 |
+| Rename-fixable | Rename-safe | `ORIGINAL_MIX_SUFFIX`, `TECH_SPECS_IN_DIR` | → Step 3 (if not imported) |
+| Needs review | Review | All others | → Step 4 |
+
+Present triage summary to user.
+
+Ask user: "Start with safe auto-fixes?"
+
+### 3. Fix safe issues
+
+Present planned writes for approval, then apply:
+
+```
+write_file_tags(writes=[{path: "...", tags: {artist: "...", title: "..."}}])
+```
+
+Re-scan to verify fixes (scan auto-marks resolved issues as `fixed`):
+
+```
+audit_state(scan, scope="/path/")
+```
+
+Never manually resolve with `resolution="fixed"` — that's reserved for the scan engine.
+
+### 4. Review-tier issues
+
+Present each issue type in batches.
+
+**Empty/missing tags** (`EMPTY_ARTIST`, `EMPTY_TITLE`, `MISSING_TRACK_NUM`, `MISSING_ALBUM`, `MISSING_YEAR`):
+- Check the `detail` field — it may be `null` for empty/missing-tag issues. Infer fix from filename and parent directory structure.
+- Use `lookup_discogs()` / `lookup_beatport()` for missing album/year
+- Ask user to confirm each fix
+
+**Filename issues** (`BAD_FILENAME`, `MISSING_YEAR_IN_DIR`, `FILENAME_TAG_DRIFT`):
+- For `FILENAME_TAG_DRIFT`: compare `detail.filename` vs `detail.tag` values (see character substitution handling below)
+- For imported files needing rename: defer with note about manual Rekordbox relocate
+
+**FILENAME_TAG_DRIFT — character substitution handling:**
+
+Download tools often substitute characters in filenames. On macOS, only `/` and null are forbidden, but tools still substitute for portability:
+
+| Tag character | Filename substitute | Source |
+|---------------|--------------------|----|
+| `?` | `_` | Bandcamp, SoulSeek |
+| `/` | `_` or `-` | Most tools |
+| `:` | `-` or ` ` or deleted | Various |
+| `"` | `'` or deleted | Various |
+| `<` / `>` | `(` / `)` or deleted | Various |
+
+Workflow:
+1. Read the `detail` JSON — contains `filename` and `tag` values for each drifted field
+2. If differences are only character substitutions from the table above, the **tag value is authoritative** — resolve as `accepted_as_is`
+3. If real drift (different names, truncation, reordering), look up via `lookup_discogs` / `lookup_beatport`
+4. If ambiguous after lookup, flag for user review — do not guess
+
+**Genre tags** (`GENRE_SET`, if included):
+- Per file: keep / clear / migrate to comments
+- When migrating: read existing comment first via `read_file_tags`, prepend genre, never overwrite
+- `write_file_tags(writes=[{path: "...", tags: {comment: "Genre: Deep House | <existing>", genre: null}}])`
+
+**No-tag files** (`NO_TAGS`):
+- Infer metadata from parent directory name, companion files, filename
+- Present inferred values to user for confirmation before writing
+
+For items user wants to skip:
+
+```
+audit_state(resolve_issues, issue_ids=[...], resolution="accepted_as_is", note="...")
+audit_state(resolve_issues, issue_ids=[...], resolution="deferred", note="...")
+audit_state(resolve_issues, issue_ids=[...], resolution="wont_fix", note="...")
+```
+
+### 5. Verification scan
+
+```
+audit_state(scan, scope="/path/")
+```
+
+If `total_open` > 0, return to Step 2 or confirm remaining items are intentionally deferred.
+
+### 6. Final report
+
+```
+audit_state(get_summary, scope="/path/")
+```
+
+Present: scope, files scanned, pass rate, fixes by type, deferred items, next steps (Rekordbox import, genre classification SOP).
+
+---
+
+## Issue Type Reference
+
+| Issue type | Safety tier | Detection | Fix method |
+|------------|------------|-----------|------------|
+| `EMPTY_ARTIST` | Review | `artist` field empty/null | Parse from filename |
+| `EMPTY_TITLE` | Review | `title` field empty/null | Parse from filename |
+| `MISSING_TRACK_NUM` | Review | `track` field empty/null | Parse from filename |
+| `MISSING_ALBUM` | Review | `album` field empty/null | Directory name or Discogs |
+| `MISSING_YEAR` | Review | `year`/`date` both empty/null | Discogs lookup |
+| `ARTIST_IN_TITLE` | Safe | `title` starts with `{artist} - ` | Strip prefix |
+| `WAV_TAG3_MISSING` | Safe | WAV file with `tag3_missing` non-empty | Copy from tag 2 |
+| `WAV_TAG_DRIFT` | Safe | WAV `id3v2` and `riff_info` values differ | Sync to tag 2 |
+| `GENRE_SET` | Review | `genre` field non-empty | User decides keep/clear/migrate |
+| `NO_TAGS` | Review | All 14 tag fields empty/null | Infer from filename/dir |
+| `BAD_FILENAME` | Review | Filename doesn't match canonical | User review |
+| `ORIGINAL_MIX_SUFFIX` | Rename-safe | Filename contains `(Original Mix)` | Strip suffix (if not imported) |
+| `TECH_SPECS_IN_DIR` | Rename-safe | Directory contains `[FLAC]`, `[WAV]`, etc. | Strip from dir name |
+| `MISSING_YEAR_IN_DIR` | Review | Album directory missing `(YYYY)` suffix | Discogs lookup |
+| `FILENAME_TAG_DRIFT` | Review | Filename artist/title disagrees with tags | Agent classifies substitution vs real drift |

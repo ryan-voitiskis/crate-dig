@@ -8,7 +8,7 @@ use super::mcp_internal_error;
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 pub struct HelpParams {
     #[schemars(
-        description = "Optional topic filter: 'genre', 'set', 'audit'. Omit for the full menu."
+        description = "Optional topic filter: 'genre', 'set', 'audit', 'import'. Omit for the full menu."
     )]
     pub topic: Option<String>,
 }
@@ -22,6 +22,20 @@ struct Workflow {
 }
 
 const WORKFLOWS: &[Workflow] = &[
+    Workflow {
+        name: "Batch Import",
+        keywords: &["import", "batch", "download", "purchase"],
+        summary: "Prepare newly acquired music for Rekordbox import: tag, rename, embed cover art.",
+        url: "https://reklawdbox.com/agent/batch-import/",
+        key_tools: &[
+            "read_file_tags",
+            "write_file_tags",
+            "lookup_discogs",
+            "lookup_beatport",
+            "embed_cover_art",
+            "extract_cover_art",
+        ],
+    },
     Workflow {
         name: "Genre Classification",
         keywords: &["genre", "classify", "classification"],
@@ -78,7 +92,7 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
                 "tip": "Use WebFetch on the URL above for the full step-by-step SOP.",
             }),
             None => serde_json::json!({
-                "error": format!("No workflow matching '{topic}'. Try: genre, set, audit."),
+                "error": format!("No workflow matching '{topic}'. Try: import, genre, set, audit."),
                 "workflows": WORKFLOWS.iter().map(|w| w.name).collect::<Vec<_>>(),
             }),
         }
