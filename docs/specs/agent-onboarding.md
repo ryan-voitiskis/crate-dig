@@ -47,7 +47,7 @@ Quick start: call read_library to see the collection.
 Guided workflows: call help for workflow guides with links to reklawdbox.com.
 ```
 
-This tells the agent *what's possible* and *where to go next* without loading
+This tells the agent _what's possible_ and _where to go next_ without loading
 any SOP content.
 
 ### Layer 2: `help` Tool (~500 tokens per call)
@@ -80,7 +80,11 @@ Example response (no topic):
       "name": "Set Building",
       "summary": "Build transition-scored DJ set sequences.",
       "url": "https://reklawdbox.com/workflows/set-building/",
-      "key_tools": ["query_transition_candidates", "score_transition", "build_set"]
+      "key_tools": [
+        "query_transition_candidates",
+        "score_transition",
+        "build_set"
+      ]
     },
     {
       "name": "Collection Audit",
@@ -122,6 +126,7 @@ agent consumption:
 - Token-conscious: aim for <2000 tokens per SOP
 
 These could live at URLs like:
+
 - `reklawdbox.com/agent/genre-classification/`
 - `reklawdbox.com/agent/set-building/`
 - `reklawdbox.com/agent/collection-audit/`
@@ -149,13 +154,13 @@ Total context cost for a guided workflow: ~2700 tokens upfront, versus
 
 ## Relationship to Existing Content
 
-| Content | Location | Audience | Purpose |
-| --- | --- | --- | --- |
-| SOP partials | `site/src/partials/sops/` | Both | Single-source procedures, imported by agent and workflow pages |
-| Site workflows | `site/src/content/docs/workflows/` | Humans | Readable guides with human context around the SOP partial |
-| Agent SOPs | `site/src/content/docs/agent/` | Agents | Lean pages importing the SOP partial with init blocks |
-| `help` tool | MCP server | Agents | Discovery and routing |
-| `ServerInfo` | MCP protocol | Agents | Bootstrap orientation |
+| Content        | Location                           | Audience | Purpose                                                        |
+| -------------- | ---------------------------------- | -------- | -------------------------------------------------------------- |
+| SOP partials   | `site/src/partials/sops/`          | Both     | Single-source procedures, imported by agent and workflow pages |
+| Site workflows | `site/src/content/docs/workflows/` | Humans   | Readable guides with human context around the SOP partial      |
+| Agent SOPs     | `site/src/content/docs/agent/`     | Agents   | Lean pages importing the SOP partial with init blocks          |
+| `help` tool    | MCP server                         | Agents   | Discovery and routing                                          |
+| `ServerInfo`   | MCP protocol                       | Agents   | Bootstrap orientation                                          |
 
 The SOP partials in `site/src/partials/sops/` are the single source of truth.
 Both agent and workflow pages import the same partial — workflow pages add

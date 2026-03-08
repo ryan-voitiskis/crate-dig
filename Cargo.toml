@@ -2,10 +2,10 @@
 name = "reklawdbox"
 version = "0.1.2"
 edition = "2024"
-license = "MIT"
-description = "MCP server for Rekordbox library management"
-repository = "https://github.com/ryan-voitiskis/reklawdbox"
 homepage = "https://reklawdbox.com"
+license = "MIT"
+repository = "https://github.com/ryan-voitiskis/reklawdbox"
+description = "MCP server for Rekordbox library management"
 
 [dependencies]
 chrono = "0.4"

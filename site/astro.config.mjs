@@ -1,7 +1,7 @@
 // @ts-check
 import starlight from '@astrojs/starlight'
-import starlightLlmsTxt from 'starlight-llms-txt'
 import { defineConfig, passthroughImageService } from 'astro/config'
+import starlightLlmsTxt from 'starlight-llms-txt'
 
 export default defineConfig({
   site: 'https://reklawdbox.com',

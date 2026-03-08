@@ -17,10 +17,10 @@ The auto-detection path works for standard macOS Rekordbox installations. Only s
 
 ## Discogs enrichment
 
-| Variable                          | Description                       | Default                                                         |
-| --------------------------------- | --------------------------------- | --------------------------------------------------------------- |
-| `REKLAWDBOX_DISCOGS_BROKER_URL`   | URL of the Discogs broker service | Built-in production broker URL                                  |
-| `REKLAWDBOX_DISCOGS_BROKER_TOKEN` | Auth token for the broker         | Built-in token                                                  |
+| Variable                          | Description                       | Default                        |
+| --------------------------------- | --------------------------------- | ------------------------------ |
+| `REKLAWDBOX_DISCOGS_BROKER_URL`   | URL of the Discogs broker service | Built-in production broker URL |
+| `REKLAWDBOX_DISCOGS_BROKER_TOKEN` | Auth token for the broker         | Built-in token                 |
 
 The broker is a separate Cloudflare Workers service that handles Discogs OAuth and rate limiting on your behalf. Both variables have compiled-in defaults pointing to the production broker — you only need to set them to override for local development.
 
@@ -57,10 +57,10 @@ The cache database stores Discogs/Beatport enrichment results, audio analysis ou
 
 ## Advanced
 
-| Variable                              | Description                                        | Default    |
-| ------------------------------------- | -------------------------------------------------- | ---------- |
-| `REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS` | Minimum interval between Beatport requests (ms)    | `1000`     |
-| `REKLAWDBOX_CORPUS_PATH`              | Path to the Rekordbox knowledge corpus manifest    | `docs/rekordbox/manifest.yaml` |
+| Variable                              | Description                                     | Default                        |
+| ------------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS` | Minimum interval between Beatport requests (ms) | `1000`                         |
+| `REKLAWDBOX_CORPUS_PATH`              | Path to the Rekordbox knowledge corpus manifest | `docs/rekordbox/manifest.yaml` |
 
 These are internal tuning knobs. The Beatport interval controls rate limiting — lower values risk HTTP 429 errors. The corpus path points to the knowledge manifest used for contextual tool responses.
 
