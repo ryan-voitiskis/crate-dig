@@ -54,10 +54,13 @@ fn is_cache_fresh(
     cached: Option<&store::CachedAudioAnalysis>,
     file_size: i64,
     file_mtime: i64,
+    schema_version: &str,
 ) -> bool {
     matches!(
         cached,
-        Some(entry) if entry.file_size == file_size && entry.file_mtime == file_mtime
+        Some(entry) if entry.file_size == file_size
+            && entry.file_mtime == file_mtime
+            && entry.analysis_version == schema_version
     )
 }
 
@@ -79,10 +82,16 @@ fn has_fresh_cache_entry(
     store_conn: &rusqlite::Connection,
     cache_probe: Option<&(String, i64, i64)>,
     analyzer: &str,
+    schema_version: &str,
 ) -> Result<bool, rusqlite::Error> {
     if let Some((cache_key, file_size, file_mtime)) = cache_probe {
         let cached = store::get_audio_analysis(store_conn, cache_key, analyzer)?;
-        Ok(is_cache_fresh(cached.as_ref(), *file_size, *file_mtime))
+        Ok(is_cache_fresh(
+            cached.as_ref(),
+            *file_size,
+            *file_mtime,
+            schema_version,
+        ))
     } else {
         Ok(false)
     }
@@ -95,7 +104,12 @@ fn cache_status_for_track(
     essentia_available: bool,
 ) -> Result<(bool, bool), rusqlite::Error> {
     let has_stratum = if skip_cached {
-        has_fresh_cache_entry(store_conn, cache_probe, audio::ANALYZER_STRATUM)?
+        has_fresh_cache_entry(
+            store_conn,
+            cache_probe,
+            audio::ANALYZER_STRATUM,
+            audio::STRATUM_SCHEMA_VERSION,
+        )?
     } else {
         false
     };
@@ -103,7 +117,12 @@ fn cache_status_for_track(
     let has_essentia = if !essentia_available {
         true
     } else if skip_cached {
-        has_fresh_cache_entry(store_conn, cache_probe, audio::ANALYZER_ESSENTIA)?
+        has_fresh_cache_entry(
+            store_conn,
+            cache_probe,
+            audio::ANALYZER_ESSENTIA,
+            audio::ESSENTIA_SCHEMA_VERSION,
+        )?
     } else {
         false
     };
@@ -182,7 +201,13 @@ fn display_field_name(field: &str) -> String {
 mod tests {
     use super::analyze::{handle_analysis_result, handle_decode_result, mark_track_outcome};
     use super::{cache_status_for_track, file_mtime_unix, is_cache_fresh};
-    use crate::{audio::AudioError, audio::StratumResult, store, store::CachedAudioAnalysis};
+    use crate::{
+        audio,
+        audio::AudioError,
+        audio::StratumResult,
+        store,
+        store::CachedAudioAnalysis,
+    };
     use std::time::Duration;
 
     fn cached(file_size: i64, file_mtime: i64) -> CachedAudioAnalysis {
@@ -191,7 +216,7 @@ mod tests {
             analyzer: "stratum-dsp".to_string(),
             file_size,
             file_mtime,
-            analysis_version: "1.0.0".to_string(),
+            analysis_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
             features_json: "{}".to_string(),
             created_at: "2026-01-01T00:00:00Z".to_string(),
         }
@@ -234,16 +259,18 @@ mod tests {
     }
 
     #[test]
-    fn cache_is_fresh_only_when_size_and_mtime_match() {
+    fn cache_is_fresh_only_when_size_mtime_and_version_match() {
         let entry = cached(123, 456);
-        assert!(is_cache_fresh(Some(&entry), 123, 456));
-        assert!(!is_cache_fresh(Some(&entry), 999, 456));
-        assert!(!is_cache_fresh(Some(&entry), 123, 999));
+        let v = audio::STRATUM_SCHEMA_VERSION;
+        assert!(is_cache_fresh(Some(&entry), 123, 456, v));
+        assert!(!is_cache_fresh(Some(&entry), 999, 456, v));
+        assert!(!is_cache_fresh(Some(&entry), 123, 999, v));
+        assert!(!is_cache_fresh(Some(&entry), 123, 456, "outdated"));
     }
 
     #[test]
     fn missing_cache_is_not_fresh() {
-        assert!(!is_cache_fresh(None, 123, 456));
+        assert!(!is_cache_fresh(None, 123, 456, audio::STRATUM_SCHEMA_VERSION));
     }
 
     #[test]
@@ -266,12 +293,18 @@ mod tests {
             "stratum-dsp",
             file_size,
             file_mtime,
-            "1.0.0",
+            audio::STRATUM_SCHEMA_VERSION,
             "{}",
         )
         .expect("set stratum");
         store::set_audio_analysis(
-            &conn, &cache_key, "essentia", file_size, file_mtime, "1.0.0", "{}",
+            &conn,
+            &cache_key,
+            "essentia",
+            file_size,
+            file_mtime,
+            audio::ESSENTIA_SCHEMA_VERSION,
+            "{}",
         )
         .expect("set essentia");
 
@@ -292,12 +325,18 @@ mod tests {
             "stratum-dsp",
             file_size + 1,
             file_mtime,
-            "1.0.0",
+            audio::STRATUM_SCHEMA_VERSION,
             "{}",
         )
         .expect("set stale stratum");
         store::set_audio_analysis(
-            &conn, &cache_key, "essentia", file_size, file_mtime, "1.0.0", "{}",
+            &conn,
+            &cache_key,
+            "essentia",
+            file_size,
+            file_mtime,
+            audio::ESSENTIA_SCHEMA_VERSION,
+            "{}",
         )
         .expect("set fresh essentia");
 

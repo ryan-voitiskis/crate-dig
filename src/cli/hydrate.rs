@@ -993,7 +993,7 @@ async fn cli_analyze_for_hydrate(
                                 analyzer: audio::ANALYZER_STRATUM.to_string(),
                                 file_size,
                                 file_mtime,
-                                analyzer_version: result.analyzer_version,
+                                analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                                 features_json,
                             }))
                             .await;
@@ -1013,11 +1013,6 @@ async fn cli_analyze_for_hydrate(
         if let Some(python) = essentia_python {
             match audio::run_essentia(python, &file_path).await {
                 Ok(features) => {
-                    let version = if features.analyzer_version.is_empty() {
-                        "unknown".to_string()
-                    } else {
-                        features.analyzer_version.clone()
-                    };
                     let features_json = serde_json::to_string(&features).unwrap_or_default();
                     let _ = cache_tx
                         .send(HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
@@ -1025,7 +1020,7 @@ async fn cli_analyze_for_hydrate(
                             analyzer: audio::ANALYZER_ESSENTIA.to_string(),
                             file_size,
                             file_mtime,
-                            analyzer_version: version,
+                            analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                             features_json,
                         }))
                         .await;

@@ -880,7 +880,7 @@ async fn analyze_track_audio_reports_essentia_unavailable_when_probe_is_none() {
         "stratum-dsp",
         file_size,
         file_mtime,
-        "stratum-dsp-1.0.0",
+        crate::audio::STRATUM_SCHEMA_VERSION,
         r#"{"bpm":128.0,"key":"Am","analyzer_version":"stratum-dsp-1.0.0"}"#,
     )
     .expect("stratum cache should be seeded");

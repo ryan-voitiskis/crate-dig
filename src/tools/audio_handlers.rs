@@ -43,6 +43,7 @@ pub(super) async fn handle_analyze_track_audio(
             audio::ANALYZER_STRATUM,
             file_size,
             file_mtime,
+            audio::STRATUM_SCHEMA_VERSION,
         )
         .map_err(mcp_internal_error)?
     } else {
@@ -66,7 +67,7 @@ pub(super) async fn handle_analyze_track_audio(
             audio::ANALYZER_STRATUM,
             file_size,
             file_mtime,
-            &analysis.analyzer_version,
+            audio::STRATUM_SCHEMA_VERSION,
             &features_json,
         )
         .map_err(|e| mcp_internal_error(format!("Cache write error: {e}")))?;
@@ -92,6 +93,7 @@ pub(super) async fn handle_analyze_track_audio(
                 audio::ANALYZER_ESSENTIA,
                 file_size,
                 file_mtime,
+                audio::ESSENTIA_SCHEMA_VERSION,
             )
             .map_err(mcp_internal_error)?
         } else {
@@ -110,11 +112,6 @@ pub(super) async fn handle_analyze_track_audio(
                 .map_err(|e| e.to_string())
             {
                 Ok(features) => {
-                    let version = if features.analyzer_version.is_empty() {
-                        "unknown"
-                    } else {
-                        &features.analyzer_version
-                    };
                     let features_json = serde_json::to_string(&features)
                         .map_err(|e| mcp_internal_error(format!("{e}")))?;
                     let store = server.cache_store_conn()?;
@@ -124,7 +121,7 @@ pub(super) async fn handle_analyze_track_audio(
                         audio::ANALYZER_ESSENTIA,
                         file_size,
                         file_mtime,
-                        version,
+                        audio::ESSENTIA_SCHEMA_VERSION,
                         &features_json,
                     )
                     .map_err(|e| mcp_internal_error(format!("Cache write error: {e}")))?;
@@ -232,6 +229,7 @@ async fn analyze_single_track(
             audio::ANALYZER_STRATUM,
             file_size,
             file_mtime,
+            audio::STRATUM_SCHEMA_VERSION,
         )
         .ok()
         .flatten()
@@ -247,6 +245,7 @@ async fn analyze_single_track(
             audio::ANALYZER_ESSENTIA,
             file_size,
             file_mtime,
+            audio::ESSENTIA_SCHEMA_VERSION,
         )
         .ok()
         .flatten()
@@ -274,7 +273,7 @@ async fn analyze_single_track(
                 analyzer: audio::ANALYZER_STRATUM,
                 file_size,
                 file_mtime,
-                analyzer_version: analysis.analyzer_version,
+                analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                 features_json,
             })
             .await;
@@ -300,11 +299,6 @@ async fn analyze_single_track(
             .map_err(|e| e.to_string())
         {
             Ok(features) => {
-                let version = if features.analyzer_version.is_empty() {
-                    "unknown".to_string()
-                } else {
-                    features.analyzer_version.clone()
-                };
                 let features_json = match serde_json::to_string(&features) {
                     Ok(j) => j,
                     Err(e) => return (None, None, Some(format!("Serialize error: {e}"))),
@@ -319,7 +313,7 @@ async fn analyze_single_track(
                         analyzer: audio::ANALYZER_ESSENTIA,
                         file_size,
                         file_mtime,
-                        analyzer_version: version,
+                        analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                         features_json,
                     })
                     .await;

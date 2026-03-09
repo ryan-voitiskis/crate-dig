@@ -3,18 +3,23 @@ use rusqlite::Connection;
 use crate::{audio, store};
 
 /// Check analysis cache. Returns `Some(json_string)` on valid hit (matching
-/// file_size and file_mtime), `None` on miss.
+/// file_size, file_mtime, and schema_version), `None` on miss.
 pub(super) fn check_analysis_cache(
     store: &Connection,
     file_path: &str,
     analyzer: &str,
     file_size: i64,
     file_mtime: i64,
+    schema_version: &str,
 ) -> Result<Option<String>, String> {
     let cached = store::get_audio_analysis(store, file_path, analyzer)
         .map_err(|e| format!("Cache read error: {e}"))?;
     match cached {
-        Some(entry) if entry.file_size == file_size && entry.file_mtime == file_mtime => {
+        Some(entry)
+            if entry.file_size == file_size
+                && entry.file_mtime == file_mtime
+                && entry.analysis_version == schema_version =>
+        {
             Ok(Some(entry.features_json))
         }
         _ => Ok(None),

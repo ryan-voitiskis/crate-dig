@@ -353,7 +353,7 @@ async fn cli_analyze_single_track(
                 analyzer: audio::ANALYZER_STRATUM.to_string(),
                 file_size,
                 file_mtime,
-                analyzer_version: stratum_result.analyzer_version.clone(),
+                analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                 features_json,
             })
             .await;
@@ -406,11 +406,6 @@ async fn cli_run_and_send_essentia(
         .map_err(|e| e.to_string())
     {
         Ok(features) => {
-            let version = if features.analyzer_version.is_empty() {
-                "unknown".to_string()
-            } else {
-                features.analyzer_version.clone()
-            };
             let features_json = serde_json::to_string(&features).unwrap_or_default();
             let _ = cache_tx
                 .send(CliCacheWriteMsg {
@@ -418,7 +413,7 @@ async fn cli_run_and_send_essentia(
                     analyzer: audio::ANALYZER_ESSENTIA.to_string(),
                     file_size,
                     file_mtime,
-                    analyzer_version: version,
+                    analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                     features_json,
                 })
                 .await;

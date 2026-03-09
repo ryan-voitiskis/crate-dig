@@ -30,7 +30,8 @@ pub enum AudioError {
     Analysis(String),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct StratumResult {
     pub bpm: f64,
     pub bpm_confidence: f64,
@@ -53,6 +54,11 @@ pub(crate) const AUDIO_EXTENSIONS: &[&str] = &["flac", "wav", "mp3", "m4a", "aac
 pub const ANALYZER_STRATUM: &str = "stratum-dsp";
 /// Canonical analyzer name for Essentia (used as DB cache key).
 pub const ANALYZER_ESSENTIA: &str = "essentia";
+
+/// Expected analysis schema versions. Bump these when adding/changing output
+/// fields so that stale cache entries are evicted automatically.
+pub const STRATUM_SCHEMA_VERSION: &str = "1";
+pub const ESSENTIA_SCHEMA_VERSION: &str = "1";
 
 const ESSENTIA_TIMEOUT_SECS: u64 = 300;
 
