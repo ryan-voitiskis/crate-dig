@@ -7,7 +7,10 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{audio, beatport, db, discogs, normalize, store, tools};
 
-use super::{CliCacheWriteMsg, cache_probe_for_path, cache_status_for_track, file_mtime_unix};
+use super::{
+    CliCacheWriteMsg, cache_probe_for_path, cache_status_for_track, file_mtime_unix,
+    send_cache_message, serialize_cache_payload,
+};
 
 // ---------------------------------------------------------------------------
 // CLI args
@@ -130,6 +133,7 @@ enum HydrateCacheMsg {
         provider: String,
         norm_artist: String,
         norm_title: String,
+        norm_album: Option<String>,
         match_quality: Option<String>,
         response_json: Option<String>,
     },
@@ -211,9 +215,17 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     for track in &tracks {
         let norm_artist = normalize::normalize_for_matching(&track.artist);
         let norm_title = normalize::normalize_for_matching(&track.title);
+        let norm_album = normalize::normalize_for_matching(&track.album);
+        let norm_album = (!norm_album.is_empty()).then_some(norm_album);
 
         if want_discogs {
-            match store::get_enrichment(&store_conn, "discogs", &norm_artist, &norm_title)? {
+            match store::get_enrichment(
+                &store_conn,
+                "discogs",
+                &norm_artist,
+                &norm_title,
+                norm_album.as_deref(),
+            )? {
                 Some(entry) => {
                     if entry.match_quality.as_deref() == Some("error") {
                         discogs_errors += 1;
@@ -231,7 +243,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
         }
 
         if want_beatport {
-            match store::get_enrichment(&store_conn, "beatport", &norm_artist, &norm_title)? {
+            match store::get_enrichment(&store_conn, "beatport", &norm_artist, &norm_title, None)? {
                 Some(entry) => {
                     if entry.match_quality.as_deref() == Some("error") {
                         beatport_errors += 1;
@@ -277,7 +289,10 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
 
     // 4. Startup summary
     println!("Found {} tracks matching filters.", total_tracks);
-    println!("  {}", super::cpu_preset_summary(cpu_preset, analysis_concurrency));
+    println!(
+        "  {}",
+        super::cpu_preset_summary(cpu_preset, analysis_concurrency)
+    );
     if want_discogs {
         let retry_note = if discogs_errors > 0 && retry_errors {
             format!(", {} errors to retry", discogs_errors)
@@ -324,8 +339,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     // Estimate time
     let beatport_secs = beatport_pending.len() as u64; // ~1 req/s rate limit
     let discogs_secs = discogs_pending.len() as u64 / 4; // ~4 concurrent
-    let analysis_secs =
-        (analysis_pending.len() as u64 * 3) / analysis_concurrency.max(1) as u64;
+    let analysis_secs = (analysis_pending.len() as u64 * 3) / analysis_concurrency.max(1) as u64;
     let estimated_secs = beatport_secs.max(discogs_secs).max(analysis_secs);
     if estimated_secs > 60 {
         let hours = estimated_secs / 3600;
@@ -412,6 +426,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                     provider,
                     norm_artist,
                     norm_title,
+                    norm_album,
                     match_quality,
                     response_json,
                 } => {
@@ -420,6 +435,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                         &provider,
                         &norm_artist,
                         &norm_title,
+                        norm_album.as_deref(),
                         match_quality.as_deref(),
                         response_json.as_deref(),
                     ) {
@@ -537,6 +553,8 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
 
                     let norm_artist = normalize::normalize_for_matching(&track.artist);
                     let norm_title = normalize::normalize_for_matching(&track.title);
+                    let norm_album = normalize::normalize_for_matching(&track.album);
+                    let norm_album = (!norm_album.is_empty()).then_some(norm_album);
 
                     let result = discogs::lookup_via_broker(
                         &client,
@@ -549,34 +567,67 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                     .await
                     .map_err(|e| e.to_string());
 
-                    let (match_quality, response_json) = match result {
+                    match result {
                         Ok(Some(ref r)) => {
                             let quality = if r.fuzzy_match { "fuzzy" } else { "exact" };
-                            counters.enriched.fetch_add(1, Ordering::Relaxed);
-                            (
-                                Some(quality.to_string()),
-                                Some(serde_json::to_string(r).unwrap_or_default()),
-                            )
+                            match serialize_cache_payload(r, "discogs enrichment") {
+                                Ok(response_json) => {
+                                    if let Err(e) = send_cache_message(
+                                        &cache_tx,
+                                        HydrateCacheMsg::Enrichment {
+                                            provider: "discogs".to_string(),
+                                            norm_artist,
+                                            norm_title,
+                                            norm_album,
+                                            match_quality: Some(quality.to_string()),
+                                            response_json: Some(response_json),
+                                        },
+                                        "discogs enrichment",
+                                    )
+                                    .await
+                                    {
+                                        tracing::error!("{e}");
+                                        counters.errors.fetch_add(1, Ordering::Relaxed);
+                                    } else {
+                                        counters.enriched.fetch_add(1, Ordering::Relaxed);
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!("{e}");
+                                    counters.errors.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
                         }
                         Ok(None) => {
-                            counters.enriched.fetch_add(1, Ordering::Relaxed);
-                            (Some("none".to_string()), None)
+                            if let Err(e) = send_cache_message(
+                                &cache_tx,
+                                HydrateCacheMsg::Enrichment {
+                                    provider: "discogs".to_string(),
+                                    norm_artist,
+                                    norm_title,
+                                    norm_album,
+                                    match_quality: Some("none".to_string()),
+                                    response_json: None,
+                                },
+                                "discogs enrichment",
+                            )
+                            .await
+                            {
+                                tracing::error!("{e}");
+                                counters.errors.fetch_add(1, Ordering::Relaxed);
+                            } else {
+                                counters.enriched.fetch_add(1, Ordering::Relaxed);
+                            }
                         }
-                        Err(_) => {
+                        Err(err) => {
+                            tracing::error!(
+                                "Discogs hydrate lookup failed for {} - {}: {err}",
+                                track.artist,
+                                track.title
+                            );
                             counters.errors.fetch_add(1, Ordering::Relaxed);
-                            (Some("error".to_string()), None)
                         }
-                    };
-
-                    let _ = cache_tx
-                        .send(HydrateCacheMsg::Enrichment {
-                            provider: "discogs".to_string(),
-                            norm_artist,
-                            norm_title,
-                            match_quality,
-                            response_json,
-                        })
-                        .await;
+                    }
 
                     pb.inc(1);
                     drop(permit);
@@ -629,33 +680,66 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                     let result =
                         cli_beatport_lookup_with_retry(&client, &track.artist, &track.title).await;
 
-                    let (match_quality, response_json) = match result {
+                    match result {
                         Ok(Some(ref r)) => {
-                            counters.enriched.fetch_add(1, Ordering::Relaxed);
-                            (
-                                Some("exact".to_string()),
-                                Some(serde_json::to_string(r).unwrap_or_default()),
-                            )
+                            match serialize_cache_payload(r, "beatport enrichment") {
+                                Ok(response_json) => {
+                                    if let Err(e) = send_cache_message(
+                                        &cache_tx,
+                                        HydrateCacheMsg::Enrichment {
+                                            provider: "beatport".to_string(),
+                                            norm_artist,
+                                            norm_title,
+                                            norm_album: None,
+                                            match_quality: Some("exact".to_string()),
+                                            response_json: Some(response_json),
+                                        },
+                                        "beatport enrichment",
+                                    )
+                                    .await
+                                    {
+                                        tracing::error!("{e}");
+                                        counters.errors.fetch_add(1, Ordering::Relaxed);
+                                    } else {
+                                        counters.enriched.fetch_add(1, Ordering::Relaxed);
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!("{e}");
+                                    counters.errors.fetch_add(1, Ordering::Relaxed);
+                                }
+                            }
                         }
                         Ok(None) => {
-                            counters.enriched.fetch_add(1, Ordering::Relaxed);
-                            (Some("none".to_string()), None)
+                            if let Err(e) = send_cache_message(
+                                &cache_tx,
+                                HydrateCacheMsg::Enrichment {
+                                    provider: "beatport".to_string(),
+                                    norm_artist,
+                                    norm_title,
+                                    norm_album: None,
+                                    match_quality: Some("none".to_string()),
+                                    response_json: None,
+                                },
+                                "beatport enrichment",
+                            )
+                            .await
+                            {
+                                tracing::error!("{e}");
+                                counters.errors.fetch_add(1, Ordering::Relaxed);
+                            } else {
+                                counters.enriched.fetch_add(1, Ordering::Relaxed);
+                            }
                         }
-                        Err(_) => {
+                        Err(err) => {
+                            tracing::error!(
+                                "Beatport hydrate lookup failed for {} - {}: {err}",
+                                track.artist,
+                                track.title
+                            );
                             counters.errors.fetch_add(1, Ordering::Relaxed);
-                            (Some("error".to_string()), None)
                         }
-                    };
-
-                    let _ = cache_tx
-                        .send(HydrateCacheMsg::Enrichment {
-                            provider: "beatport".to_string(),
-                            norm_artist,
-                            norm_title,
-                            match_quality,
-                            response_json,
-                        })
-                        .await;
+                    }
 
                     pb.inc(1);
                     drop(permit);
@@ -863,6 +947,12 @@ async fn cli_ensure_discogs_auth(
         discogs::BrokerConfigStatus::InvalidUrl(url) => {
             Err(format!("Invalid Discogs broker URL: {url}").into())
         }
+        discogs::BrokerConfigStatus::MissingBrokerToken(url) => Err(format!(
+            "Discogs broker token is required for hosted broker access. Set {} to use {}.",
+            discogs::BROKER_TOKEN_ENV,
+            url
+        )
+        .into()),
     }
 }
 
@@ -945,17 +1035,32 @@ async fn cli_analyze_for_hydrate(
 
                 match analysis {
                     Ok(Ok(result)) => {
-                        let features_json = serde_json::to_string(&result).unwrap_or_default();
-                        let _ = cache_tx
-                            .send(HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
+                        let features_json =
+                            match serialize_cache_payload(&result, "stratum-dsp analysis") {
+                                Ok(json) => json,
+                                Err(e) => {
+                                    tracing::error!("{e}");
+                                    ok = false;
+                                    return ok;
+                                }
+                            };
+                        if let Err(e) = send_cache_message(
+                            cache_tx,
+                            HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
                                 file_path: file_path.clone(),
                                 analyzer: audio::ANALYZER_STRATUM.to_string(),
                                 file_size,
                                 file_mtime,
                                 analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                                 features_json,
-                            }))
-                            .await;
+                            }),
+                            "stratum-dsp analysis",
+                        )
+                        .await
+                        {
+                            tracing::error!("{e}");
+                            ok = false;
+                        }
                     }
                     _ => {
                         ok = false;
@@ -972,17 +1077,32 @@ async fn cli_analyze_for_hydrate(
         if let Some(python) = essentia_python {
             match audio::run_essentia(python, &file_path).await {
                 Ok(features) => {
-                    let features_json = serde_json::to_string(&features).unwrap_or_default();
-                    let _ = cache_tx
-                        .send(HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
+                    let features_json =
+                        match serialize_cache_payload(&features, "essentia analysis") {
+                            Ok(json) => json,
+                            Err(e) => {
+                                tracing::error!("{e}");
+                                ok = false;
+                                return ok;
+                            }
+                        };
+                    if let Err(e) = send_cache_message(
+                        cache_tx,
+                        HydrateCacheMsg::AudioAnalysis(CliCacheWriteMsg {
                             file_path: file_path.clone(),
                             analyzer: audio::ANALYZER_ESSENTIA.to_string(),
                             file_size,
                             file_mtime,
                             analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                             features_json,
-                        }))
-                        .await;
+                        }),
+                        "essentia analysis",
+                    )
+                    .await
+                    {
+                        tracing::error!("{e}");
+                        ok = false;
+                    }
                 }
                 Err(_) => {
                     ok = false;

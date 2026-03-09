@@ -97,6 +97,35 @@ fn default_http_client_for_tests() -> reqwest::Client {
         .expect("default test HTTP client should build")
 }
 
+fn backup_script_env_lock() -> &'static Mutex<()> {
+    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    LOCK.get_or_init(|| Mutex::new(()))
+}
+
+struct EnvVarGuard {
+    key: &'static str,
+    previous: Option<std::ffi::OsString>,
+}
+
+impl EnvVarGuard {
+    fn set(key: &'static str, value: &std::path::Path) -> Self {
+        let previous = std::env::var_os(key);
+        unsafe {
+            std::env::set_var(key, value);
+        }
+        Self { key, previous }
+    }
+}
+
+impl Drop for EnvVarGuard {
+    fn drop(&mut self) {
+        match self.previous.take() {
+            Some(value) => unsafe { std::env::set_var(self.key, value) },
+            None => unsafe { std::env::remove_var(self.key) },
+        }
+    }
+}
+
 fn create_server_with_connections(
     db_conn: Connection,
     store_conn: Connection,
@@ -175,6 +204,20 @@ fn sample_real_tracks(server: &ReklawdboxServer, limit: u32) -> Vec<crate::types
     .into_iter()
     .filter(|t| !t.artist.trim().is_empty() && !t.title.trim().is_empty())
     .collect()
+}
+
+fn write_test_audio_file(path: &std::path::Path, size: usize) -> (i64, i64) {
+    let data = vec![b'a'; size];
+    std::fs::write(path, data).expect("test audio file should write");
+    let metadata = std::fs::metadata(path).expect("test audio file metadata should exist");
+    let file_size = metadata.len() as i64;
+    let file_mtime = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    (file_size, file_mtime)
 }
 
 fn create_single_track_test_db(track_id: &str, raw_file_path: &str) -> Connection {
@@ -327,8 +370,15 @@ fn find_track_by_artist_and_title(
     }
 }
 
-fn create_build_set_test_db() -> (Connection, Vec<String>) {
-    let conn = create_single_track_test_db("set-track-1", "/tmp/set-track-1.flac");
+fn create_build_set_test_db() -> (Connection, Vec<String>, TempDir) {
+    let audio_dir = tempfile::tempdir().expect("build_set temp audio dir should create");
+    let first_track_path = audio_dir.path().join("set-track-1.flac");
+    let conn = create_single_track_test_db(
+        "set-track-1",
+        first_track_path
+            .to_str()
+            .expect("first build_set track path should be UTF-8"),
+    );
     conn.execute_batch(
         "
             INSERT INTO djmdGenre (ID, Name) VALUES ('g2', 'House');
@@ -369,7 +419,11 @@ fn create_build_set_test_db() -> (Connection, Vec<String>) {
                 *key_id,
                 *bpm,
                 *length,
-                format!("/tmp/{track_id}.flac"),
+                audio_dir
+                    .path()
+                    .join(format!("{track_id}.flac"))
+                    .to_string_lossy()
+                    .to_string(),
             ],
         )
         .unwrap_or_else(|e| panic!("fixture track insert {index} should succeed: {e}"));
@@ -385,20 +439,23 @@ fn create_build_set_test_db() -> (Connection, Vec<String>) {
             "set-track-5".to_string(),
             "set-track-6".to_string(),
         ],
+        audio_dir,
     )
 }
 
-fn seed_build_set_cache(store_conn: &Connection) {
+fn seed_build_set_cache(store_conn: &Connection, audio_dir: &std::path::Path) {
     let rows: [(&str, f64, &str, f64); 6] = [
-        ("/tmp/set-track-1.flac", 122.0, "8A", 1.02),
-        ("/tmp/set-track-2.flac", 124.0, "9A", 1.20),
-        ("/tmp/set-track-3.flac", 126.0, "10A", 1.44),
-        ("/tmp/set-track-4.flac", 128.0, "11A", 1.80),
-        ("/tmp/set-track-5.flac", 130.0, "12A", 2.22),
-        ("/tmp/set-track-6.flac", 123.5, "7A", 1.26),
+        ("set-track-1.flac", 122.0, "8A", 1.02),
+        ("set-track-2.flac", 124.0, "9A", 1.20),
+        ("set-track-3.flac", 126.0, "10A", 1.44),
+        ("set-track-4.flac", 128.0, "11A", 1.80),
+        ("set-track-5.flac", 130.0, "12A", 2.22),
+        ("set-track-6.flac", 123.5, "7A", 1.26),
     ];
 
-    for (index, (path, bpm, key_camelot, danceability)) in rows.iter().enumerate() {
+    for (index, (file_name, bpm, key_camelot, danceability)) in rows.iter().enumerate() {
+        let path = audio_dir.join(file_name);
+        let (file_size, file_mtime) = write_test_audio_file(&path, 1000 + index);
         let stratum = serde_json::json!({
             "bpm": *bpm,
             "key": "Am",
@@ -413,20 +470,20 @@ fn seed_build_set_cache(store_conn: &Connection) {
         });
         store::set_audio_analysis(
             store_conn,
-            path,
+            path.to_str().expect("seed path should be UTF-8"),
             "stratum-dsp",
-            1000 + index as i64,
-            2000 + index as i64,
+            file_size,
+            file_mtime,
             "stratum-dsp-test",
             &stratum.to_string(),
         )
         .unwrap_or_else(|e| panic!("stratum cache seed {index} should succeed: {e}"));
         store::set_audio_analysis(
             store_conn,
-            path,
+            path.to_str().expect("seed path should be UTF-8"),
             "essentia",
-            1000 + index as i64,
-            2000 + index as i64,
+            file_size,
+            file_mtime,
             "essentia-test",
             &essentia.to_string(),
         )
@@ -436,7 +493,7 @@ fn seed_build_set_cache(store_conn: &Connection) {
 
 #[tokio::test]
 async fn build_set_generates_candidates_and_transition_scores() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir should create");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(
@@ -445,7 +502,7 @@ async fn build_set_generates_candidates_and_transition_scores() {
             .expect("temp store path should be UTF-8"),
     )
     .expect("temp internal store should open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -691,7 +748,7 @@ async fn build_set_produces_candidates_from_homogeneous_key_pool() {
 
 #[tokio::test]
 async fn build_set_recomputes_preset_curve_when_pool_is_smaller_than_target() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let selected: Vec<String> = track_ids.into_iter().take(3).collect();
 
     let store_dir = tempfile::tempdir().expect("temp store dir should create");
@@ -702,7 +759,7 @@ async fn build_set_recomputes_preset_curve_when_pool_is_smaller_than_target() {
             .expect("temp store path should be UTF-8"),
     )
     .expect("temp internal store should open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -1280,6 +1337,93 @@ async fn write_xml_deduplicates_playlist_and_staged_tracks() {
 }
 
 #[tokio::test]
+#[cfg(unix)]
+async fn write_xml_fails_closed_when_backup_script_fails_and_restores_changes() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _env_guard = backup_script_env_lock()
+        .lock()
+        .expect("backup env mutex should not be poisoned");
+
+    let db_conn = create_single_track_test_db("staged-track-1", "/tmp/staged-track-1.flac");
+    let store_dir = tempfile::tempdir().expect("temp store dir should create");
+    let store_path = store_dir.path().join("internal.sqlite3");
+    let store_conn = store::open(
+        store_path
+            .to_str()
+            .expect("temp store path should be UTF-8"),
+    )
+    .expect("temp internal store should open");
+    let server =
+        create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
+
+    server
+        .update_tracks(Parameters(UpdateTracksParams {
+            changes: vec![TrackChangeInput {
+                track_id: "staged-track-1".to_string(),
+                genre: Some("Techno".to_string()),
+                comments: None,
+                rating: None,
+                color: None,
+            }],
+        }))
+        .await
+        .expect("staging update should succeed");
+
+    let backup_dir = tempfile::tempdir().expect("temp backup dir should create");
+    let backup_script = backup_dir.path().join("fail-backup.sh");
+    std::fs::write(
+        &backup_script,
+        "#!/bin/sh\necho 'backup failed intentionally' >&2\nexit 23\n",
+    )
+    .expect("backup script should be written");
+    let mut perms = std::fs::metadata(&backup_script)
+        .expect("backup script metadata should be readable")
+        .permissions();
+    perms.set_mode(0o755);
+    std::fs::set_permissions(&backup_script, perms).expect("backup script should be executable");
+
+    let _backup_script_env = EnvVarGuard::set("REKLAWDBOX_BACKUP_SCRIPT", &backup_script);
+
+    let output_dir = tempfile::tempdir().expect("temp output dir should create");
+    let output_path = output_dir.path().join("should-not-exist.xml");
+    let err = server
+        .write_xml(Parameters(WriteXmlParams {
+            output_path: Some(output_path.to_string_lossy().to_string()),
+            playlists: None,
+        }))
+        .await
+        .expect_err("write_xml should fail when backup script fails");
+
+    let msg = format!("{err:?}");
+    assert!(msg.contains("pre-op backup failed with exit status 23"));
+    assert!(msg.contains("backup failed intentionally"));
+    assert!(
+        !output_path.exists(),
+        "XML export should not be written after backup failure"
+    );
+
+    drop(_backup_script_env);
+
+    let retry_path = output_dir.path().join("after-backup-failure.xml");
+    let retry = server
+        .write_xml(Parameters(WriteXmlParams {
+            output_path: Some(retry_path.to_string_lossy().to_string()),
+            playlists: None,
+        }))
+        .await
+        .expect("staged changes should be restored after backup failure");
+    let payload = extract_json(&retry);
+    assert_eq!(payload["changes_applied"], 1);
+
+    let xml = std::fs::read_to_string(&retry_path).expect("retry XML output should be readable");
+    assert!(
+        xml.contains("Genre=\"Techno\""),
+        "restored staged change should still be exported on retry"
+    );
+}
+
+#[tokio::test]
 async fn update_tracks_includes_provenance() {
     let server = ReklawdboxServer::new(None);
     let known_genre = genre::GENRES
@@ -1442,7 +1586,7 @@ async fn lookup_discogs_no_match_payload_is_consistent_across_live_and_cache_pat
         let store = server
             .cache_store_conn()
             .expect("internal store should be available");
-        store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
+        store::get_enrichment(&store, "discogs", &norm_artist, &norm_title, None)
             .expect("cache read should succeed")
             .expect("discogs no-match lookup should create cache entry")
     };
@@ -1516,7 +1660,7 @@ async fn lookup_beatport_no_match_payload_is_consistent_across_live_and_cache_pa
         let store = server
             .cache_store_conn()
             .expect("internal store should be available");
-        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title, None)
             .expect("cache read should succeed")
             .expect("beatport no-match lookup should create cache entry")
     };
@@ -1567,6 +1711,7 @@ async fn enrich_tracks_discogs_skip_cached_reports_cached_counts() {
     let norm_artist = crate::normalize::normalize_for_matching(artist);
     let norm_title_one = crate::normalize::normalize_for_matching(title_one);
     let norm_title_two = crate::normalize::normalize_for_matching(title_two);
+    let norm_album = crate::normalize::normalize_for_matching("Encoded Paths");
 
     let cached_one = serde_json::json!({
         "title": "Anibal - Senorita",
@@ -1588,6 +1733,7 @@ async fn enrich_tracks_discogs_skip_cached_reports_cached_counts() {
         "discogs",
         &norm_artist,
         &norm_title_one,
+        Some(&norm_album),
         Some("exact"),
         Some(&cached_one),
     )
@@ -1597,6 +1743,7 @@ async fn enrich_tracks_discogs_skip_cached_reports_cached_counts() {
         "discogs",
         &norm_artist,
         &norm_title_two,
+        Some(&norm_album),
         Some("exact"),
         Some(&cached_two),
     )
@@ -1669,12 +1816,24 @@ async fn enrich_tracks_discogs_skip_cached_reports_cached_counts() {
     let store = server
         .cache_store_conn()
         .expect("internal store should be available");
-    let entry_one = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title_one)
-        .expect("cache read should succeed")
-        .expect("first cache entry should still exist");
-    let entry_two = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title_two)
-        .expect("cache read should succeed")
-        .expect("second cache entry should still exist");
+    let entry_one = store::get_enrichment(
+        &store,
+        "discogs",
+        &norm_artist,
+        &norm_title_one,
+        Some(&norm_album),
+    )
+    .expect("cache read should succeed")
+    .expect("first cache entry should still exist");
+    let entry_two = store::get_enrichment(
+        &store,
+        "discogs",
+        &norm_artist,
+        &norm_title_two,
+        Some(&norm_album),
+    )
+    .expect("cache read should succeed")
+    .expect("second cache entry should still exist");
     assert_eq!(
         entry_one.response_json.as_deref(),
         Some(cached_one.as_str())
@@ -1698,11 +1857,13 @@ async fn enrich_tracks_summary_uses_provider_attempt_totals() {
 
     let norm_artist = crate::normalize::normalize_for_matching("Aníbal");
     let norm_title = crate::normalize::normalize_for_matching("Señorita");
+    let norm_album = crate::normalize::normalize_for_matching("Encoded Paths");
     store::set_enrichment(
         &store_conn,
         "discogs",
         &norm_artist,
         &norm_title,
+        Some(&norm_album),
         Some("exact"),
         Some(r#"{"styles":["Deep House"]}"#),
     )
@@ -1712,6 +1873,7 @@ async fn enrich_tracks_summary_uses_provider_attempt_totals() {
         "beatport",
         &norm_artist,
         &norm_title,
+        None,
         Some("exact"),
         Some(r#"{"genre":"Deep House"}"#),
     )
@@ -1756,6 +1918,14 @@ async fn resolve_track_data_uses_decoded_path_for_audio_cache_lookup() {
     let decoded_path = temp_audio_dir.path().join("Aníbal Track.flac");
     std::fs::write(&decoded_path, b"fake-audio-data")
         .expect("decoded path file should exist for resolve_file_path");
+    let metadata = std::fs::metadata(&decoded_path).expect("decoded path metadata should load");
+    let file_size = metadata.len() as i64;
+    let file_mtime = metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
 
     let decoded_path_str = decoded_path.to_string_lossy().to_string();
     let raw_path = decoded_path_str
@@ -1788,10 +1958,10 @@ async fn resolve_track_data_uses_decoded_path_for_audio_cache_lookup() {
         &store_conn,
         &decoded_path_str,
         "stratum-dsp",
-        12,
-        1_700_000_000,
-        "stratum-dsp-1.0.0",
-        r#"{"bpm":128.0,"key":"Am","analyzer_version":"stratum-dsp-1.0.0"}"#,
+        file_size,
+        file_mtime,
+        crate::audio::STRATUM_SCHEMA_VERSION,
+        r#"{"bpm":128.0,"key":"Am","analyzer_version":"4"}"#,
     )
     .expect("audio cache entry should write with decoded cache key");
 
@@ -1879,6 +2049,7 @@ async fn cache_coverage_reports_provider_coverage_and_gap_counts() {
         "discogs",
         &norm_artist,
         &norm_title_one,
+        Some("encoded paths"),
         Some("exact"),
         Some(r#"{"styles":["Deep House"]}"#),
     )
@@ -1888,6 +2059,7 @@ async fn cache_coverage_reports_provider_coverage_and_gap_counts() {
         "beatport",
         &norm_artist,
         &norm_title_one,
+        None,
         Some("exact"),
         Some(r#"{"genre":"Deep House"}"#),
     )
@@ -1897,6 +2069,7 @@ async fn cache_coverage_reports_provider_coverage_and_gap_counts() {
         "discogs",
         &norm_artist,
         &norm_title_two,
+        Some("encoded paths"),
         Some("exact"),
         Some(r#"{"styles":["Tech House"]}"#),
     )
@@ -2069,6 +2242,7 @@ async fn force_refresh_bypasses_enrichment_cache() {
             "beatport",
             &norm_artist,
             &norm_title,
+            None,
             Some("exact"),
             Some(&cached_json_str),
         )
@@ -2157,7 +2331,7 @@ async fn enrich_tracks_beatport_schema_matches_individual_lookup() {
         let store = server
             .cache_store_conn()
             .expect("internal store should be available");
-        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title, None)
             .expect("cache read should succeed")
             .expect("individual lookup should have created cache entry")
     };
@@ -2216,7 +2390,7 @@ async fn enrich_tracks_beatport_schema_matches_individual_lookup() {
         let store = server
             .cache_store_conn()
             .expect("internal store should be available");
-        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+        store::get_enrichment(&store, "beatport", &norm_artist, &norm_title, None)
             .expect("cache read should succeed")
             .expect("batch enrich should have created beatport cache entry")
     };
@@ -2562,6 +2736,7 @@ fn resolve_single_track_taxonomy_mappings() {
         provider: "discogs".to_string(),
         query_artist: "test artist".to_string(),
         query_title: "track t3".to_string(),
+        query_album: "test album".to_string(),
         match_quality: Some("exact".to_string()),
         response_json: Some(serde_json::to_string(&discogs_json).unwrap()),
         created_at: "2024-01-01".to_string(),
@@ -2579,6 +2754,7 @@ fn resolve_single_track_taxonomy_mappings() {
         provider: "beatport".to_string(),
         query_artist: "test artist".to_string(),
         query_title: "track t3".to_string(),
+        query_album: String::new(),
         match_quality: Some("exact".to_string()),
         response_json: Some(serde_json::to_string(&beatport_json).unwrap()),
         created_at: "2024-01-01".to_string(),
@@ -2803,6 +2979,7 @@ fn resolve_single_track_enrichment_no_match_returns_null() {
         provider: "discogs".to_string(),
         query_artist: "test artist".to_string(),
         query_title: "track t8".to_string(),
+        query_album: "test album".to_string(),
         match_quality: Some("none".to_string()),
         response_json: None,
         created_at: "2024-01-01".to_string(),
@@ -3599,7 +3776,31 @@ fn bpm_proxy_energy_keeps_peak_phase_reachable_without_essentia() {
 
 #[tokio::test]
 async fn score_transition_returns_expected_axis_scores() {
-    let db_conn = create_single_track_test_db("from-track", "/tmp/from-track.flac");
+    let temp_audio_dir = tempfile::tempdir().expect("temp audio dir should create");
+    let from_path = temp_audio_dir.path().join("from-track.flac");
+    let to_path = temp_audio_dir.path().join("to-track.flac");
+    std::fs::write(&from_path, b"from-track-audio").expect("source track fixture should write");
+    std::fs::write(&to_path, b"to-track-audio").expect("target track fixture should write");
+    let from_path_str = from_path.to_string_lossy().to_string();
+    let to_path_str = to_path.to_string_lossy().to_string();
+    let from_metadata = std::fs::metadata(&from_path).expect("source track metadata should load");
+    let to_metadata = std::fs::metadata(&to_path).expect("target track metadata should load");
+    let from_file_size = from_metadata.len() as i64;
+    let to_file_size = to_metadata.len() as i64;
+    let from_file_mtime = from_metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+    let to_file_mtime = to_metadata
+        .modified()
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0);
+
+    let db_conn = create_single_track_test_db("from-track", &from_path_str);
     db_conn
         .execute(
             "INSERT INTO djmdKey (ID, ScaleName) VALUES ('k2', 'Em')",
@@ -3617,7 +3818,7 @@ async fn score_transition_returns_expected_axis_scores() {
                     12350, 153, 'score transition test', 2025, 260, ?2, '0', 1411,
                     44100, 5, '2025-01-03', 0
                 )",
-            params!["to-track", "/tmp/to-track.flac"],
+            params!["to-track", &to_path_str],
         )
         .expect("second track should insert");
 
@@ -3632,42 +3833,42 @@ async fn score_transition_returns_expected_axis_scores() {
 
     store::set_audio_analysis(
         &store_conn,
-        "/tmp/from-track.flac",
+        &from_path_str,
         "stratum-dsp",
-        1,
-        1,
-        "stratum-dsp-1.0.0",
+        from_file_size,
+        from_file_mtime,
+        crate::audio::STRATUM_SCHEMA_VERSION,
         r#"{"bpm":122.0,"key":"Am","key_camelot":"8A"}"#,
     )
     .expect("source stratum cache should seed");
     store::set_audio_analysis(
         &store_conn,
-        "/tmp/to-track.flac",
+        &to_path_str,
         "stratum-dsp",
-        1,
-        1,
-        "stratum-dsp-1.0.0",
+        to_file_size,
+        to_file_mtime,
+        crate::audio::STRATUM_SCHEMA_VERSION,
         r#"{"bpm":123.5,"key":"Em","key_camelot":"9A"}"#,
     )
     .expect("destination stratum cache should seed");
 
     store::set_audio_analysis(
         &store_conn,
-        "/tmp/from-track.flac",
+        &from_path_str,
         "essentia",
-        1,
-        1,
-        "essentia-2.1",
+        from_file_size,
+        from_file_mtime,
+        crate::audio::ESSENTIA_SCHEMA_VERSION,
         r#"{"danceability":0.90,"loudness_integrated":-12.0,"onset_rate":3.0}"#,
     )
     .expect("source essentia cache should seed");
     store::set_audio_analysis(
         &store_conn,
-        "/tmp/to-track.flac",
+        &to_path_str,
         "essentia",
-        1,
-        1,
-        "essentia-2.1",
+        to_file_size,
+        to_file_mtime,
+        crate::audio::ESSENTIA_SCHEMA_VERSION,
         r#"{"danceability":1.80,"loudness_integrated":-8.0,"onset_rate":5.0}"#,
     )
     .expect("destination essentia cache should seed");
@@ -4426,11 +4627,11 @@ fn beam_search_with_bpm_trajectory() {
 
 #[tokio::test]
 async fn query_transition_candidates_ranks_pool() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -4498,11 +4699,11 @@ async fn query_transition_candidates_ranks_pool() {
 
 #[tokio::test]
 async fn query_transition_candidates_with_target_bpm() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -4544,11 +4745,11 @@ async fn query_transition_candidates_with_target_bpm() {
 
 #[tokio::test]
 async fn query_transition_candidates_master_tempo_off() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -4618,11 +4819,11 @@ async fn query_transition_candidates_rejects_missing_pool() {
 
 #[tokio::test]
 async fn build_set_beam_search_produces_multiple_candidates() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -4663,11 +4864,11 @@ async fn build_set_beam_search_produces_multiple_candidates() {
 
 #[tokio::test]
 async fn build_set_with_bpm_range_includes_trajectory_fields() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());
@@ -4722,11 +4923,11 @@ async fn build_set_with_bpm_range_includes_trajectory_fields() {
 
 #[tokio::test]
 async fn build_set_beam_width_1_backward_compatible() {
-    let (db_conn, track_ids) = create_build_set_test_db();
+    let (db_conn, track_ids, audio_dir) = create_build_set_test_db();
     let store_dir = tempfile::tempdir().expect("temp store dir");
     let store_path = store_dir.path().join("internal.sqlite3");
     let store_conn = store::open(store_path.to_str().unwrap()).expect("store open");
-    seed_build_set_cache(&store_conn);
+    seed_build_set_cache(&store_conn, audio_dir.path());
 
     let server =
         create_server_with_connections(db_conn, store_conn, default_http_client_for_tests());

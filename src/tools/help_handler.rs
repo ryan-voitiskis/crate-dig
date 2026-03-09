@@ -73,11 +73,7 @@ const WORKFLOWS: &[Workflow] = &[
         keywords: &["genre audit", "verify genre", "genre conflict"],
         summary: "Verify existing genre tags against enrichment and audio evidence.",
         url: "https://reklawdbox.com/agent/genre-audit/",
-        key_tools: &[
-            "cache_coverage",
-            "resolve_tracks_data",
-            "update_tracks",
-        ],
+        key_tools: &["cache_coverage", "resolve_tracks_data", "update_tracks"],
     },
 ];
 

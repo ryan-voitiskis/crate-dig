@@ -4,6 +4,7 @@ interface Env {
   DB: D1Database
   DISCOGS_CONSUMER_KEY: string
   DISCOGS_CONSUMER_SECRET: string
+  BROKER_STATE_ENCRYPTION_KEY?: string
   BROKER_PUBLIC_BASE_URL?: string
   BROKER_CLIENT_TOKEN?: string
   ALLOW_UNAUTHENTICATED_BROKER?: string
@@ -85,6 +86,19 @@ const DEFAULT_BROKER_SESSION_TTL_SECONDS = 30 * 24 * 60 * 60
 const DEFAULT_CACHE_TTL_SECONDS = 7 * 24 * 60 * 60
 const DEFAULT_DISCOGS_MIN_INTERVAL_MS = 1100
 const DISCOGS_BASE_URL = 'https://api.discogs.com'
+const PUBLIC_INTERNAL_ERROR_MESSAGE = 'internal server error'
+const DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE = 'discogs auth is not configured'
+const DISCOGS_AUTH_STATE_UNAVAILABLE_MESSAGE =
+  'discogs auth state is unavailable'
+const DISCOGS_UPSTREAM_FAILURE_MESSAGE = 'discogs upstream request failed'
+const DISCOGS_UPSTREAM_INVALID_RESPONSE_MESSAGE =
+  'discogs upstream response was invalid'
+const ENCRYPTED_SECRET_PREFIX = 'enc:v1:'
+
+type SecretReadResult = {
+  plaintext: string
+  wasEncrypted: boolean
+}
 
 class BrokerHttpError extends Error {
   readonly error: string
@@ -134,6 +148,8 @@ export default {
         404,
       )
     } catch (err) {
+      console.error('broker request failed', err)
+
       if (err instanceof BrokerHttpError) {
         return json(
           {
@@ -147,7 +163,7 @@ export default {
       return json(
         {
           error: 'internal_error',
-          message: asErrorMessage(err),
+          message: PUBLIC_INTERNAL_ERROR_MESSAGE,
         },
         500,
       )
@@ -247,6 +263,7 @@ async function handleDeviceSessionStatus(
     }
 
     const replay = await finalizedReplayForPending(
+      env,
       latest,
       deviceId,
       pendingToken,
@@ -315,6 +332,7 @@ async function handleDeviceSessionFinalize(
     }
 
     const replay = await finalizedReplayForPending(
+      env,
       latest,
       deviceId,
       pendingToken,
@@ -348,7 +366,12 @@ async function handleDeviceSessionFinalize(
   }
 
   if (row.status === 'finalized') {
-    const replay = await finalizedReplayForPending(row, deviceId, pendingToken)
+    const replay = await finalizedReplayForPending(
+      env,
+      row,
+      deviceId,
+      pendingToken,
+    )
     if (replay) {
       return json({
         session_token: replay.sessionToken,
@@ -376,7 +399,8 @@ async function handleDeviceSessionFinalize(
     )
   }
 
-  if (!row.oauth_access_token || !row.oauth_access_token_secret) {
+  const sessionCredentials = await getSessionAccessCredentials(env, row)
+  if (!sessionCredentials) {
     return json(
       {
         error: 'not_ready',
@@ -387,9 +411,10 @@ async function handleDeviceSessionFinalize(
   }
 
   const sessionToken = await deriveFinalizeSessionToken(
-    row,
     deviceId,
     pendingToken,
+    sessionCredentials.oauthToken,
+    sessionCredentials.oauthTokenSecret,
   )
   if (!sessionToken) {
     return json(
@@ -457,6 +482,7 @@ async function handleDeviceSessionFinalize(
 
     if (latest.status === 'finalized') {
       const replay = await finalizedReplayForPending(
+        env,
         latest,
         deviceId,
         pendingToken,
@@ -523,6 +549,7 @@ async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
     }
 
     const replay = await finalizedReplayForPending(
+      env,
       latest,
       deviceId,
       pendingToken,
@@ -556,6 +583,10 @@ async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
   }&pending_token=${encodeURIComponent(pendingToken)}`
 
   const requestToken = await requestDiscogsRequestToken(env, callbackUrl)
+  const encryptedRequestTokenSecret = await encryptStoredSecret(
+    env,
+    requestToken.oauthTokenSecret,
+  )
   await env.DB.prepare(
     `INSERT INTO oauth_request_tokens (
       oauth_token,
@@ -571,10 +602,10 @@ async function handleDiscogsOauthLink(env: Env, url: URL): Promise<Response> {
       pending_token = excluded.pending_token,
       created_at = excluded.created_at,
       expires_at = excluded.expires_at`,
-  )
+    )
     .bind(
       requestToken.oauthToken,
-      requestToken.oauthTokenSecret,
+      encryptedRequestTokenSecret,
       deviceId,
       pendingToken,
       now,
@@ -655,11 +686,16 @@ async function handleDiscogsOauthCallback(
     )
   }
 
+  const requestTokenSecret = await readStoredSecret(env, temp.oauth_token_secret)
   const access = await requestDiscogsAccessToken(
     env,
     oauthToken,
-    temp.oauth_token_secret,
+    requestTokenSecret.plaintext,
     oauthVerifier,
+  )
+  const encryptedAccessTokenSecret = await encryptStoredSecret(
+    env,
+    access.oauthTokenSecret,
   )
 
   await env.DB.prepare(
@@ -671,10 +707,10 @@ async function handleDiscogsOauthCallback(
          authorized_at = ?4,
          updated_at = ?4
      WHERE device_id = ?5 AND pending_token = ?6`,
-  )
+    )
     .bind(
       access.oauthToken,
-      access.oauthTokenSecret,
+      encryptedAccessTokenSecret,
       access.username ?? access.userId ?? null,
       now,
       deviceId,
@@ -727,10 +763,17 @@ async function handleDiscogsProxySearch(
     .bind(sessionTokenHash, now)
     .first<DeviceSessionRow>()
 
-  if (
-    !session || !session.oauth_access_token
-    || !session.oauth_access_token_secret
-  ) {
+  if (!session) {
+    return json(
+      {
+        error: 'unauthorized',
+        message: 'invalid or expired broker session',
+      },
+      401,
+    )
+  }
+  const sessionCredentials = await getSessionAccessCredentials(env, session)
+  if (!sessionCredentials) {
     return json(
       {
         error: 'unauthorized',
@@ -780,8 +823,8 @@ async function handleDiscogsProxySearch(
     artist,
     title,
     album,
-    oauthToken: session.oauth_access_token,
-    oauthTokenSecret: session.oauth_access_token_secret,
+    oauthToken: sessionCredentials.oauthToken,
+    oauthTokenSecret: sessionCredentials.oauthTokenSecret,
   })
 
   const cacheTtlSeconds = envInt(
@@ -842,14 +885,25 @@ async function lookupDiscogsViaApi(
       oauth_signature:
         `${env.DISCOGS_CONSUMER_SECRET}&${params.oauthTokenSecret}`,
     }
-
-    return fetch(`${DISCOGS_BASE_URL}/database/search?${query.toString()}`, {
-      method: 'GET',
-      headers: {
-        Authorization: oauthHeader(oauthParams),
-        'User-Agent': 'reklawdbox-broker/0.1',
-      },
-    })
+    try {
+      return await fetch(
+        `${DISCOGS_BASE_URL}/database/search?${query.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: oauthHeader(oauthParams),
+            'User-Agent': 'reklawdbox-broker/0.1',
+          },
+        },
+      )
+    } catch (err) {
+      console.error('discogs search request failed', err)
+      throw new BrokerHttpError(
+        'discogs_unavailable',
+        DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+        502,
+      )
+    }
   }
 
   let response = await doRequest()
@@ -862,10 +916,25 @@ async function lookupDiscogsViaApi(
   }
 
   if (!response.ok) {
-    throw new Error(`Discogs search failed: HTTP ${response.status}`)
+    console.error('discogs search returned non-success status', response.status)
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+      502,
+    )
   }
 
-  const data = (await response.json()) as DiscogsApiSearchResponse
+  let data: DiscogsApiSearchResponse
+  try {
+    data = (await response.json()) as DiscogsApiSearchResponse
+  } catch (err) {
+    console.error('discogs search returned invalid JSON', err)
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_INVALID_RESPONSE_MESSAGE,
+      502,
+    )
+  }
   const results = data.results ?? []
   if (results.length === 0) {
     return {
@@ -943,19 +1012,37 @@ async function requestDiscogsRequestToken(
       Authorization: oauthHeader(oauthParams),
       'User-Agent': 'reklawdbox-broker/0.1',
     },
+  }).catch((err) => {
+    console.error('discogs request_token call failed', err)
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+      502,
+    )
   })
 
   const body = await response.text()
   if (!response.ok) {
-    throw new Error(`Discogs request_token failed: HTTP ${response.status}`)
+    console.error(
+      'discogs request_token returned non-success status',
+      response.status,
+    )
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+      502,
+    )
   }
 
   const params = new URLSearchParams(body)
   const oauthToken = params.get('oauth_token') ?? ''
   const oauthTokenSecret = params.get('oauth_token_secret') ?? ''
   if (!oauthToken || !oauthTokenSecret) {
-    throw new Error(
-      'Discogs request_token response missing oauth_token fields',
+    console.error('discogs request_token response missing oauth fields')
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_INVALID_RESPONSE_MESSAGE,
+      502,
     )
   }
 
@@ -992,11 +1079,26 @@ async function requestDiscogsAccessToken(
       Authorization: oauthHeader(oauthParams),
       'User-Agent': 'reklawdbox-broker/0.1',
     },
+  }).catch((err) => {
+    console.error('discogs access_token call failed', err)
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+      502,
+    )
   })
 
   const body = await response.text()
   if (!response.ok) {
-    throw new Error(`Discogs access_token failed: HTTP ${response.status}`)
+    console.error(
+      'discogs access_token returned non-success status',
+      response.status,
+    )
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_FAILURE_MESSAGE,
+      502,
+    )
   }
 
   const params = new URLSearchParams(body)
@@ -1006,7 +1108,12 @@ async function requestDiscogsAccessToken(
   const userId = params.get('user_id') ?? undefined
 
   if (!accessToken || !accessTokenSecret) {
-    throw new Error('Discogs access_token response missing oauth_token fields')
+    console.error('discogs access_token response missing oauth fields')
+    throw new BrokerHttpError(
+      'discogs_unavailable',
+      DISCOGS_UPSTREAM_INVALID_RESPONSE_MESSAGE,
+      502,
+    )
   }
 
   return {
@@ -1018,22 +1125,25 @@ async function requestDiscogsAccessToken(
 }
 
 async function finalizedReplayForPending(
+  env: Env,
   row: DeviceSessionRow,
   deviceId: string,
   pendingToken: string,
 ): Promise<{ sessionToken: string; sessionExpiresAt: number } | null> {
-  if (
-    row.status !== 'finalized'
-    || !row.session_token_hash
-    || !row.session_expires_at
-  ) {
+  if (row.status !== 'finalized' || !row.session_token_hash || !row.session_expires_at) {
+    return null
+  }
+
+  const sessionCredentials = await getSessionAccessCredentials(env, row)
+  if (!sessionCredentials) {
     return null
   }
 
   const sessionToken = await deriveFinalizeSessionToken(
-    row,
     deviceId,
     pendingToken,
+    sessionCredentials.oauthToken,
+    sessionCredentials.oauthTokenSecret,
   )
   if (!sessionToken) {
     return null
@@ -1175,9 +1285,18 @@ async function pruneExpiredRows(env: Env): Promise<void> {
 }
 
 function assertDiscogsOAuthEnv(env: Env): void {
-  if (!env.DISCOGS_CONSUMER_KEY || !env.DISCOGS_CONSUMER_SECRET) {
-    throw new Error(
-      'DISCOGS_CONSUMER_KEY and DISCOGS_CONSUMER_SECRET must be set',
+  if (!env.DISCOGS_CONSUMER_KEY?.trim() || !env.DISCOGS_CONSUMER_SECRET?.trim()) {
+    throw new BrokerHttpError(
+      'service_unavailable',
+      DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE,
+      503,
+    )
+  }
+  if (!env.BROKER_STATE_ENCRYPTION_KEY?.trim()) {
+    throw new BrokerHttpError(
+      'service_unavailable',
+      DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE,
+      503,
     )
   }
 }
@@ -1284,27 +1403,164 @@ function normalize(input: string): string {
 }
 
 async function deriveFinalizeSessionToken(
-  row: Pick<
-    DeviceSessionRow,
-    'oauth_access_token' | 'oauth_access_token_secret'
-  >,
   deviceId: string,
   pendingToken: string,
+  oauthAccessToken: string,
+  oauthAccessTokenSecret: string,
 ): Promise<string | null> {
+  const message = `${deviceId}:${pendingToken}:${oauthAccessToken}`
+  const partA = await hmacSha256Hex(
+    oauthAccessTokenSecret,
+    `broker-session:v1:${message}`,
+  )
+  const partB = await hmacSha256Hex(
+    oauthAccessTokenSecret,
+    `broker-session:v1:extra:${message}`,
+  )
+  return `${partA}${partB.slice(0, 32)}`
+}
+
+async function getSessionAccessCredentials(
+  env: Env,
+  row: DeviceSessionRow,
+): Promise<{ oauthToken: string; oauthTokenSecret: string } | null> {
   if (!row.oauth_access_token || !row.oauth_access_token_secret) {
     return null
   }
 
-  const message = `${deviceId}:${pendingToken}:${row.oauth_access_token}`
-  const partA = await hmacSha256Hex(
+  const accessTokenSecret = await readStoredSecret(
+    env,
     row.oauth_access_token_secret,
-    `broker-session:v1:${message}`,
   )
-  const partB = await hmacSha256Hex(
-    row.oauth_access_token_secret,
-    `broker-session:v1:extra:${message}`,
+  if (!accessTokenSecret.wasEncrypted) {
+    const encryptedSecret = await encryptStoredSecret(env, accessTokenSecret.plaintext)
+    await env.DB.prepare(
+      `UPDATE device_sessions
+       SET oauth_access_token_secret = ?1
+       WHERE device_id = ?2`,
+    )
+      .bind(encryptedSecret, row.device_id)
+      .run()
+  }
+
+  return {
+    oauthToken: row.oauth_access_token,
+    oauthTokenSecret: accessTokenSecret.plaintext,
+  }
+}
+
+async function readStoredSecret(
+  env: Env,
+  stored: string,
+): Promise<SecretReadResult> {
+  if (!stored.startsWith(ENCRYPTED_SECRET_PREFIX)) {
+    return {
+      plaintext: stored,
+      wasEncrypted: false,
+    }
+  }
+
+  const secret = stateEncryptionKey(env)
+  const suffix = stored.slice(ENCRYPTED_SECRET_PREFIX.length)
+  const [ivHex, ciphertextHex, ...extra] = suffix.split(':')
+  if (!ivHex || !ciphertextHex || extra.length > 0) {
+    console.error('stored secret has invalid envelope format')
+    throw new BrokerHttpError(
+      'service_unavailable',
+      DISCOGS_AUTH_STATE_UNAVAILABLE_MESSAGE,
+      503,
+    )
+  }
+
+  try {
+    const cryptoKey = await importStateCipherKey(secret)
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: 'AES-GCM',
+        iv: hexToBytes(ivHex),
+      },
+      cryptoKey,
+      hexToBytes(ciphertextHex),
+    )
+    return {
+      plaintext: new TextDecoder().decode(decrypted),
+      wasEncrypted: true,
+    }
+  } catch (err) {
+    console.error('stored secret decryption failed', err)
+    throw new BrokerHttpError(
+      'service_unavailable',
+      DISCOGS_AUTH_STATE_UNAVAILABLE_MESSAGE,
+      503,
+    )
+  }
+}
+
+async function encryptStoredSecret(env: Env, plaintext: string): Promise<string> {
+  const secret = stateEncryptionKey(env)
+  const cryptoKey = await importStateCipherKey(secret)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ciphertext = await crypto.subtle.encrypt(
+    {
+      name: 'AES-GCM',
+      iv,
+    },
+    cryptoKey,
+    new TextEncoder().encode(plaintext),
   )
-  return `${partA}${partB.slice(0, 32)}`
+  return `${ENCRYPTED_SECRET_PREFIX}${bytesToHex(iv)}:${bytesToHex(
+    new Uint8Array(ciphertext),
+  )}`
+}
+
+function stateEncryptionKey(env: Env): string {
+  const key = env.BROKER_STATE_ENCRYPTION_KEY?.trim()
+  if (!key) {
+    throw new BrokerHttpError(
+      'service_unavailable',
+      DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE,
+      503,
+    )
+  }
+  return key
+}
+
+const importedStateCipherKeys = new Map<string, Promise<CryptoKey>>()
+
+function importStateCipherKey(secret: string): Promise<CryptoKey> {
+  let existing = importedStateCipherKeys.get(secret)
+  if (existing) {
+    return existing
+  }
+  existing = crypto.subtle
+    .digest(
+      'SHA-256',
+      new TextEncoder().encode(`broker-state:v1:${secret}`),
+    )
+    .then((digest) =>
+      crypto.subtle.importKey('raw', new Uint8Array(digest), 'AES-GCM', false, [
+        'encrypt',
+        'decrypt',
+      ])
+    )
+  importedStateCipherKeys.set(secret, existing)
+  return existing
+}
+
+function bytesToHex(input: ArrayBufferView): string {
+  const bytes = new Uint8Array(input.buffer, input.byteOffset, input.byteLength)
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function hexToBytes(input: string): Uint8Array<ArrayBuffer> {
+  if (input.length === 0 || input.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(input)) {
+    throw new Error('invalid hex input')
+  }
+  const out = new Uint8Array(new ArrayBuffer(input.length / 2))
+  for (let i = 0; i < input.length; i += 2) {
+    out[i / 2] = Number.parseInt(input.slice(i, i + 2), 16)
+  }
+  return out
 }
 
 function randomToken(bytes: number): string {
@@ -1390,13 +1646,6 @@ function safeJsonParse<T>(input: string): T | null {
   } catch {
     return null
   }
-}
-
-function asErrorMessage(err: unknown): string {
-  if (err instanceof Error) {
-    return err.message
-  }
-  return String(err)
 }
 
 function escapeHtml(input: string): string {

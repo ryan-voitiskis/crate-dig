@@ -84,15 +84,10 @@ fn write_collection_track(out: &mut String, track: &Track, track_id: usize) {
         "      <TRACK TrackID=\"{track_id}\" \
          Name=\"{name}\" \
          Artist=\"{artist}\" \
-         Composer=\"\" \
          Album=\"{album}\" \
-         Grouping=\"\" \
          Genre=\"{genre}\" \
          Kind=\"{kind}\" \
-         Size=\"0\" \
          TotalTime=\"{total_time}\" \
-         DiscNumber=\"0\" \
-         TrackNumber=\"0\" \
          Year=\"{year}\" \
          AverageBpm=\"{bpm:.2}\" \
          DateAdded=\"{date_added}\" \
@@ -104,8 +99,7 @@ fn write_collection_track(out: &mut String, track: &Track, track_id: usize) {
          Location=\"{location}\" \
          Remixer=\"{remixer}\" \
          Tonality=\"{key}\" \
-         Label=\"{label}\" \
-         Mix=\"\"",
+         Label=\"{label}\"",
         name = xml_escape(&track.title),
         artist = xml_escape(&track.artist),
         album = xml_escape(&track.album),
@@ -340,6 +334,26 @@ mod tests {
         assert!(xml.contains(
             "Location=\"file://localhost/Users/vz/Music/Burial/Untrue/01%20Archangel.flac\""
         ));
+    }
+
+    #[test]
+    fn test_generate_xml_omits_unknown_round_trip_fields() {
+        let tracks = vec![make_test_track()];
+        let xml = generate_xml(&tracks);
+
+        for forbidden in [
+            "Composer=",
+            "Grouping=",
+            "Size=",
+            "DiscNumber=",
+            "TrackNumber=",
+            "Mix=",
+        ] {
+            assert!(
+                !xml.contains(forbidden),
+                "XML should omit '{forbidden}' until those fields are loaded from Rekordbox"
+            );
+        }
     }
 
     #[test]

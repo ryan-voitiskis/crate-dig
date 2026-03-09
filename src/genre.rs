@@ -222,7 +222,12 @@ pub fn label_genre_map() -> &'static HashMap<String, &'static str> {
 }
 
 const LABEL_SUFFIXES: &[&str] = &[
-    " records", " recordings", " music", " audio", " sound", " label",
+    " records",
+    " recordings",
+    " music",
+    " audio",
+    " sound",
+    " label",
 ];
 
 /// Returns the canonical genre for a label name, if known.
@@ -253,7 +258,10 @@ pub struct BpmRange {
 
 impl BpmRange {
     const fn new(typical_min: f64, typical_max: f64) -> Self {
-        Self { typical_min, typical_max }
+        Self {
+            typical_min,
+            typical_max,
+        }
     }
 }
 
@@ -583,7 +591,6 @@ mod tests {
     }
 
     #[test]
-    #[test]
     fn suffix_stripped_labels_are_consistent() {
         let map = label_genre_map();
         for &(label, genre) in LABEL_GENRES {
@@ -601,6 +608,7 @@ mod tests {
         }
     }
 
+    #[test]
     fn label_genre_unknown_returns_none() {
         assert_eq!(label_genre("warp"), None);
         assert_eq!(label_genre("xl recordings"), None);

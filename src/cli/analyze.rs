@@ -2,7 +2,10 @@ use std::time::Instant;
 
 use crate::{audio, db, store, tools};
 
-use super::{CliCacheWriteMsg, cache_probe_for_path, cache_status_for_track};
+use super::{
+    CliCacheWriteMsg, cache_probe_for_path, cache_status_for_track, send_cache_message,
+    serialize_cache_payload,
+};
 
 #[derive(clap::Args)]
 pub(crate) struct AnalyzeArgs {
@@ -348,22 +351,25 @@ async fn cli_analyze_single_track(
                 .map_err(|e| format!("Analysis task failed: {e}"))?
                 .map_err(|e| format!("Analysis error: {e}"))?;
 
-        let features_json = serde_json::to_string(&stratum_result).unwrap_or_default();
-        let _ = cache_tx
-            .send(CliCacheWriteMsg {
+        let features_json = serialize_cache_payload(&stratum_result, "stratum-dsp analysis")?;
+        send_cache_message(
+            cache_tx,
+            CliCacheWriteMsg {
                 file_path: file_path.clone(),
                 analyzer: audio::ANALYZER_STRATUM.to_string(),
                 file_size,
                 file_mtime,
                 analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                 features_json,
-            })
-            .await;
+            },
+            "stratum-dsp analysis",
+        )
+        .await?;
 
         if needs_essentia && let Some(python) = essentia_python {
             let essentia_ok =
                 cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
-                    .await;
+                    .await?;
             return Ok(CliTrackResult {
                 kind: CliTrackOutcome::StratumAndEssentia {
                     bpm: stratum_result.bpm,
@@ -384,7 +390,7 @@ async fn cli_analyze_single_track(
     } else if needs_essentia {
         if let Some(python) = essentia_python {
             let ok = cli_run_and_send_essentia(python, &file_path, file_size, file_mtime, cache_tx)
-                .await;
+                .await?;
             return Ok(CliTrackResult {
                 kind: CliTrackOutcome::EssentiaOnly { ok },
                 elapsed: track_start.elapsed().as_secs_f64(),
@@ -402,28 +408,31 @@ async fn cli_run_and_send_essentia(
     file_size: i64,
     file_mtime: i64,
     cache_tx: &tokio::sync::mpsc::Sender<CliCacheWriteMsg>,
-) -> bool {
+) -> Result<bool, String> {
     match audio::run_essentia(python, file_path)
         .await
         .map_err(|e| e.to_string())
     {
         Ok(features) => {
-            let features_json = serde_json::to_string(&features).unwrap_or_default();
-            let _ = cache_tx
-                .send(CliCacheWriteMsg {
+            let features_json = serialize_cache_payload(&features, "essentia analysis")?;
+            send_cache_message(
+                cache_tx,
+                CliCacheWriteMsg {
                     file_path: file_path.to_string(),
                     analyzer: audio::ANALYZER_ESSENTIA.to_string(),
                     file_size,
                     file_mtime,
                     analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                     features_json,
-                })
-                .await;
-            true
+                },
+                "essentia analysis",
+            )
+            .await?;
+            Ok(true)
         }
         Err(e) => {
             tracing::error!("Essentia error for {file_path}: {e}");
-            false
+            Ok(false)
         }
     }
 }

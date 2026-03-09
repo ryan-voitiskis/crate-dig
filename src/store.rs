@@ -6,6 +6,7 @@ use crate::db::escape_like;
 
 /// (id, path, issue_type, detail)
 pub type AuditIssueRow = (i64, String, String, Option<String>);
+const STORE_SCHEMA_VERSION: i32 = 4;
 
 pub fn default_path() -> PathBuf {
     dirs::data_dir()
@@ -56,10 +57,11 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
             provider TEXT NOT NULL,
             query_artist TEXT NOT NULL,
             query_title TEXT NOT NULL,
+            query_album TEXT NOT NULL DEFAULT '',
             match_quality TEXT,
             response_json TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            PRIMARY KEY (provider, query_artist, query_title)
+            PRIMARY KEY (provider, query_artist, query_title, query_album)
         );
         CREATE TABLE IF NOT EXISTS audio_analysis_cache (
             file_path TEXT NOT NULL,
@@ -98,9 +100,80 @@ fn migrate(conn: &Connection) -> Result<(), rusqlite::Error> {
         );
         CREATE INDEX IF NOT EXISTS idx_audit_issues_status ON audit_issues(status);
         CREATE INDEX IF NOT EXISTS idx_audit_issues_path ON audit_issues(path);
-        PRAGMA user_version = 3;",
+        ",
     )?;
+    migrate_enrichment_cache(conn)?;
+    conn.pragma_update(None, "user_version", STORE_SCHEMA_VERSION)?;
     Ok(())
+}
+
+fn migrate_enrichment_cache(conn: &Connection) -> Result<(), rusqlite::Error> {
+    if !table_has_column(conn, "enrichment_cache", "query_album")? {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute_batch(
+            "DROP TABLE IF EXISTS enrichment_cache_new;
+             CREATE TABLE enrichment_cache_new (
+                 provider TEXT NOT NULL,
+                 query_artist TEXT NOT NULL,
+                 query_title TEXT NOT NULL,
+                 query_album TEXT NOT NULL DEFAULT '',
+                 match_quality TEXT,
+                 response_json TEXT,
+                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                 PRIMARY KEY (provider, query_artist, query_title, query_album)
+             );",
+        )?;
+        tx.execute(
+            "INSERT INTO enrichment_cache_new (
+                 provider,
+                 query_artist,
+                 query_title,
+                 query_album,
+                 match_quality,
+                 response_json,
+                 created_at
+             )
+             SELECT
+                 provider,
+                 query_artist,
+                 query_title,
+                 '',
+                 match_quality,
+                 response_json,
+                 created_at
+             FROM enrichment_cache
+             WHERE COALESCE(match_quality, '') != 'error'",
+            [],
+        )?;
+        tx.execute_batch(
+            "DROP TABLE enrichment_cache;
+             ALTER TABLE enrichment_cache_new RENAME TO enrichment_cache;",
+        )?;
+        tx.commit()?;
+    } else {
+        conn.execute(
+            "DELETE FROM enrichment_cache WHERE COALESCE(match_quality, '') = 'error'",
+            [],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn table_has_column(
+    conn: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> Result<bool, rusqlite::Error> {
+    let pragma = format!("PRAGMA table_info({table_name})");
+    let mut stmt = conn.prepare(&pragma)?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        if row.get::<_, String>(1)? == column_name {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[allow(dead_code)]
@@ -108,6 +181,7 @@ pub struct EnrichmentCacheEntry {
     pub provider: String,
     pub query_artist: String,
     pub query_title: String,
+    pub query_album: String,
     pub match_quality: Option<String>,
     pub response_json: Option<String>,
     pub created_at: String,
@@ -118,20 +192,27 @@ pub fn get_enrichment(
     provider: &str,
     artist: &str,
     title: &str,
+    album: Option<&str>,
 ) -> Result<Option<EnrichmentCacheEntry>, rusqlite::Error> {
+    let album = album.unwrap_or("");
     let mut stmt = conn.prepare(
-        "SELECT provider, query_artist, query_title, match_quality, response_json, created_at
+        "SELECT provider, query_artist, query_title, query_album, match_quality, response_json, created_at
          FROM enrichment_cache
-         WHERE provider = ?1 AND query_artist = ?2 AND query_title = ?3",
+         WHERE provider = ?1
+           AND query_artist = ?2
+           AND query_title = ?3
+           AND query_album = ?4
+           AND COALESCE(match_quality, '') != 'error'",
     )?;
-    let mut rows = stmt.query_map(params![provider, artist, title], |row| {
+    let mut rows = stmt.query_map(params![provider, artist, title, album], |row| {
         Ok(EnrichmentCacheEntry {
             provider: row.get(0)?,
             query_artist: row.get(1)?,
             query_title: row.get(2)?,
-            match_quality: row.get(3)?,
-            response_json: row.get(4)?,
-            created_at: row.get(5)?,
+            query_album: row.get(3)?,
+            match_quality: row.get(4)?,
+            response_json: row.get(5)?,
+            created_at: row.get(6)?,
         })
     })?;
     match rows.next() {
@@ -159,8 +240,9 @@ fn batch_enrichment_query(
     for chunk in artists.chunks(MAX_IN_VARS) {
         let placeholders: Vec<String> = (2..=chunk.len() + 1).map(|i| format!("?{i}")).collect();
         let sql = format!(
-            "SELECT query_artist, query_title FROM enrichment_cache \
-             WHERE provider = ?1 AND query_artist IN ({}){extra_where}",
+            "SELECT DISTINCT query_artist, query_title FROM enrichment_cache \
+             WHERE provider = ?1 AND query_artist IN ({}) \
+               AND COALESCE(match_quality, '') != 'error'{extra_where}",
             placeholders.join(", ")
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -226,15 +308,28 @@ pub fn set_enrichment(
     provider: &str,
     artist: &str,
     title: &str,
+    album: Option<&str>,
     match_quality: Option<&str>,
     response_json: Option<&str>,
 ) -> Result<(), rusqlite::Error> {
+    if matches!(match_quality, Some("error")) {
+        return Ok(());
+    }
+
+    let album = album.unwrap_or("");
     conn.execute(
-        "INSERT INTO enrichment_cache (provider, query_artist, query_title, match_quality, response_json)
-         VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(provider, query_artist, query_title)
-         DO UPDATE SET match_quality = ?4, response_json = ?5, created_at = datetime('now')",
-        params![provider, artist, title, match_quality, response_json],
+        "INSERT INTO enrichment_cache (
+             provider,
+             query_artist,
+             query_title,
+             query_album,
+             match_quality,
+             response_json
+         )
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(provider, query_artist, query_title, query_album)
+         DO UPDATE SET match_quality = ?5, response_json = ?6, created_at = datetime('now')",
+        params![provider, artist, title, album, match_quality, response_json],
     )?;
     Ok(())
 }
@@ -813,7 +908,7 @@ mod tests {
         let version: i32 = conn
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, STORE_SCHEMA_VERSION);
 
         let tables: Vec<String> = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
@@ -842,7 +937,7 @@ mod tests {
         let version: i32 = conn2
             .pragma_query_value(None, "user_version", |r| r.get(0))
             .unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, STORE_SCHEMA_VERSION);
     }
 
     #[test]
@@ -927,18 +1022,20 @@ mod tests {
             "discogs",
             "burial",
             "archangel",
+            Some("untrue"),
             Some("exact"),
             Some(r#"{"title":"Burial - Untrue","genres":["Electronic"]}"#),
         )
         .unwrap();
 
         // Read
-        let entry = get_enrichment(&conn, "discogs", "burial", "archangel")
+        let entry = get_enrichment(&conn, "discogs", "burial", "archangel", Some("untrue"))
             .unwrap()
             .expect("should find cached entry");
         assert_eq!(entry.provider, "discogs");
         assert_eq!(entry.query_artist, "burial");
         assert_eq!(entry.query_title, "archangel");
+        assert_eq!(entry.query_album, "untrue");
         assert_eq!(entry.match_quality.as_deref(), Some("exact"));
         assert!(entry.response_json.unwrap().contains("Burial"));
         assert!(!entry.created_at.is_empty());
@@ -947,7 +1044,7 @@ mod tests {
     #[test]
     fn test_enrichment_cache_miss() {
         let (_dir, conn) = open_temp_store();
-        let entry = get_enrichment(&conn, "discogs", "nobody", "nothing").unwrap();
+        let entry = get_enrichment(&conn, "discogs", "nobody", "nothing", None).unwrap();
         assert!(entry.is_none());
     }
 
@@ -960,6 +1057,7 @@ mod tests {
             "discogs",
             "burial",
             "archangel",
+            None,
             Some("fuzzy"),
             Some("old"),
         )
@@ -969,12 +1067,13 @@ mod tests {
             "discogs",
             "burial",
             "archangel",
+            None,
             Some("exact"),
             Some("new"),
         )
         .unwrap();
 
-        let entry = get_enrichment(&conn, "discogs", "burial", "archangel")
+        let entry = get_enrichment(&conn, "discogs", "burial", "archangel", None)
             .unwrap()
             .unwrap();
         assert_eq!(entry.match_quality.as_deref(), Some("exact"));
@@ -986,9 +1085,18 @@ mod tests {
         let (_dir, conn) = open_temp_store();
 
         // Cache a "no match" result
-        set_enrichment(&conn, "discogs", "nobody", "nothing", Some("none"), None).unwrap();
+        set_enrichment(
+            &conn,
+            "discogs",
+            "nobody",
+            "nothing",
+            None,
+            Some("none"),
+            None,
+        )
+        .unwrap();
 
-        let entry = get_enrichment(&conn, "discogs", "nobody", "nothing")
+        let entry = get_enrichment(&conn, "discogs", "nobody", "nothing", None)
             .unwrap()
             .unwrap();
         assert_eq!(entry.match_quality.as_deref(), Some("none"));
@@ -1550,6 +1658,7 @@ mod tests {
             "discogs",
             "artist_a",
             "title_1",
+            None,
             Some("exact"),
             Some("{}"),
         )
@@ -1559,11 +1668,21 @@ mod tests {
             "discogs",
             "artist_a",
             "title_2",
+            None,
             Some("exact"),
             Some("{}"),
         )
         .unwrap();
-        set_enrichment(&conn, "beatport", "artist_b", "title_3", None, Some("{}")).unwrap();
+        set_enrichment(
+            &conn,
+            "beatport",
+            "artist_b",
+            "title_3",
+            None,
+            None,
+            Some("{}"),
+        )
+        .unwrap();
 
         // Discogs: artist_a has two titles
         let discogs =
@@ -1654,7 +1773,16 @@ mod tests {
         // Seed 1000 artists to exercise multi-chunk path (chunk size = 899).
         let artists: Vec<String> = (0..1000).map(|i| format!("artist_{i}")).collect();
         for a in &artists {
-            set_enrichment(&conn, "discogs", a, "title", Some("exact"), Some("{}")).unwrap();
+            set_enrichment(
+                &conn,
+                "discogs",
+                a,
+                "title",
+                None,
+                Some("exact"),
+                Some("{}"),
+            )
+            .unwrap();
         }
 
         let artist_refs: Vec<&str> = artists.iter().map(|s| s.as_str()).collect();

@@ -14,6 +14,64 @@ use crate::genre;
 use crate::types::TrackChange;
 use crate::xml;
 
+async fn run_pre_op_backup_if_configured() -> Result<(), String> {
+    let backup_script_env = std::env::var("REKLAWDBOX_BACKUP_SCRIPT")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    let mut backup_script_candidates: Vec<String> = backup_script_env.into_iter().collect();
+    if !cfg!(test) {
+        backup_script_candidates.extend(["scripts/backup.sh".to_string(), "backup.sh".to_string()]);
+    }
+    let Some(script_path) = backup_script_candidates
+        .iter()
+        .find(|path| std::path::Path::new(path).exists())
+    else {
+        return Ok(());
+    };
+
+    tracing::info!("Running pre-op backup...");
+    let script_path = script_path.to_string();
+    match tokio::task::spawn_blocking(move || {
+        std::process::Command::new("bash")
+            .arg(&script_path)
+            .arg("--pre-op")
+            .output()
+    })
+    .await
+    {
+        Ok(Ok(backup_output)) if backup_output.status.success() => {
+            tracing::info!("Backup completed.");
+            Ok(())
+        }
+        Ok(Ok(backup_output)) => {
+            let stderr_out = String::from_utf8_lossy(&backup_output.stderr)
+                .trim()
+                .to_string();
+            let stdout_out = String::from_utf8_lossy(&backup_output.stdout)
+                .trim()
+                .to_string();
+            let details = if !stderr_out.is_empty() {
+                stderr_out
+            } else if !stdout_out.is_empty() {
+                stdout_out
+            } else {
+                "backup script exited without output".to_string()
+            };
+            Err(format!(
+                "pre-op backup failed with exit status {}: {}",
+                backup_output
+                    .status
+                    .code()
+                    .map(|code| code.to_string())
+                    .unwrap_or_else(|| "signal".to_string()),
+                details
+            ))
+        }
+        Ok(Err(e)) => Err(format!("pre-op backup launch failed: {e}")),
+        Err(e) => Err(format!("pre-op backup task failed: {e}")),
+    }
+}
+
 pub(super) fn handle_update_tracks(
     changes: &ChangeManager,
     params: UpdateTracksParams,
@@ -223,37 +281,9 @@ pub(super) async fn handle_write_xml(
         return Ok(CallToolResult::success(vec![Content::text(json)]));
     }
 
-    let backup_script_env = std::env::var("REKLAWDBOX_BACKUP_SCRIPT")
-        .ok()
-        .filter(|v| !v.trim().is_empty());
-    let backup_script_candidates: Vec<String> = backup_script_env
-        .into_iter()
-        .chain(["scripts/backup.sh".to_string(), "backup.sh".to_string()])
-        .collect();
-    let backup_script = backup_script_candidates
-        .iter()
-        .find(|path| std::path::Path::new(path).exists());
-    if let Some(script_path) = backup_script {
-        tracing::info!("Running pre-op backup...");
-        let script_path = script_path.to_string();
-        match tokio::task::spawn_blocking(move || {
-            std::process::Command::new("bash")
-                .arg(&script_path)
-                .arg("--pre-op")
-                .output()
-        })
-        .await
-        {
-            Ok(Ok(backup_output)) if backup_output.status.success() => {
-                tracing::info!("Backup completed.")
-            }
-            Ok(Ok(backup_output)) => {
-                let stderr_out = String::from_utf8_lossy(&backup_output.stderr);
-                tracing::warn!("Backup warning: {stderr_out}");
-            }
-            Ok(Err(e)) => tracing::warn!("Backup skipped: {e}"),
-            Err(e) => tracing::warn!("Backup task failed: {e}"),
-        }
+    if let Err(err) = run_pre_op_backup_if_configured().await {
+        server.state.changes.restore(snapshot);
+        return Err(mcp_internal_error(err));
     }
 
     let mut ids = Vec::new();

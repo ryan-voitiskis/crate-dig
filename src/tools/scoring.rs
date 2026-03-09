@@ -4,7 +4,6 @@ use rusqlite::Connection;
 
 use super::*;
 use crate::genre;
-use crate::store;
 
 // Energy curve preset phase boundaries
 const WARMUP_PHASE_END: f64 = 0.15;
@@ -614,19 +613,22 @@ pub(super) fn build_track_profile(
     track: crate::types::Track,
     store_conn: &Connection,
 ) -> Result<TrackProfile, String> {
-    let cache_key = resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
-    let stratum_json =
-        store::get_audio_analysis(store_conn, &cache_key, crate::audio::ANALYZER_STRATUM)
-            .map_err(|e| format!("stratum cache read error: {e}"))?
-            .and_then(|cached| {
-                serde_json::from_str::<serde_json::Value>(&cached.features_json).ok()
-            });
-    let essentia_data =
-        store::get_audio_analysis(store_conn, &cache_key, crate::audio::ANALYZER_ESSENTIA)
-            .map_err(|e| format!("essentia cache read error: {e}"))?
-            .and_then(|cached| {
-                serde_json::from_str::<crate::audio::EssentiaOutput>(&cached.features_json).ok()
-            });
+    let stratum_json = get_fresh_analysis_entry(
+        store_conn,
+        &track.file_path,
+        crate::audio::ANALYZER_STRATUM,
+        crate::audio::STRATUM_SCHEMA_VERSION,
+    )?
+    .and_then(|cached| serde_json::from_str::<serde_json::Value>(&cached.features_json).ok());
+    let essentia_data = get_fresh_analysis_entry(
+        store_conn,
+        &track.file_path,
+        crate::audio::ANALYZER_ESSENTIA,
+        crate::audio::ESSENTIA_SCHEMA_VERSION,
+    )?
+    .and_then(|cached| {
+        serde_json::from_str::<crate::audio::EssentiaOutput>(&cached.features_json).ok()
+    });
 
     let bpm = stratum_json
         .as_ref()

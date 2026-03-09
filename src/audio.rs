@@ -562,10 +562,26 @@ pub fn analyze_with_stratum(
         analyzer_version: result.metadata.algorithm_version.clone(),
         mod_centroid: result.mod_centroid.map(|v| v as f64),
         harmonic_proportion: result.harmonic_proportion.map(|v| v as f64),
-        decay_mid_tau: result.decay.as_ref().and_then(|d| d.mid.as_ref()).map(|b| b.tau_median as f64),
-        decay_mid_r2: result.decay.as_ref().and_then(|d| d.mid.as_ref()).map(|b| b.fit_r2_median as f64),
-        decay_high_tau: result.decay.as_ref().and_then(|d| d.high.as_ref()).map(|b| b.tau_median as f64),
-        decay_high_r2: result.decay.as_ref().and_then(|d| d.high.as_ref()).map(|b| b.fit_r2_median as f64),
+        decay_mid_tau: result
+            .decay
+            .as_ref()
+            .and_then(|d| d.mid.as_ref())
+            .map(|b| b.tau_median as f64),
+        decay_mid_r2: result
+            .decay
+            .as_ref()
+            .and_then(|d| d.mid.as_ref())
+            .map(|b| b.fit_r2_median as f64),
+        decay_high_tau: result
+            .decay
+            .as_ref()
+            .and_then(|d| d.high.as_ref())
+            .map(|b| b.tau_median as f64),
+        decay_high_r2: result
+            .decay
+            .as_ref()
+            .and_then(|d| d.high.as_ref())
+            .map(|b| b.fit_r2_median as f64),
         flags: result
             .metadata
             .flags

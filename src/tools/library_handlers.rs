@@ -81,8 +81,12 @@ pub(super) fn handle_get_genre_taxonomy() -> Result<CallToolResult, McpError> {
     let bpm_ranges: serde_json::Map<String, serde_json::Value> = genres
         .iter()
         .filter_map(|&g| {
-            genre::genre_bpm_range(g)
-                .map(|r| (g.to_string(), serde_json::json!([r.typical_min, r.typical_max])))
+            genre::genre_bpm_range(g).map(|r| {
+                (
+                    g.to_string(),
+                    serde_json::json!([r.typical_min, r.typical_max]),
+                )
+            })
         })
         .collect();
     let mut result = serde_json::json!({

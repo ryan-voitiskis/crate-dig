@@ -6,6 +6,12 @@ use crate::beatport;
 use crate::db;
 use crate::store;
 
+fn normalize_discogs_album_for_cache(album: Option<&str>) -> Option<String> {
+    album
+        .map(crate::normalize::normalize_for_matching)
+        .filter(|album| !album.is_empty())
+}
+
 pub(super) async fn handle_lookup_discogs(
     server: &ReklawdboxServer,
     params: LookupDiscogsParams,
@@ -40,12 +46,18 @@ pub(super) async fn handle_lookup_discogs(
 
     let norm_artist = crate::normalize::normalize_for_matching(&artist);
     let norm_title = crate::normalize::normalize_for_matching(&title);
+    let norm_album = normalize_discogs_album_for_cache(album.as_deref());
 
     if !force_refresh {
         let store_conn = server.cache_store_conn()?;
-        if let Some(cached) =
-            store::get_enrichment(&store_conn, "discogs", &norm_artist, &norm_title)
-                .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?
+        if let Some(cached) = store::get_enrichment(
+            &store_conn,
+            "discogs",
+            &norm_artist,
+            &norm_title,
+            norm_album.as_deref(),
+        )
+        .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?
         {
             let result = match &cached.response_json {
                 Some(json_str) => serde_json::from_str::<serde_json::Value>(json_str)
@@ -82,6 +94,7 @@ pub(super) async fn handle_lookup_discogs(
             "discogs",
             &norm_artist,
             &norm_title,
+            norm_album.as_deref(),
             match_quality,
             response_json.as_deref(),
         )
@@ -132,7 +145,7 @@ pub(super) async fn handle_lookup_beatport(
     if !force_refresh {
         let store_conn = server.cache_store_conn()?;
         if let Some(cached) =
-            store::get_enrichment(&store_conn, "beatport", &norm_artist, &norm_title)
+            store::get_enrichment(&store_conn, "beatport", &norm_artist, &norm_title, None)
                 .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?
         {
             let result = match &cached.response_json {
@@ -166,6 +179,7 @@ pub(super) async fn handle_lookup_beatport(
             "beatport",
             &norm_artist,
             &norm_title,
+            None,
             match_quality,
             response_json.as_deref(),
         )
@@ -191,6 +205,7 @@ enum EnrichCacheWriteMsg {
         provider: String,
         norm_artist: String,
         norm_title: String,
+        norm_album: Option<String>,
         match_quality: Option<String>,
         response_json: Option<String>,
     },
@@ -222,6 +237,7 @@ async fn enrich_single_track(
     album: String,
     norm_artist: String,
     norm_title: String,
+    norm_album: Option<String>,
     providers: Vec<crate::types::Provider>,
     skip_cached: bool,
     force_refresh: bool,
@@ -261,13 +277,20 @@ async fn enrich_single_track(
 
     if let Some(ref conn) = cache_conn {
         if want_discogs
-            && let Ok(Some(_)) = store::get_enrichment(conn, "discogs", &norm_artist, &norm_title)
+            && let Ok(Some(_)) = store::get_enrichment(
+                conn,
+                "discogs",
+                &norm_artist,
+                &norm_title,
+                norm_album.as_deref(),
+            )
         {
             result.cached += 1;
             discogs_cached = true;
         }
         if want_beatport
-            && let Ok(Some(_)) = store::get_enrichment(conn, "beatport", &norm_artist, &norm_title)
+            && let Ok(Some(_)) =
+                store::get_enrichment(conn, "beatport", &norm_artist, &norm_title, None)
         {
             result.cached += 1;
             beatport_cached = true;
@@ -349,6 +372,7 @@ async fn enrich_single_track(
                             provider: "discogs".to_string(),
                             norm_artist,
                             norm_title,
+                            norm_album,
                             match_quality: Some(quality),
                             response_json: Some(json_str),
                         })
@@ -361,6 +385,7 @@ async fn enrich_single_track(
                             provider: "discogs".to_string(),
                             norm_artist,
                             norm_title,
+                            norm_album,
                             match_quality: Some("none".to_string()),
                             response_json: None,
                         })
@@ -385,16 +410,6 @@ async fn enrich_single_track(
                             Some(msg),
                         )
                     } else {
-                        // Cache non-auth errors
-                        let _ = cache_tx
-                            .send(EnrichCacheWriteMsg::Enrichment {
-                                provider: "discogs".to_string(),
-                                norm_artist,
-                                norm_title,
-                                match_quality: Some("error".to_string()),
-                                response_json: None,
-                            })
-                            .await;
                         (
                             0,
                             0,
@@ -468,6 +483,7 @@ async fn enrich_single_track(
                             provider: "beatport".to_string(),
                             norm_artist,
                             norm_title,
+                            norm_album: None,
                             match_quality: Some("exact".to_string()),
                             response_json: Some(json_str),
                         })
@@ -480,35 +496,24 @@ async fn enrich_single_track(
                             provider: "beatport".to_string(),
                             norm_artist,
                             norm_title,
+                            norm_album: None,
                             match_quality: Some("none".to_string()),
                             response_json: None,
                         })
                         .await;
                     (0, 1, Vec::new())
                 }
-                Err(e) => {
-                    // Cache Beatport errors
-                    let _ = cache_tx
-                        .send(EnrichCacheWriteMsg::Enrichment {
-                            provider: "beatport".to_string(),
-                            norm_artist,
-                            norm_title,
-                            match_quality: Some("error".to_string()),
-                            response_json: None,
-                        })
-                        .await;
-                    (
-                        0,
-                        0,
-                        vec![serde_json::json!({
-                            "track_id": &track_id,
-                            "artist": &artist,
-                            "title": &title,
-                            "provider": "beatport",
-                            "error": e.to_string(),
-                        })],
-                    )
-                }
+                Err(e) => (
+                    0,
+                    0,
+                    vec![serde_json::json!({
+                        "track_id": &track_id,
+                        "artist": &artist,
+                        "title": &title,
+                        "provider": "beatport",
+                        "error": e.to_string(),
+                    })],
+                ),
             }
         }
     };
@@ -590,6 +595,7 @@ pub(super) async fn handle_enrich_tracks(
                     provider,
                     norm_artist,
                     norm_title,
+                    norm_album,
                     match_quality,
                     response_json,
                 } => {
@@ -598,6 +604,7 @@ pub(super) async fn handle_enrich_tracks(
                         &provider,
                         &norm_artist,
                         &norm_title,
+                        norm_album.as_deref(),
                         match_quality.as_deref(),
                         response_json.as_deref(),
                     ) {
@@ -636,6 +643,7 @@ pub(super) async fn handle_enrich_tracks(
         let album = track.album.clone();
         let norm_artist = crate::normalize::normalize_for_matching(&track.artist);
         let norm_title = crate::normalize::normalize_for_matching(&track.title);
+        let norm_album = normalize_discogs_album_for_cache(Some(&track.album));
         let providers = providers.clone();
         let store_path = store_path.clone();
         let cache_tx = cache_tx.clone();
@@ -652,6 +660,7 @@ pub(super) async fn handle_enrich_tracks(
                 album,
                 norm_artist,
                 norm_title,
+                norm_album,
                 providers,
                 skip_cached,
                 force_refresh,

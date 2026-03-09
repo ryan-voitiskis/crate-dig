@@ -22,23 +22,38 @@ pub(super) fn handle_resolve_track_data(
 
     let norm_artist = crate::normalize::normalize_for_matching(&track.artist);
     let norm_title = crate::normalize::normalize_for_matching(&track.title);
+    let norm_album = crate::normalize::normalize_for_matching(&track.album);
+    let norm_album = (!norm_album.is_empty()).then_some(norm_album);
 
     let essentia_installed = server.essentia_python_path().is_some();
 
     let (discogs_cache, beatport_cache, stratum_cache, essentia_cache) = {
         let store = server.cache_store_conn()?;
-        let discogs_cache = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-            .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
-        let beatport_cache = store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
-            .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
-        let audio_cache_key =
-            resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
-        let stratum_cache =
-            store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_STRATUM)
+        let discogs_cache = store::get_enrichment(
+            &store,
+            "discogs",
+            &norm_artist,
+            &norm_title,
+            norm_album.as_deref(),
+        )
+        .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+        let beatport_cache =
+            store::get_enrichment(&store, "beatport", &norm_artist, &norm_title, None)
                 .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
-        let essentia_cache =
-            store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_ESSENTIA)
-                .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+        let stratum_cache = get_fresh_analysis_entry(
+            &store,
+            &track.file_path,
+            audio::ANALYZER_STRATUM,
+            audio::STRATUM_SCHEMA_VERSION,
+        )
+        .map_err(mcp_internal_error)?;
+        let essentia_cache = get_fresh_analysis_entry(
+            &store,
+            &track.file_path,
+            audio::ANALYZER_ESSENTIA,
+            audio::ESSENTIA_SCHEMA_VERSION,
+        )
+        .map_err(mcp_internal_error)?;
         (discogs_cache, beatport_cache, stratum_cache, essentia_cache)
     };
 
@@ -86,22 +101,36 @@ pub(super) fn handle_resolve_tracks_data(
     for track in &tracks {
         let norm_artist = crate::normalize::normalize_for_matching(&track.artist);
         let norm_title = crate::normalize::normalize_for_matching(&track.title);
+        let norm_album = crate::normalize::normalize_for_matching(&track.album);
+        let norm_album = (!norm_album.is_empty()).then_some(norm_album);
 
         let (discogs_cache, beatport_cache, stratum_cache, essentia_cache) = {
             let store = server.cache_store_conn()?;
-            let discogs_cache = store::get_enrichment(&store, "discogs", &norm_artist, &norm_title)
-                .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+            let discogs_cache = store::get_enrichment(
+                &store,
+                "discogs",
+                &norm_artist,
+                &norm_title,
+                norm_album.as_deref(),
+            )
+            .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
             let beatport_cache =
-                store::get_enrichment(&store, "beatport", &norm_artist, &norm_title)
+                store::get_enrichment(&store, "beatport", &norm_artist, &norm_title, None)
                     .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
-            let audio_cache_key =
-                resolve_file_path(&track.file_path).unwrap_or_else(|_| track.file_path.clone());
-            let stratum_cache =
-                store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_STRATUM)
-                    .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
-            let essentia_cache =
-                store::get_audio_analysis(&store, &audio_cache_key, audio::ANALYZER_ESSENTIA)
-                    .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+            let stratum_cache = get_fresh_analysis_entry(
+                &store,
+                &track.file_path,
+                audio::ANALYZER_STRATUM,
+                audio::STRATUM_SCHEMA_VERSION,
+            )
+            .map_err(mcp_internal_error)?;
+            let essentia_cache = get_fresh_analysis_entry(
+                &store,
+                &track.file_path,
+                audio::ANALYZER_ESSENTIA,
+                audio::ESSENTIA_SCHEMA_VERSION,
+            )
+            .map_err(mcp_internal_error)?;
             (discogs_cache, beatport_cache, stratum_cache, essentia_cache)
         };
 
@@ -243,8 +272,9 @@ pub(super) fn handle_cache_coverage(
             store::batch_enrichment_with_results(&store, "beatport", &unique_artists)
                 .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
         let discogs_label_set =
-            store::batch_enrichment_with_label(&store, "discogs", &unique_artists)
-                .map_err(|e| mcp_internal_error(format!("Label enrichment cache read error: {e}")))?;
+            store::batch_enrichment_with_label(&store, "discogs", &unique_artists).map_err(
+                |e| mcp_internal_error(format!("Label enrichment cache read error: {e}")),
+            )?;
         let audio_set = store::batch_audio_analysis_existence(&store, &unique_paths)
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
 

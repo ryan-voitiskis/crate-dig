@@ -6,9 +6,6 @@ pub const BROKER_URL_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_URL";
 pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
 
 const DEFAULT_BROKER_URL: &str = "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
-const DEFAULT_BROKER_TOKEN: &str =
-    "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
-
 
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
@@ -22,6 +19,8 @@ pub enum BrokerConfigStatus {
     Ok(BrokerConfig),
     /// Env var set but URL is malformed.
     InvalidUrl(String),
+    /// The hosted broker URL is configured without a client token.
+    MissingBrokerToken(String),
 }
 
 impl BrokerConfig {
@@ -32,8 +31,10 @@ impl BrokerConfig {
             Some(url) => url,
             None => return BrokerConfigStatus::InvalidUrl(raw_base_url),
         };
-        let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV)
-            .or_else(|| Some(DEFAULT_BROKER_TOKEN.to_string()));
+        let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
+        if broker_token.is_none() && base_url == DEFAULT_BROKER_URL {
+            return BrokerConfigStatus::MissingBrokerToken(base_url);
+        }
         BrokerConfigStatus::Ok(Self {
             base_url,
             broker_token,
@@ -437,5 +438,4 @@ mod tests {
         assert_eq!(normalize_base_url("http:///"), None);
         assert_eq!(normalize_base_url("ftp://broker.example.com"), None);
     }
-
 }

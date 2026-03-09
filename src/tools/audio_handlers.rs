@@ -267,7 +267,7 @@ async fn analyze_single_track(
         let features_json =
             serde_json::to_string(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
         let val = serde_json::to_value(&analysis).map_err(|e| format!("Serialize error: {e}"))?;
-        let _ = cache_tx
+        cache_tx
             .send(CacheWriteMsg::Audio {
                 file_path: file_path.clone(),
                 analyzer: audio::ANALYZER_STRATUM,
@@ -276,7 +276,8 @@ async fn analyze_single_track(
                 analyzer_version: audio::STRATUM_SCHEMA_VERSION.to_string(),
                 features_json,
             })
-            .await;
+            .await
+            .map_err(|e| format!("Cache write queue error: {e}"))?;
         Ok((val, false))
     };
 
@@ -307,7 +308,7 @@ async fn analyze_single_track(
                     Ok(v) => v,
                     Err(e) => return (None, None, Some(format!("Serialize error: {e}"))),
                 };
-                let _ = cache_tx_clone
+                if let Err(e) = cache_tx_clone
                     .send(CacheWriteMsg::Audio {
                         file_path: file_path_clone.clone(),
                         analyzer: audio::ANALYZER_ESSENTIA,
@@ -316,7 +317,10 @@ async fn analyze_single_track(
                         analyzer_version: audio::ESSENTIA_SCHEMA_VERSION.to_string(),
                         features_json,
                     })
-                    .await;
+                    .await
+                {
+                    return (None, None, Some(format!("Cache write queue error: {e}")));
+                }
                 (Some(val), Some(false), None)
             }
             Err(e) => (None, None, Some(e)),
@@ -372,12 +376,12 @@ pub(super) async fn handle_analyze_audio_batch(
 
     // Compute concurrency
     let concurrency = match params.concurrency {
-        Some(n) => n.clamp(1, 16),
+        Some(n) => n.clamp(1, 4),
         None => {
             let cpus = std::thread::available_parallelism()
                 .map(|n| n.get() as u32)
                 .unwrap_or(4);
-            (cpus.saturating_sub(2)).clamp(2, 16)
+            (cpus.saturating_sub(2)).clamp(1, 4)
         }
     } as usize;
 
@@ -393,12 +397,13 @@ pub(super) async fn handle_analyze_audio_batch(
     // Spawn cache writer task
     let (cache_tx, mut cache_rx) = tokio::sync::mpsc::channel::<CacheWriteMsg>(concurrency * 4);
     let writer_store_path = store_path.clone();
-    let writer_handle = tokio::task::spawn_blocking(move || {
+    let writer_handle = tokio::task::spawn_blocking(move || -> Result<(), String> {
         let conn = match store::open(&writer_store_path) {
             Ok(c) => c,
             Err(e) => {
-                tracing::error!("Cache writer: failed to open store: {e}");
-                return;
+                let msg = format!("Cache writer failed to open store: {e}");
+                tracing::error!("{msg}");
+                return Err(msg);
             }
         };
         while let Some(msg) = cache_rx.blocking_recv() {
@@ -423,10 +428,14 @@ pub(super) async fn handle_analyze_audio_batch(
                         tracing::error!(
                             "Cache writer: failed to write {analyzer} for {file_path}: {e}"
                         );
+                        return Err(format!(
+                            "Cache writer failed to write {analyzer} for {file_path}: {e}"
+                        ));
                     }
                 }
             }
         }
+        Ok(())
     });
 
     // Spawn analysis tasks bounded by semaphore
@@ -507,7 +516,15 @@ pub(super) async fn handle_analyze_audio_batch(
 
     // Shut down writer
     drop(cache_tx);
-    let _ = writer_handle.await;
+    match writer_handle.await {
+        Ok(Ok(())) => {}
+        Ok(Err(err)) => progress
+            .failures
+            .push(serde_json::json!({ "analyzer": "cache_writer", "error": err })),
+        Err(err) => progress.failures.push(
+            serde_json::json!({ "analyzer": "cache_writer", "error": format!("Cache writer task failed: {err}") }),
+        ),
+    }
 
     let results: Vec<serde_json::Value> = rows
         .into_iter()

@@ -192,6 +192,23 @@ pub(crate) struct CliCacheWriteMsg {
     pub features_json: String,
 }
 
+pub(crate) fn serialize_cache_payload<T: serde::Serialize>(
+    value: &T,
+    context: &str,
+) -> Result<String, String> {
+    serde_json::to_string(value).map_err(|e| format!("{context} cache serialization failed: {e}"))
+}
+
+pub(crate) async fn send_cache_message<T>(
+    tx: &tokio::sync::mpsc::Sender<T>,
+    message: T,
+    context: &str,
+) -> Result<(), String> {
+    tx.send(message)
+        .await
+        .map_err(|e| format!("{context} cache queue send failed: {e}"))
+}
+
 // ---------------------------------------------------------------------------
 // Audio file extension matching for directory scanning
 // ---------------------------------------------------------------------------
@@ -252,14 +269,14 @@ fn display_field_name(field: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::analyze::{handle_analysis_result, handle_decode_result, mark_track_outcome};
-    use super::{cache_status_for_track, file_mtime_unix, is_cache_fresh};
-    use crate::{
-        audio,
-        audio::AudioError,
-        audio::StratumResult,
-        store,
-        store::CachedAudioAnalysis,
+    use super::{
+        CliCacheWriteMsg, cache_status_for_track, file_mtime_unix, is_cache_fresh,
+        send_cache_message, serialize_cache_payload,
     };
+    use crate::{
+        audio, audio::AudioError, audio::StratumResult, store, store::CachedAudioAnalysis,
+    };
+    use serde::ser::Error as _;
     use std::time::Duration;
 
     fn cached(file_size: i64, file_mtime: i64) -> CachedAudioAnalysis {
@@ -297,6 +314,17 @@ mod tests {
         }
     }
 
+    struct FailingSerialize;
+
+    impl serde::Serialize for FailingSerialize {
+        fn serialize<S>(&self, _serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(S::Error::custom("boom"))
+        }
+    }
+
     fn open_temp_store_with_probe() -> (tempfile::TempDir, rusqlite::Connection, (String, i64, i64))
     {
         let dir = tempfile::tempdir().expect("temp dir");
@@ -328,7 +356,12 @@ mod tests {
 
     #[test]
     fn missing_cache_is_not_fresh() {
-        assert!(!is_cache_fresh(None, 123, 456, audio::STRATUM_SCHEMA_VERSION));
+        assert!(!is_cache_fresh(
+            None,
+            123,
+            456,
+            audio::STRATUM_SCHEMA_VERSION
+        ));
     }
 
     #[test]
@@ -402,6 +435,35 @@ mod tests {
             cache_status_for_track(&conn, Some(&probe), true, true).expect("cache status");
         assert!(!has_stratum, "stale stratum cache must be re-analyzed");
         assert!(has_essentia, "fresh essentia cache should still be skipped");
+    }
+
+    #[test]
+    fn serialize_cache_payload_reports_errors() {
+        let err = serialize_cache_payload(&FailingSerialize, "test payload")
+            .expect_err("failing serializer should bubble up");
+        assert!(err.contains("test payload cache serialization failed"));
+        assert!(err.contains("boom"));
+    }
+
+    #[tokio::test]
+    async fn send_cache_message_reports_closed_channel() {
+        let (tx, rx) = tokio::sync::mpsc::channel::<CliCacheWriteMsg>(1);
+        drop(rx);
+        let err = send_cache_message(
+            &tx,
+            CliCacheWriteMsg {
+                file_path: "/tmp/test.flac".to_string(),
+                analyzer: "stratum-dsp".to_string(),
+                file_size: 1,
+                file_mtime: 2,
+                analyzer_version: "v1".to_string(),
+                features_json: "{}".to_string(),
+            },
+            "analysis",
+        )
+        .await
+        .expect_err("closed cache channel should surface an error");
+        assert!(err.contains("analysis cache queue send failed"));
     }
 
     #[tokio::test]

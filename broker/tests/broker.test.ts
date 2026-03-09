@@ -8,6 +8,9 @@ import worker from '../src/index'
 
 const BASE_URL = 'https://broker.test'
 const TOKEN_HEADER = 'x-reklawdbox-broker-token'
+const ENCRYPTED_SECRET_PREFIX = 'enc:v1:'
+const DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE = 'discogs auth is not configured'
+const DISCOGS_UPSTREAM_FAILURE_MESSAGE = 'discogs upstream request failed'
 
 beforeEach(async () => {
   await env.DB.prepare('DELETE FROM device_sessions').run()
@@ -170,6 +173,241 @@ describe('broker test runner baseline', () => {
     }>()
     expect(body.session_token).toBe(expectedSessionToken)
     expect(body.expires_at).toBe(sessionExpiresAt)
+  })
+
+  it('stores oauth request token secrets encrypted at rest', async () => {
+    const start = await request('/v1/device/session/start', {
+      method: 'POST',
+      headers: {
+        [TOKEN_HEADER]: env.BROKER_CLIENT_TOKEN,
+      },
+    })
+    const startBody = await start.json<{
+      device_id: string
+      pending_token: string
+      auth_url: string
+    }>()
+    const authPath = new URL(startBody.auth_url).pathname
+      + new URL(startBody.auth_url).search
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('oauth_token=req-token&oauth_token_secret=req-secret', {
+        status: 200,
+        headers: {
+          'content-type': 'text/plain; charset=utf-8',
+        },
+      }),
+    )
+
+    try {
+      const response = await request(authPath, {
+        method: 'GET',
+      })
+      expect(response.status).toBe(302)
+
+      const row = await env.DB.prepare(
+        `SELECT oauth_token_secret
+         FROM oauth_request_tokens
+         WHERE oauth_token = ?1`,
+      )
+        .bind('req-token')
+        .first<{ oauth_token_secret: string }>()
+
+      expect(row?.oauth_token_secret).toBeTruthy()
+      expect(row?.oauth_token_secret).not.toBe('req-secret')
+      expect(row?.oauth_token_secret).toMatch(
+        new RegExp(`^${ENCRYPTED_SECRET_PREFIX}`),
+      )
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('stores access token secrets encrypted and still finalizes sessions', async () => {
+    const start = await request('/v1/device/session/start', {
+      method: 'POST',
+      headers: {
+        [TOKEN_HEADER]: env.BROKER_CLIENT_TOKEN,
+      },
+    })
+    const startBody = await start.json<{
+      device_id: string
+      pending_token: string
+      auth_url: string
+    }>()
+    const authUrl = new URL(startBody.auth_url)
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(
+      async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url === 'https://api.discogs.com/oauth/request_token') {
+          return new Response(
+            'oauth_token=req-token&oauth_token_secret=req-secret',
+            {
+              status: 200,
+              headers: {
+                'content-type': 'text/plain; charset=utf-8',
+              },
+            },
+          )
+        }
+        if (url === 'https://api.discogs.com/oauth/access_token') {
+          return new Response(
+            'oauth_token=access-token&oauth_token_secret=access-secret&username=tester',
+            {
+              status: 200,
+              headers: {
+                'content-type': 'text/plain; charset=utf-8',
+              },
+            },
+          )
+        }
+        throw new Error(`unexpected fetch URL: ${url}`)
+      },
+    )
+
+    try {
+      const linkResponse = await request(
+        authUrl.pathname + authUrl.search,
+        { method: 'GET' },
+      )
+      expect(linkResponse.status).toBe(302)
+
+      const callbackResponse = await request(
+        `/v1/discogs/oauth/callback?device_id=${encodeURIComponent(startBody.device_id)}&pending_token=${
+          encodeURIComponent(startBody.pending_token)
+        }&oauth_token=req-token&oauth_verifier=test-verifier`,
+        { method: 'GET' },
+      )
+      expect(callbackResponse.status).toBe(200)
+
+      const authorized = await env.DB.prepare(
+        `SELECT status, oauth_access_token_secret
+         FROM device_sessions
+         WHERE device_id = ?1`,
+      )
+        .bind(startBody.device_id)
+        .first<{ status: string; oauth_access_token_secret: string }>()
+
+      expect(authorized?.status).toBe('authorized')
+      expect(authorized?.oauth_access_token_secret).toBeTruthy()
+      expect(authorized?.oauth_access_token_secret).not.toBe('access-secret')
+      expect(authorized?.oauth_access_token_secret).toMatch(
+        new RegExp(`^${ENCRYPTED_SECRET_PREFIX}`),
+      )
+
+      const finalizeResponse = await request('/v1/device/session/finalize', {
+        method: 'POST',
+        headers: {
+          [TOKEN_HEADER]: env.BROKER_CLIENT_TOKEN,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          device_id: startBody.device_id,
+          pending_token: startBody.pending_token,
+        }),
+      })
+
+      expect(finalizeResponse.status).toBe(200)
+      const finalizeBody = await finalizeResponse.json<{
+        session_token: string
+      }>()
+      expect(finalizeBody.session_token).toMatch(/^[0-9a-f]{96}$/)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('migrates legacy plaintext access token secrets on read', async () => {
+    const sessionToken = 'legacy-migration-token'
+    const sessionTokenHash = await sha256Hex(sessionToken)
+    const now = Math.floor(Date.now() / 1000)
+
+    await env.DB.prepare(
+      `INSERT INTO device_sessions (
+        device_id,
+        pending_token,
+        status,
+        poll_interval_seconds,
+        created_at,
+        updated_at,
+        expires_at,
+        authorized_at,
+        oauth_access_token,
+        oauth_access_token_secret,
+        oauth_identity,
+        session_token_hash,
+        session_expires_at,
+        finalized_at
+      ) VALUES (
+        ?1, ?2, 'finalized', 5, ?3, ?3, ?4, ?3, ?5, ?6, 'tester', ?7, ?4, ?3
+      )`,
+    )
+      .bind(
+        'device-legacy-migration',
+        'pending-legacy-migration',
+        now,
+        now + 3600,
+        'legacy-access-token',
+        'legacy-access-secret',
+        sessionTokenHash,
+      )
+      .run()
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              title: 'Legacy Artist - Legacy Track',
+              year: 2025,
+              label: ['Test Label'],
+              genre: ['Electronic'],
+              style: ['House'],
+              uri: '/release/456',
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: {
+            'content-type': 'application/json',
+          },
+        },
+      ),
+    )
+
+    try {
+      const response = await request('/v1/discogs/proxy/search', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          artist: 'Legacy Artist',
+          title: 'Legacy Track',
+        }),
+      })
+
+      expect(response.status).toBe(200)
+
+      const row = await env.DB.prepare(
+        `SELECT oauth_access_token_secret
+         FROM device_sessions
+         WHERE device_id = ?1`,
+      )
+        .bind('device-legacy-migration')
+        .first<{ oauth_access_token_secret: string }>()
+
+      expect(row?.oauth_access_token_secret).toBeTruthy()
+      expect(row?.oauth_access_token_secret).not.toBe('legacy-access-secret')
+      expect(row?.oauth_access_token_secret).toMatch(
+        new RegExp(`^${ENCRYPTED_SECRET_PREFIX}`),
+      )
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 
   it('reports auth posture on /v1/health', async () => {
@@ -386,6 +624,97 @@ describe('broker test runner baseline', () => {
     )
       .first<{ count: number }>()
     expect(Number(remainingCacheRows?.count ?? 0)).toBe(1)
+  })
+
+  it('sanitizes missing Discogs auth configuration errors', async () => {
+    const response = await request(
+      '/v1/device/session/start',
+      {
+        method: 'POST',
+        headers: {
+          [TOKEN_HEADER]: env.BROKER_CLIENT_TOKEN,
+        },
+      },
+      {
+        BROKER_STATE_ENCRYPTION_KEY: '',
+      },
+    )
+
+    expect(response.status).toBe(503)
+    const body = await response.json<{
+      error: string
+      message: string
+    }>()
+    expect(body.error).toBe('service_unavailable')
+    expect(body.message).toBe(DISCOGS_AUTH_NOT_CONFIGURED_MESSAGE)
+    expect(body.message).not.toContain('BROKER_STATE_ENCRYPTION_KEY')
+    expect(body.message).not.toContain('DISCOGS_CONSUMER_SECRET')
+  })
+
+  it('sanitizes upstream fetch failures for proxy callers', async () => {
+    const sessionToken = 'session-upstream-failure-token'
+    const sessionTokenHash = await sha256Hex(sessionToken)
+    const now = Math.floor(Date.now() / 1000)
+
+    await env.DB.prepare(
+      `INSERT INTO device_sessions (
+        device_id,
+        pending_token,
+        status,
+        poll_interval_seconds,
+        created_at,
+        updated_at,
+        expires_at,
+        authorized_at,
+        oauth_access_token,
+        oauth_access_token_secret,
+        oauth_identity,
+        session_token_hash,
+        session_expires_at,
+        finalized_at
+      ) VALUES (
+        ?1, ?2, 'finalized', 5, ?3, ?3, ?4, ?3, ?5, ?6, 'tester', ?7, ?4, ?3
+      )`,
+    )
+      .bind(
+        'device-upstream-failure',
+        'pending-upstream-failure',
+        now,
+        now + 3600,
+        'access-token',
+        'access-secret',
+        sessionTokenHash,
+      )
+      .run()
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(
+      new Error('super secret upstream detail'),
+    )
+
+    try {
+      const response = await request('/v1/discogs/proxy/search', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          artist: 'Failure Artist',
+          title: 'Failure Track',
+        }),
+      })
+
+      expect(response.status).toBe(502)
+      const body = await response.json<{
+        error: string
+        message: string
+      }>()
+      expect(body.error).toBe('discogs_unavailable')
+      expect(body.message).toBe(DISCOGS_UPSTREAM_FAILURE_MESSAGE)
+      expect(body.message).not.toContain('super secret upstream detail')
+    } finally {
+      fetchSpy.mockRestore()
+    }
   })
 })
 

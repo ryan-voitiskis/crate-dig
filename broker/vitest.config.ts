@@ -29,6 +29,7 @@ export default defineWorkersConfig(async () => {
               TEST_MIGRATIONS: migrations,
               DISCOGS_CONSUMER_KEY: 'test-consumer-key',
               DISCOGS_CONSUMER_SECRET: 'test-consumer-secret',
+              BROKER_STATE_ENCRYPTION_KEY: 'test-state-encryption-key',
               BROKER_CLIENT_TOKEN: 'test-broker-token',
               BROKER_PUBLIC_BASE_URL: 'https://broker.test',
             },
