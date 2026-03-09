@@ -8,6 +8,58 @@ use clap::Parser;
 
 use crate::{audio, store};
 
+// ---------------------------------------------------------------------------
+// CPU preset (shared by analyze + hydrate)
+// ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
+pub(crate) enum CpuPreset {
+    /// ~50% of cores, niced — use while working on the machine
+    #[default]
+    Background,
+    /// Max cores (cores - 2), no nicing — for overnight/unattended runs
+    Overnight,
+}
+
+impl std::fmt::Display for CpuPreset {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CpuPreset::Background => write!(f, "background"),
+            CpuPreset::Overnight => write!(f, "overnight"),
+        }
+    }
+}
+
+/// Returns the analysis concurrency for the given CPU preset.
+pub(crate) fn analysis_concurrency_for_preset(preset: CpuPreset) -> usize {
+    let cpus = std::thread::available_parallelism()
+        .map(|n| n.get() as u32)
+        .unwrap_or(4);
+    match preset {
+        CpuPreset::Background => (cpus / 2).clamp(2, 16) as usize,
+        CpuPreset::Overnight => cpus.saturating_sub(2).clamp(2, 16) as usize,
+    }
+}
+
+/// Applies process-level niceness for background mode.
+pub(crate) fn apply_cpu_niceness(preset: CpuPreset) {
+    if matches!(preset, CpuPreset::Background) {
+        // SAFETY: setpriority with PRIO_PROCESS/0 targets the calling process.
+        // Raising niceness (lowering priority) always succeeds for unprivileged users.
+        unsafe {
+            libc::setpriority(libc::PRIO_PROCESS, 0, 10);
+        }
+    }
+}
+
+/// Format a human-readable CPU mode summary line.
+pub(crate) fn cpu_preset_summary(preset: CpuPreset, concurrency: usize) -> String {
+    match preset {
+        CpuPreset::Background => format!("CPU: background ({concurrency} cores, niced)"),
+        CpuPreset::Overnight => format!("CPU: overnight ({concurrency} cores)"),
+    }
+}
+
 #[derive(Parser)]
 #[command(name = "reklawdbox", version)]
 enum Cli {

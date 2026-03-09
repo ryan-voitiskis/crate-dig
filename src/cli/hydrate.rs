@@ -92,6 +92,9 @@ pub(crate) struct HydrateArgs {
     /// Don't retry previously-errored enrichments
     #[arg(long)]
     no_retry_errors: bool,
+    /// CPU scheduling preset for audio analysis
+    #[arg(long, value_enum, default_value_t = super::CpuPreset::Background)]
+    cpu: super::CpuPreset,
     /// Enrichment concurrency (default: 4)
     #[arg(long, short = 'j')]
     concurrency: Option<u32>,
@@ -150,6 +153,10 @@ enum DiscogsMode {
 // ---------------------------------------------------------------------------
 
 pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::error::Error>> {
+    let cpu_preset = args.cpu;
+    super::apply_cpu_niceness(cpu_preset);
+    let analysis_concurrency = super::analysis_concurrency_for_preset(cpu_preset);
+
     let want_discogs = args.providers.contains(&Provider::Discogs);
     let want_beatport = args.providers.contains(&Provider::Beatport);
     let want_analysis = args.providers.contains(&Provider::Analysis);
@@ -282,6 +289,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
 
     // 4. Startup summary
     println!("Found {} tracks matching filters.", total_tracks);
+    println!("  {}", super::cpu_preset_summary(cpu_preset, analysis_concurrency));
     if want_discogs {
         let retry_note = if discogs_errors > 0 && retry_errors {
             format!(", {} errors to retry", discogs_errors)
@@ -328,7 +336,8 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     // Estimate time
     let beatport_secs = beatport_pending.len() as u64; // ~1 req/s rate limit
     let discogs_secs = discogs_pending.len() as u64 / 4; // ~4 concurrent
-    let analysis_secs = analysis_pending.len() as u64 * 3; // ~3s per track
+    let analysis_secs =
+        (analysis_pending.len() as u64 * 3) / analysis_concurrency.max(1) as u64;
     let estimated_secs = beatport_secs.max(discogs_secs).max(analysis_secs);
     if estimated_secs > 60 {
         let hours = estimated_secs / 3600;
@@ -696,12 +705,6 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
             if analysis_pending.is_empty() {
                 return;
             }
-            let analysis_concurrency = {
-                let cpus = std::thread::available_parallelism()
-                    .map(|n| n.get() as u32)
-                    .unwrap_or(4);
-                (cpus.saturating_sub(2)).clamp(2, 16) as usize
-            };
             let sem = Arc::new(tokio::sync::Semaphore::new(analysis_concurrency));
             let mut handles = Vec::with_capacity(analysis_pending.len());
 

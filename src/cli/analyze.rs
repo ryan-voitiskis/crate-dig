@@ -51,7 +51,10 @@ pub(crate) struct AnalyzeArgs {
     /// Skip Essentia analysis, only run stratum-dsp
     #[arg(long)]
     stratum_only: bool,
-    /// Max concurrent track analyses (default: half CPU cores, min 2, max 16)
+    /// CPU scheduling preset
+    #[arg(long, value_enum, default_value_t = super::CpuPreset::Background)]
+    cpu: super::CpuPreset,
+    /// Override analysis concurrency (overrides --cpu preset, min 1, max 16)
     #[arg(long, short = 'j')]
     concurrency: Option<u32>,
 }
@@ -142,17 +145,15 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
     let total = tracks.len();
     let pending = to_analyze.len();
 
-    // Compute concurrency
+    // Apply CPU preset
+    let cpu_preset = args.cpu;
+    super::apply_cpu_niceness(cpu_preset);
     let concurrency = match args.concurrency {
-        Some(n) => n.clamp(1, 16),
-        None => {
-            let cpus = std::thread::available_parallelism()
-                .map(|n| n.get() as u32)
-                .unwrap_or(4);
-            (cpus.saturating_sub(2)).clamp(2, 16)
-        }
-    } as usize;
+        Some(n) => n.clamp(1, 16) as usize,
+        None => super::analysis_concurrency_for_preset(cpu_preset),
+    };
 
+    tracing::info!("{}", super::cpu_preset_summary(cpu_preset, concurrency));
     tracing::info!(
         "Scanning {total} tracks ({cached_count} cached, {pending} to analyze, concurrency={concurrency})"
     );

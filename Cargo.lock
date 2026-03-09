@@ -1474,6 +1474,7 @@ dependencies = [
  "dirs",
  "globset",
  "indicatif",
+ "libc",
  "lofty",
  "percent-encoding",
  "rand",
