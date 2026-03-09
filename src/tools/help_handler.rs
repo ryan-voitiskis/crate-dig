@@ -8,7 +8,7 @@ use super::mcp_internal_error;
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 pub struct HelpParams {
     #[schemars(
-        description = "Optional topic filter: 'genre', 'set', 'audit', 'import'. Omit for the full menu."
+        description = "Optional topic filter: 'genre', 'genre audit', 'set', 'audit', 'import'. Omit for the full menu."
     )]
     pub topic: Option<String>,
 }
@@ -68,6 +68,17 @@ const WORKFLOWS: &[Workflow] = &[
         url: "https://reklawdbox.com/agent/collection-audit/",
         key_tools: &["audit_state", "read_file_tags", "write_file_tags"],
     },
+    Workflow {
+        name: "Genre Audit",
+        keywords: &["genre audit", "verify genre", "genre conflict"],
+        summary: "Verify existing genre tags against enrichment and audio evidence.",
+        url: "https://reklawdbox.com/agent/genre-audit/",
+        key_tools: &[
+            "cache_coverage",
+            "resolve_tracks_data",
+            "update_tracks",
+        ],
+    },
 ];
 
 fn workflow_to_json(w: &Workflow) -> serde_json::Value {
@@ -84,7 +95,16 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
         let topic_lower = topic.to_lowercase();
         let matched = WORKFLOWS
             .iter()
-            .find(|w| w.keywords.iter().any(|k| topic_lower.contains(k)));
+            .filter_map(|w| {
+                w.keywords
+                    .iter()
+                    .filter(|k| topic_lower.contains(*k))
+                    .map(|k| k.len())
+                    .max()
+                    .map(|len| (w, len))
+            })
+            .max_by_key(|(_, len)| *len)
+            .map(|(w, _)| w);
 
         match matched {
             Some(w) => serde_json::json!({
@@ -92,13 +112,22 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
                 "tip": "Use WebFetch on the URL above for the full step-by-step SOP.",
             }),
             None => serde_json::json!({
-                "error": format!("No workflow matching '{topic}'. Try: import, genre, set, audit."),
+                "error": format!("No workflow matching '{topic}'. Try: import, genre, genre audit, set, audit."),
                 "workflows": WORKFLOWS.iter().map(|w| w.name).collect::<Vec<_>>(),
             }),
         }
     } else {
         serde_json::json!({
             "workflows": WORKFLOWS.iter().map(workflow_to_json).collect::<Vec<_>>(),
+            "recommended_order": concat!(
+                "For disorganized libraries, workflow order matters — each step's quality depends on the previous:\n",
+                "1. Collection Audit — fix artist/title naming (enrichment matches on these)\n",
+                "2. Genre Classification — classify ungenred tracks with full signal\n",
+                "3. Genre Audit — verify existing genre tags for conflicts\n",
+                "4. Set Building — build DJ sets from well-tagged tracks\n",
+                "Prerequisite: run `reklawdbox hydrate` from the CLI first to populate enrichment and analysis caches.\n",
+                "Full guide: https://reklawdbox.com/workflows/library-triage/",
+            ),
             "getting_started": "https://reklawdbox.com/getting-started/",
             "reference": "https://reklawdbox.com/reference/tools/",
             "llms_txt": "https://reklawdbox.com/llms.txt",
