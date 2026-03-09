@@ -36,10 +36,10 @@ transients decay. We need features that measure those things.
 ~~Adding new features to analysis output creates a cache compatibility problem.~~
 
 **Implemented:**
-1. Added `#[serde(default)]` + `Default` to `StratumResult` (audio.rs:33) —
+1. Added `#[serde(default)]` + `Default` to `StratumResult` (audio.rs) —
    new `Option<T>` fields gracefully default to `None` on old cache entries.
 2. Added `STRATUM_SCHEMA_VERSION` and `ESSENTIA_SCHEMA_VERSION` constants
-   (audio.rs:59-62). Both `is_cache_fresh` (CLI) and `check_analysis_cache`
+   (audio.rs). Both `is_cache_fresh` (CLI) and `check_analysis_cache`
    (MCP) now compare `analysis_version` against these constants. All cache
    write sites store the schema version constant. Bump to evict stale entries.
 3. New feature fields should be `Option<T>` with `None` meaning "not yet
@@ -426,6 +426,9 @@ Implemented in stratum-dsp fork:
 - ~~Report median tau, IQR, R², usable count per band~~ ✅
 - ~~`decay: Option<DecayResult>` on `AnalysisResult`~~ ✅
 - ~~Wired through `StratumResult` (4 fields: mid/high tau + R²), schema `"4"`~~ ✅
+  - Note: `DecayResult` also exposes `tau_iqr` and `usable_count` per band
+    but these are not surfaced in `StratumResult` — tau and R² proved
+    sufficient for discrimination. Available in raw stratum-dsp output if needed.
 
 #### Validation results
 
