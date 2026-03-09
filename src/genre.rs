@@ -93,6 +93,88 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("uk garage", "Garage"),
 ];
 
+/// Label-to-genre mapping. Keys are lowercase ASCII label names.
+/// Only labels with a strong, unambiguous primary genre.
+/// Sorted alphabetically by key.
+pub const LABEL_GENRES: &[(&str, &str)] = &[
+    ("20/20 ldn", "Garage"),
+    ("afterlife", "Deep Techno"),
+    ("anjunabeats", "Trance"),
+    ("anjunadeep", "Deep House"),
+    ("aus music", "House"),
+    ("basic channel", "Dub Techno"),
+    ("bass face", "Drum & Bass"),
+    ("bingo bass", "Bassline"),
+    ("black sun empire", "Drum & Bass"),
+    ("boysnoize", "Electro"),
+    ("cadenza", "Minimal"),
+    ("cocoon", "Techno"),
+    ("compa", "Dubstep"),
+    ("critical music", "Drum & Bass"),
+    ("crosstown rebels", "House"),
+    ("deep medi musik", "Dubstep"),
+    ("defected", "House"),
+    ("dekmantel", "Techno"),
+    ("delsin", "Deep Techno"),
+    ("dirtybird", "Tech House"),
+    ("dispatch", "Drum & Bass"),
+    ("drumcode", "Techno"),
+    ("echospace", "Dub Techno"),
+    ("ed banger", "Electro"),
+    ("fabric", "Techno"),
+    ("fuse london", "Tech House"),
+    ("ghost orchid", "Ambient"),
+    ("good looking", "Drum & Bass"),
+    ("hardgroove", "Hard Techno"),
+    ("hessle audio", "UK Bass"),
+    ("hospital", "Drum & Bass"),
+    ("hotflush", "UK Bass"),
+    ("hyperdub", "UK Bass"),
+    ("ilian tape", "Techno"),
+    ("klockworks", "Techno"),
+    ("kompakt", "Minimal"),
+    ("lobster theremin", "House"),
+    ("mac ii", "Drum & Bass"),
+    ("mala", "Dubstep"),
+    ("metalheadz", "Drum & Bass"),
+    ("mord", "Hard Techno"),
+    ("mote-evolver", "Deep Techno"),
+    ("mute", "Synth-pop"),
+    ("ninja tune", "Downtempo"),
+    ("non standard", "Experimental"),
+    ("nonplus", "Techno"),
+    ("objective", "Techno"),
+    ("ostgut ton", "Techno"),
+    ("pampa", "House"),
+    ("perlon", "Minimal"),
+    ("planet mu", "IDM"),
+    ("planet rhythm", "Electro"),
+    ("power house", "Deep House"),
+    ("r&s", "Techno"),
+    ("ram", "Drum & Bass"),
+    ("raster-noton", "Experimental"),
+    ("running back", "Disco"),
+    ("rushed", "Hard Techno"),
+    ("semantica", "Deep Techno"),
+    ("shogun audio", "Drum & Bass"),
+    ("soma", "Techno"),
+    ("soul clap", "Disco"),
+    ("south london hi-fi", "Dub Reggae"),
+    ("stroboscopic artefacts", "Techno"),
+    ("suara", "Tech House"),
+    ("subtle audio", "Drum & Bass"),
+    ("swamp 81", "UK Bass"),
+    ("tectonic", "UK Bass"),
+    ("tempa", "Dubstep"),
+    ("timedance", "UK Bass"),
+    ("toolroom", "Tech House"),
+    ("tresor", "Techno"),
+    ("truesoul", "Techno"),
+    ("type", "Ambient"),
+    ("upsammy", "Experimental"),
+    ("visionquest", "Deep House"),
+];
+
 fn build_alias_map(aliases: &[(&str, &'static str)]) -> HashMap<String, &'static str> {
     let mut map = HashMap::with_capacity(aliases.len());
     for &(alias, canonical) in aliases {
@@ -131,6 +213,34 @@ pub fn canonical_genre_from_alias(genre: &str) -> Option<&'static str> {
     genre_alias_map()
         .get(&genre.trim().to_ascii_lowercase())
         .copied()
+}
+
+/// Static label-genre map built once via OnceLock. Maps lowercase ASCII label name → canonical genre.
+pub fn label_genre_map() -> &'static HashMap<String, &'static str> {
+    static MAP: OnceLock<HashMap<String, &'static str>> = OnceLock::new();
+    MAP.get_or_init(|| build_alias_map(LABEL_GENRES))
+}
+
+const LABEL_SUFFIXES: &[&str] = &[
+    " records", " recordings", " music", " audio", " sound", " label",
+];
+
+/// Returns the canonical genre for a label name, if known.
+/// Tries exact match first, then strips common suffixes.
+/// Uses ASCII case-folding only; non-ASCII characters are compared byte-for-byte.
+pub fn label_genre(label: &str) -> Option<&'static str> {
+    let normalized = label.trim().to_ascii_lowercase();
+    if let Some(&genre) = label_genre_map().get(&normalized) {
+        return Some(genre);
+    }
+    for suffix in LABEL_SUFFIXES {
+        if let Some(stripped) = normalized.strip_suffix(suffix) {
+            if let Some(&genre) = label_genre_map().get(stripped) {
+                return Some(genre);
+            }
+        }
+    }
+    None
 }
 
 /// Typical BPM range for a genre. Tracks outside this range are not necessarily
@@ -400,6 +510,101 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn label_genres_sorted() {
+        for w in LABEL_GENRES.windows(2) {
+            assert!(
+                w[0].0 <= w[1].0,
+                "LABEL_GENRES not sorted: {:?} > {:?}",
+                w[0].0,
+                w[1].0
+            );
+        }
+    }
+
+    #[test]
+    fn label_genres_are_lowercase() {
+        for &(label, _) in LABEL_GENRES {
+            assert!(label.is_ascii(), "label '{}' must be ASCII", label);
+            assert_eq!(
+                label,
+                label.to_ascii_lowercase(),
+                "label '{}' must be lowercase ASCII",
+                label
+            );
+        }
+    }
+
+    #[test]
+    fn all_label_genre_targets_are_canonical() {
+        for &(label, canonical) in LABEL_GENRES {
+            assert!(
+                is_known_genre(canonical),
+                "label '{}' maps to '{}' which is not in taxonomy",
+                label,
+                canonical
+            );
+        }
+    }
+
+    #[test]
+    fn no_label_shadows_alias() {
+        let alias_map = genre_alias_map();
+        for &(label, _) in LABEL_GENRES {
+            assert!(
+                !alias_map.contains_key(label),
+                "label '{}' shadows an alias key",
+                label
+            );
+        }
+    }
+
+    #[test]
+    fn label_genre_exact_match() {
+        assert_eq!(label_genre("mord"), Some("Hard Techno"));
+        assert_eq!(label_genre("hospital"), Some("Drum & Bass"));
+        assert_eq!(label_genre("kompakt"), Some("Minimal"));
+    }
+
+    #[test]
+    fn label_genre_suffix_stripping() {
+        assert_eq!(label_genre("Tresor Records"), Some("Techno"));
+        assert_eq!(label_genre("hospital records"), Some("Drum & Bass"));
+        assert_eq!(label_genre("cocoon recordings"), Some("Techno"));
+    }
+
+    #[test]
+    fn label_genre_case_insensitive() {
+        assert_eq!(label_genre("MORD"), Some("Hard Techno"));
+        assert_eq!(label_genre("Hyperdub"), Some("UK Bass"));
+        assert_eq!(label_genre("TRESOR"), Some("Techno"));
+    }
+
+    #[test]
+    #[test]
+    fn suffix_stripped_labels_are_consistent() {
+        let map = label_genre_map();
+        for &(label, genre) in LABEL_GENRES {
+            for suffix in LABEL_SUFFIXES {
+                if let Some(prefix) = label.strip_suffix(suffix) {
+                    if let Some(&prefix_genre) = map.get(prefix) {
+                        assert_eq!(
+                            genre, prefix_genre,
+                            "label '{}' maps to '{}' but prefix '{}' maps to '{}'",
+                            label, genre, prefix, prefix_genre
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn label_genre_unknown_returns_none() {
+        assert_eq!(label_genre("warp"), None);
+        assert_eq!(label_genre("xl recordings"), None);
+        assert_eq!(label_genre(""), None);
     }
 
     #[test]

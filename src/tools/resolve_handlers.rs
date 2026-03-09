@@ -516,10 +516,23 @@ pub(crate) fn resolve_single_track(
             })
         });
 
+    let effective_label = if !track.label.is_empty() {
+        Some(track.label.as_str())
+    } else {
+        discogs_val
+            .as_ref()
+            .and_then(|v| v.get("label"))
+            .and_then(|v| v.as_str())
+            .filter(|l| !l.is_empty())
+    };
+    let label_inferred_genre = effective_label.and_then(genre::label_genre);
+
     let genre_taxonomy = serde_json::json!({
         "current_genre_canonical": current_genre_canonical,
         "discogs_style_mappings": discogs_style_mappings,
         "beatport_genre_mapping": beatport_genre_mapping,
+        "label": effective_label,
+        "label_genre": label_inferred_genre,
     });
 
     serde_json::json!({
@@ -561,9 +574,21 @@ fn resolve_single_track_compact(
         (serde_json::Value::Null, serde_json::Value::Null)
     };
 
+    // Effective label: prefer Rekordbox, fall back to Discogs enrichment
+    let discogs_val = parse_enrichment_cache(discogs_cache);
+    let effective_label = if !track.label.is_empty() {
+        Some(track.label.as_str())
+    } else {
+        discogs_val
+            .as_ref()
+            .and_then(|v| v.get("label"))
+            .and_then(|v| v.as_str())
+            .filter(|l| !l.is_empty())
+    };
+    let label_inferred_genre = effective_label.and_then(genre::label_genre);
+
     // Parse Discogs styles and map through taxonomy, keeping only exact/alias matches.
     // Group by canonical genre name and count how many styles mapped to each.
-    let discogs_val = parse_enrichment_cache(discogs_cache);
     let discogs_mapped_genres: serde_json::Value = {
         let mut genre_counts: std::collections::HashMap<String, usize> =
             std::collections::HashMap::new();
@@ -696,6 +721,8 @@ fn resolve_single_track_compact(
         "beatport_mapped_genre": beatport_mapped_genre,
         "beatport_mapped_genre_bpm_range": beatport_mapped_genre_bpm_range,
         "beatport_genre_raw": beatport_genre_raw,
+        "label": effective_label,
+        "label_genre": label_inferred_genre,
         "audio": audio_obj,
         "data": {
             "stratum": stratum_cache.is_some(),
