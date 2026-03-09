@@ -417,18 +417,54 @@ Not a strong standalone discriminator — Dub-Techno overlap substantially.
 But useful as a secondary feature: extreme values (>0.90 or <0.40) are
 informative, and the tight Techno cluster provides a reference point.
 
-### Phase 4: Post-transient decay rate
+### Phase 4: Post-transient spectral decay rate — ✅ Done
 
-Implement in stratum-dsp fork:
-1. After onset detection + STFT, extract band energy envelopes (1-4 kHz,
-   4-8 kHz) from trimmed audio
-2. For each onset, find next onset, compute window length
-3. Discard windows < 150ms
-4. Fit exponential decay (linear regression in log domain)
-5. Report median tau, IQR, median R², usable count per band
-6. Add decay fields to `AnalysisResult`
+Implemented in stratum-dsp fork:
+- ~~Extract band energy envelopes (1-4 kHz, 4-8 kHz) between onset pairs~~ ✅
+- ~~Discard windows < 150ms, guard gap 20ms before next onset~~ ✅
+- ~~Fit exponential decay via log-domain linear regression~~ ✅
+- ~~Report median tau, IQR, R², usable count per band~~ ✅
+- ~~`decay: Option<DecayResult>` on `AnalysisResult`~~ ✅
+- ~~Wired through `StratumResult` (4 fields: mid/high tau + R²), schema `"4"`~~ ✅
 
-Test against 15 reference tracks.
+#### Validation results
+
+**Mid-band tau (1-4 kHz, ms)** — **Direction opposite to prediction.**
+Dub Techno has the *shortest* mid-band decay, not the longest. The algorithm
+measures inter-onset energy decay rate, which is dominated by the transient
+pattern rather than reverb tail length. Short taus in Sascha Rydell (49ms)
+and Traumer (51ms) pull the Dub mean down.
+
+| Genre | Values (ms) | Mean | Std |
+|-------|-------------|------|-----|
+| Dub Techno | 220, 226, 49, 51, 124 | **133.9** | 82.4 |
+| Techno | 78, 188, 262, 237, 225 | **198.0** | 70.5 |
+| Deep Techno | 323, 220, 78, 291, 220 | **226.2** | 86.3 |
+
+High within-genre variance. Not discriminative on tau alone.
+
+**High-band tau (4-8 kHz, ms)** — Similar lack of separation.
+
+| Genre | Values (ms) | Mean | Std |
+|-------|-------------|------|-----|
+| Dub Techno | 153, 179, 56, 37, 73 | **99.7** | 61.7 |
+| Techno | 57, 76, 92, 78, 257 | **112.0** | 79.6 |
+| Deep Techno | 99, 176, 37, 303, 75 | **137.8** | 101.2 |
+
+**Mid-band R² (fit quality)** — **Most interesting signal.** Reverb-heavy
+tracks produce cleaner exponential decays (higher R²). Dub Techno has the
+best fits, dry Techno the worst.
+
+| Genre | Values | Mean | Std |
+|-------|--------|------|-----|
+| Dub Techno | 0.29, 0.42, 0.56, 0.65, 0.30 | **0.44** | 0.15 |
+| Techno | 0.31, 0.33, 0.08, 0.07, 0.10 | **0.18** | 0.12 |
+| Deep Techno | 0.23, 0.24, 0.46, 0.12, 0.27 | **0.26** | 0.12 |
+
+Dub vs Techno separation: ~1.7 std devs on R². Deep falls between.
+The R² metric captures whether transient decays are smooth (reverb) vs
+irregular (dry). This is a useful secondary discriminator alongside
+`spectral_centroid_cv` and `mod_centroid`.
 
 ### Phase 5: Stereo width — SKIPPED
 

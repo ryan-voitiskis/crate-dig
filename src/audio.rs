@@ -45,6 +45,10 @@ pub struct StratumResult {
     pub analyzer_version: String,
     pub mod_centroid: Option<f64>,
     pub harmonic_proportion: Option<f64>,
+    pub decay_mid_tau: Option<f64>,
+    pub decay_mid_r2: Option<f64>,
+    pub decay_high_tau: Option<f64>,
+    pub decay_high_r2: Option<f64>,
     pub flags: Vec<String>,
     pub warnings: Vec<String>,
 }
@@ -59,7 +63,7 @@ pub const ANALYZER_ESSENTIA: &str = "essentia";
 
 /// Expected analysis schema versions. Bump these when adding/changing output
 /// fields so that stale cache entries are evicted automatically.
-pub const STRATUM_SCHEMA_VERSION: &str = "3";
+pub const STRATUM_SCHEMA_VERSION: &str = "4";
 pub const ESSENTIA_SCHEMA_VERSION: &str = "2";
 
 const ESSENTIA_TIMEOUT_SECS: u64 = 300;
@@ -558,6 +562,10 @@ pub fn analyze_with_stratum(
         analyzer_version: result.metadata.algorithm_version.clone(),
         mod_centroid: result.mod_centroid.map(|v| v as f64),
         harmonic_proportion: result.harmonic_proportion.map(|v| v as f64),
+        decay_mid_tau: result.decay.as_ref().and_then(|d| d.mid.as_ref()).map(|b| b.tau_median as f64),
+        decay_mid_r2: result.decay.as_ref().and_then(|d| d.mid.as_ref()).map(|b| b.fit_r2_median as f64),
+        decay_high_tau: result.decay.as_ref().and_then(|d| d.high.as_ref()).map(|b| b.tau_median as f64),
+        decay_high_r2: result.decay.as_ref().and_then(|d| d.high.as_ref()).map(|b| b.fit_r2_median as f64),
         flags: result
             .metadata
             .flags
@@ -588,6 +596,10 @@ mod tests {
             analyzer_version: "stratum-dsp-1.0.0".to_string(),
             mod_centroid: Some(12.5),
             harmonic_proportion: Some(0.65),
+            decay_mid_tau: Some(180.0),
+            decay_mid_r2: Some(0.92),
+            decay_high_tau: Some(95.0),
+            decay_high_r2: Some(0.88),
             flags: vec!["MultimodalBpm".to_string()],
             warnings: vec!["Low key clarity".to_string()],
         };

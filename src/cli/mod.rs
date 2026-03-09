@@ -236,6 +236,10 @@ mod tests {
             analyzer_version: "1.0.0".to_string(),
             mod_centroid: Some(12.5),
             harmonic_proportion: Some(0.65),
+            decay_mid_tau: Some(180.0),
+            decay_mid_r2: Some(0.92),
+            decay_high_tau: Some(95.0),
+            decay_high_r2: Some(0.88),
             flags: vec![],
             warnings: vec![],
         }

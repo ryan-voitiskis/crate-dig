@@ -1858,8 +1858,6 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 [[package]]
 name = "stratum-dsp"
 version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3307cfb4b43dc10db80f8e9b95079bf82288e0c2a4c6f4f811321f5cdc2818e7"
 dependencies = [
  "log",
  "rayon",
