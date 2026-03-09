@@ -2547,7 +2547,7 @@ fn resolve_single_track_with_staged_changes() {
 #[test]
 fn resolve_single_track_taxonomy_mappings() {
     // Track with an alias genre
-    let track = make_test_track("t3", "Electronica", 130.0, "Fm");
+    let track = make_test_track("t3", "Hip-Hop", 130.0, "Fm");
 
     // Create mock Discogs enrichment with known, alias, and unknown styles
     let discogs_json = serde_json::json!({
@@ -2603,8 +2603,8 @@ fn resolve_single_track_taxonomy_mappings() {
     // Genre taxonomy
     let gt = &result["genre_taxonomy"];
 
-    // "Electronica" is an alias for "Techno"
-    assert_eq!(gt["current_genre_canonical"], "Techno");
+    // "Hip-Hop" is an alias for "Hip Hop"
+    assert_eq!(gt["current_genre_canonical"], "Hip Hop");
 
     // Discogs style mappings
     let dsm = gt["discogs_style_mappings"]

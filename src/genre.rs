@@ -66,22 +66,16 @@ pub fn is_known_genre(genre: &str) -> bool {
 /// Keys must be lowercase ASCII. Sorted alphabetically by key.
 pub const ALIASES: &[(&str, &str)] = &[
     ("140 / deep dubstep / grime", "Dubstep"),
-    ("afrobeat", "Afro House"),
-    ("bass", "UK Bass"),
     ("breaks / breakbeat / uk bass", "Breakbeat"),
     ("chill dnb", "Drum & Bass"),
     ("dance / electro pop", "Synth-pop"),
     ("dance-pop", "Synth-pop"),
     ("dnb", "Drum & Bass"),
-    ("drone", "Ambient"),
-    ("electronic", "Experimental"),
-    ("electronica", "Techno"),
     ("gabber", "Hard Techno"),
     ("glitch", "IDM"),
     ("hard dance", "Hard Techno"),
     ("hard trance", "Trance"),
     ("hip-hop", "Hip Hop"),
-    ("indie dance", "House"),
     ("italodance", "Disco"),
     ("loop (hip-hop)", "Hip Hop"),
     ("loop (trance)", "Trance"),
@@ -89,7 +83,6 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("melodic house & techno", "Deep Techno"),
     ("minimal / deep tech", "Minimal"),
     ("r & b", "R&B"),
-    ("soundtrack", "Ambient"),
     ("techno (peak time / driving)", "Techno"),
     ("techno (raw / deep / hypnotic)", "Deep Techno"),
     ("trance (main floor)", "Trance"),
@@ -215,8 +208,6 @@ mod tests {
     fn normalize_known_aliases() {
         assert_eq!(canonical_genre_from_alias("Hip-Hop"), Some("Hip Hop"));
         assert_eq!(canonical_genre_from_alias("DnB"), Some("Drum & Bass"));
-        assert_eq!(canonical_genre_from_alias("Electronica"), Some("Techno"));
-        assert_eq!(canonical_genre_from_alias("Bass"), Some("UK Bass"));
         assert_eq!(canonical_genre_from_alias("Gabber"), Some("Hard Techno"));
         assert_eq!(canonical_genre_from_alias("Glitch"), Some("IDM"));
         assert_eq!(
@@ -262,8 +253,8 @@ mod tests {
     fn alias_map_not_empty() {
         let aliases = genre_alias_map();
         assert!(
-            aliases.len() >= 30,
-            "expected at least 30 aliases, got {}",
+            aliases.len() >= 23,
+            "expected at least 23 aliases, got {}",
             aliases.len()
         );
     }
