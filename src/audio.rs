@@ -43,6 +43,7 @@ pub struct StratumResult {
     pub duration_seconds: f64,
     pub processing_time_ms: f64,
     pub analyzer_version: String,
+    pub mod_centroid: Option<f64>,
     pub flags: Vec<String>,
     pub warnings: Vec<String>,
 }
@@ -57,7 +58,7 @@ pub const ANALYZER_ESSENTIA: &str = "essentia";
 
 /// Expected analysis schema versions. Bump these when adding/changing output
 /// fields so that stale cache entries are evicted automatically.
-pub const STRATUM_SCHEMA_VERSION: &str = "1";
+pub const STRATUM_SCHEMA_VERSION: &str = "2";
 pub const ESSENTIA_SCHEMA_VERSION: &str = "2";
 
 const ESSENTIA_TIMEOUT_SECS: u64 = 300;
@@ -554,6 +555,7 @@ pub fn analyze_with_stratum(
         duration_seconds,
         processing_time_ms,
         analyzer_version: result.metadata.algorithm_version.clone(),
+        mod_centroid: result.mod_centroid.map(|v| v as f64),
         flags: result
             .metadata
             .flags
@@ -582,6 +584,7 @@ mod tests {
             duration_seconds: 300.5,
             processing_time_ms: 1234.5,
             analyzer_version: "stratum-dsp-1.0.0".to_string(),
+            mod_centroid: Some(12.5),
             flags: vec!["MultimodalBpm".to_string()],
             warnings: vec!["Low key clarity".to_string()],
         };

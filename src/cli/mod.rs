@@ -234,6 +234,7 @@ mod tests {
             duration_seconds: 180.0,
             processing_time_ms: 42.0,
             analyzer_version: "1.0.0".to_string(),
+            mod_centroid: Some(12.5),
             flags: vec![],
             warnings: vec![],
         }

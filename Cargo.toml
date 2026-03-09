@@ -38,6 +38,9 @@ unicode-casefold = "0.2"
 rmcp = { version = "0.15", features = ["client", "transport-io"] }
 tempfile = "3"
 
+[patch.crates-io]
+stratum-dsp = { path = "../stratum-dsp" }
+
 [profile.release]
 lto = "thin"
 strip = true

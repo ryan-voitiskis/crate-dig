@@ -318,8 +318,9 @@ stratum-dsp is a published crate pinned at `=1.0.0`. To add features:
 
 1. ~~Add `#[serde(default)]` to `StratumResult`~~ ✅
 2. ~~Add `analysis_version` to cache freshness check~~ ✅
-3. Fork stratum-dsp, set up `[patch.crates-io]`
-4. Verify STFT and HPSS internals are accessible from new analysis passes
+3. ~~Fork stratum-dsp, set up `[patch.crates-io]`~~ ✅ (local at `../stratum-dsp`)
+4. ~~Verify STFT and HPSS internals are accessible from new analysis passes~~ ✅
+   (`compute_stft()` and `hpss_decompose()` are both public)
 
 ### Phase 1: Temporal statistics (Essentia) — ✅ Done
 
@@ -360,17 +361,35 @@ per-coefficient discrimination; useful as classifier input alongside other
 features. MFCC[0] std (energy variation) shows: Dub 112, Techno 124,
 Deep 117 — no clear separation on its own.
 
-### Phase 2: Modulation spectral centroid
+### Phase 2: Modulation spectral centroid — ✅ Done
 
-Implement in stratum-dsp fork:
-1. After existing STFT, group magnitude frames into 8 bands
-2. For each band: sum magnitudes per frame → envelope time series
-3. Apply 15% trim to envelope
-4. FFT each trimmed envelope (zero-pad to next power of 2)
-5. Compute spectral centroid of modulation spectrum per band, average
-6. Add `mod_centroid: Option<f32>` to `AnalysisResult`
+Implemented in local stratum-dsp fork (`../stratum-dsp`, via `[patch.crates-io]`):
+- ~~Group STFT magnitude frames into 8 bands~~ ✅
+- ~~Per-band envelope → FFT → modulation spectral centroid~~ ✅
+- ~~15% trim, zero-pad to next power of 2~~ ✅
+- ~~`mod_centroid: Option<f32>` on `AnalysisResult`~~ ✅
+- ~~`mod_centroid: Option<f64>` on `StratumResult`~~ ✅
+- ~~Bumped `STRATUM_SCHEMA_VERSION` to `"2"`~~ ✅
 
-Test against 15 reference tracks.
+#### Validation results
+
+**Direction was opposite to initial prediction.** Dub Techno has the
+*highest* mod_centroid — reverb sustains energy across many modulation
+frequencies, spreading the centroid upward. Deep Techno is lowest — slow,
+hypnotic textures with minimal fast modulations. Dry Techno sits in the
+middle with strong kick-rate modulation (~2 Hz) pulling the centroid down.
+
+| Genre | Values (Hz) | Mean | Std |
+|-------|-------------|------|-----|
+| Dub Techno | 12.2, 10.9, 11.0, 10.7, 11.7 | **11.31** | 0.61 |
+| Techno | 10.0, 10.8, 10.0, 9.7, 11.6 | **10.43** | 0.73 |
+| Deep Techno | 8.5, 9.2, 9.7, 10.2, 11.3 | **9.78** | 1.01 |
+
+Moderate separation: Dub vs Deep is ~1.5 Hz (~1.5 std devs of the Deep
+group). Some overlap at the boundaries (Voiski techno 11.6 ≈ Dialogue
+dub 11.7; Donato Dozzy deep 11.3 overlaps with techno range). Not a
+standalone discriminator but provides complementary signal alongside
+`spectral_centroid_cv`.
 
 ### Phase 3: HPSS harmonic/percussive proportion
 
