@@ -69,3 +69,23 @@ jobs:
             brew tap ryan-voitiskis/reklawdbox
             brew install reklawdbox
             ```
+
+      - name: Update Homebrew formula
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          SHA256="${{ steps.package.outputs.sha256 }}"
+
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/ryan-voitiskis/homebrew-reklawdbox.git" tap
+          cd tap
+
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Formula/reklawdbox.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Formula/reklawdbox.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/reklawdbox.rb
+          git commit -m "reklawdbox ${VERSION}"
+          git push

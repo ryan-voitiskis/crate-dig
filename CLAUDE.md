@@ -21,3 +21,17 @@ scoring, and greedy set sequencing with energy-curve shaping.
 This project IS the MCP server. When modifying server code, `cargo build --release`
 then ask the user to run `/mcp` to reconnect — the running server is the old binary
 until restarted. Always build release (`.mcp.json` points to `target/release/`).
+
+## Releasing
+
+Tag-triggered. Pushing a `v*.*.*` tag runs `.github/workflows/release.yml` which:
+builds on ARM64 macOS, runs tests, creates a GitHub Release with the binary tarball,
+and auto-updates the Homebrew formula in `ryan-voitiskis/homebrew-reklawdbox`.
+
+```
+# 1. Bump version in Cargo.toml
+# 2. Commit, tag, push
+git tag v0.x.y && git push origin main v0.x.y
+```
+
+Requires `HOMEBREW_TAP_TOKEN` repo secret (PAT with `repo` scope for the tap repo).
