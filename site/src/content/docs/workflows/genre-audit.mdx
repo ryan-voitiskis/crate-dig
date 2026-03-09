@@ -1,0 +1,49 @@
+---
+title: Genre Audit
+description: Verify and correct existing genre tags using enrichment and audio evidence.
+sidebar:
+  order: 2
+---
+
+import { Aside } from '@astrojs/starlight/components';
+import GenreAuditSOP from '../../../partials/sops/genre-audit.mdx'
+
+Review existing genre tags against Discogs, Beatport, and audio evidence. The agent identifies BPM-implausible tags and evidence conflicts, presenting only the tracks that need attention. Every change requires your explicit approval.
+
+<Aside type="caution">
+  No auto-tagging. Every genre change requires your explicit approval before it is staged or exported.
+</Aside>
+
+## When to audit
+
+- After a bulk genre classification pass — catch any misclassifications
+- When you suspect a genre was applied too broadly (e.g. everything tagged "Techno")
+- After importing tracks from another collection with different tagging conventions
+- Periodically, as enrichment data improves over time
+
+## Audit vs Classification
+
+| | Classification | Audit |
+|---|---|---|
+| **Scope** | Ungenred tracks (`has_genre=false`) | Tracks with genres (`has_genre=true`) |
+| **Goal** | Assign genres from scratch | Verify existing genres are correct |
+| **Filtering** | All tracks need classification | Only conflicts and BPM-implausible tracks shown |
+| **Fast path** | — | BPM plausibility scan catches obvious mismatches first |
+| **Typical volume** | All ungenred tracks | Subset with conflicts only |
+
+## Cache coverage
+
+All providers must be at 100% before starting. Run `cache_coverage(has_genre=true)` to check. If any provider is below 100%, hydrate first.
+
+<Aside type="tip">
+  Run audio analysis first (local, fast), then enrichment (external, rate-limited). This order minimizes wall-clock time.
+</Aside>
+
+## Step-by-step
+
+<GenreAuditSOP />
+
+## Next steps
+
+- [Genre Classification](/workflows/genre-classification/) — classify ungenred tracks
+- [Set Building](/workflows/set-building/) — build transition-scored set sequences

@@ -2620,14 +2620,13 @@ fn resolve_single_track_taxonomy_mappings() {
     assert_eq!(dh["mapping_type"], "exact");
     assert_eq!(dh["maps_to"], "Deep House");
 
-    // Garage House — unknown mapping
+    // Garage House — alias mapping
     let gh = dsm
         .iter()
         .find(|m| m["style"] == "Garage House")
         .expect("Garage House mapping");
-    // "Garage House" is not canonical and not in the alias map.
-    assert_eq!(gh["mapping_type"], "unknown");
-    assert!(gh["maps_to"].is_null());
+    assert_eq!(gh["mapping_type"], "alias");
+    assert_eq!(gh["maps_to"], "House");
 
     // Some Unknown Style — unknown
     let unknown = dsm

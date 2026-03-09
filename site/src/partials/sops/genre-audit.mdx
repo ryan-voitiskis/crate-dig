@@ -1,0 +1,82 @@
+import GenreDecisionTree from './genre-decision-tree.mdx'
+
+## Constraints
+
+- **Taxonomy is compiled.** The alias map in `genre.rs` cannot be changed at runtime. If the user disagrees with a mapping, the agent works around it by using the user's preferred genre directly.
+- **No auto-tagging.** Every genre change requires explicit human approval.
+- **Cache-first.** Audit runs from cached data. If cache is empty for a track, flag as insufficient evidence — do not trigger enrichment mid-audit.
+- **XML export only.** No direct DB writes. All changes flow through `update_tracks` → `preview_changes` → `write_xml`.
+
+## Prerequisites
+
+```
+cache_coverage(has_genre=true)
+```
+
+All providers must be at 100% before proceeding. If not, hydrate first:
+
+```
+analyze_audio_batch(has_genre=true, skip_cached=true, max_tracks=200)
+enrich_tracks(has_genre=true, skip_cached=true, providers=["discogs"], max_tracks=50)
+enrich_tracks(has_genre=true, skip_cached=true, providers=["beatport"], max_tracks=50)
+```
+
+Repeat until all providers reach 100%. Report progress between batches.
+
+## Steps
+
+### 0. Scope
+
+Ask the user which tracks to audit:
+- **Full library** — all tracks with genres
+- **Specific genre** — e.g. "audit all Techno tracks"
+- **Playlist or folder** — a specific collection subset
+- **Custom track IDs** — user-provided list
+
+### 1. BPM plausibility scan (fast filter)
+
+```
+resolve_tracks_data(has_genre=true, format="classification", max_tracks=50)
+```
+
+Check `current_genre_bpm_range` against `rekordbox_bpm` for each track. Present BPM-implausible tracks first — this is the fastest signal for bad genre tags.
+
+Format: `ARTIST - TITLE | Current: GENRE | BPM: VALUE | Range for GENRE: [min–max]`
+
+Ask user for each: "investigate / keep / change / skip"
+
+### 2. Evidence conflict scan
+
+Apply the decision tree (below) to each track. Filter to Step E result = "conflict" (suggested genre ≠ current genre). Include secondary influences (Step C2) where relevant.
+
+Present grouped by current genre:
+
+`ARTIST - TITLE | Current: GENRE | Evidence: SUGGESTED (confidence) | Reason`
+
+Ask user for each: "keep / change / investigate / skip"
+
+### 3. Stage approved changes
+
+```
+update_tracks(changes=[{"track_id": "...", "genre": "..."}])
+```
+
+**Batch tracking:** Initialize `audited_ids` list. After each batch, add ALL track IDs regardless of outcome. For subsequent batches, pass remaining unprocessed IDs. Stop when none remain.
+
+### 4. Export
+
+```
+preview_changes()
+```
+
+Ask user: "Export these changes to XML?"
+
+```
+write_xml()
+```
+
+Report output path. Remind user to import into Rekordbox.
+
+---
+
+<GenreDecisionTree />
