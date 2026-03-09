@@ -24,6 +24,8 @@ pub struct SearchFilterParams {
     pub key: Option<String>,
     #[schemars(description = "Filter by whether track has a genre set")]
     pub has_genre: Option<bool>,
+    #[schemars(description = "Filter by whether track has a label set")]
+    pub has_label: Option<bool>,
     #[schemars(description = "Filter by label name (partial match)")]
     pub label: Option<String>,
     #[schemars(description = "Filter by file path/folder (substring match)")]
@@ -59,6 +61,7 @@ impl SearchFilterParams {
             key: self.key,
             playlist: None,
             has_genre: self.has_genre,
+            has_label: self.has_label,
             label: self.label,
             path: self.path,
             path_prefix: self.path_prefix,

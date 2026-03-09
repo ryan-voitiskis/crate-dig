@@ -4008,6 +4008,7 @@ fn flatten_schema_has_top_level_filter_properties() {
         "bpm_max",
         "key",
         "has_genre",
+        "has_label",
         "label",
         "path",
         "added_after",

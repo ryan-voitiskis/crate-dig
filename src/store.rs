@@ -141,14 +141,14 @@ pub fn get_enrichment(
     }
 }
 
-/// Batch existence check for enrichment cache entries.
-/// Returns `(query_artist, query_title)` pairs present for the given provider.
+/// Shared helper for batch enrichment queries that differ only in WHERE suffix.
 /// Over-fetches by artist (all titles for matched artists), so the caller
 /// filters via `HashSet::contains`.
-pub fn batch_enrichment_existence(
+fn batch_enrichment_query(
     conn: &Connection,
     provider: &str,
     artists: &[&str],
+    extra_where: &str,
 ) -> Result<HashSet<(String, String)>, rusqlite::Error> {
     if artists.is_empty() {
         return Ok(HashSet::new());
@@ -160,7 +160,7 @@ pub fn batch_enrichment_existence(
         let placeholders: Vec<String> = (2..=chunk.len() + 1).map(|i| format!("?{i}")).collect();
         let sql = format!(
             "SELECT query_artist, query_title FROM enrichment_cache \
-             WHERE provider = ?1 AND query_artist IN ({})",
+             WHERE provider = ?1 AND query_artist IN ({}){extra_where}",
             placeholders.join(", ")
         );
         let mut stmt = conn.prepare(&sql)?;
@@ -179,6 +179,15 @@ pub fn batch_enrichment_existence(
     Ok(result)
 }
 
+/// Batch existence check for enrichment cache entries.
+pub fn batch_enrichment_existence(
+    conn: &Connection,
+    provider: &str,
+    artists: &[&str],
+) -> Result<HashSet<(String, String)>, rusqlite::Error> {
+    batch_enrichment_query(conn, provider, artists, "")
+}
+
 /// Batch existence check filtered to entries that have actual results
 /// (match_quality = "exact" or "fuzzy", i.e. response_json is non-null).
 /// Used by cache_coverage to distinguish "searched" from "has_result".
@@ -187,33 +196,29 @@ pub fn batch_enrichment_with_results(
     provider: &str,
     artists: &[&str],
 ) -> Result<HashSet<(String, String)>, rusqlite::Error> {
-    if artists.is_empty() {
-        return Ok(HashSet::new());
-    }
-    const MAX_IN_VARS: usize = 899;
-    let mut result = HashSet::new();
-    for chunk in artists.chunks(MAX_IN_VARS) {
-        let placeholders: Vec<String> = (2..=chunk.len() + 1).map(|i| format!("?{i}")).collect();
-        let sql = format!(
-            "SELECT query_artist, query_title FROM enrichment_cache \
-             WHERE provider = ?1 AND query_artist IN ({}) \
-             AND match_quality IN ('exact', 'fuzzy')",
-            placeholders.join(", ")
-        );
-        let mut stmt = conn.prepare(&sql)?;
-        let mut bind_values: Vec<&dyn rusqlite::types::ToSql> = Vec::with_capacity(chunk.len() + 1);
-        bind_values.push(&provider);
-        for artist in chunk {
-            bind_values.push(artist);
-        }
-        let rows = stmt.query_map(bind_values.as_slice(), |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        })?;
-        for row in rows {
-            result.insert(row?);
-        }
-    }
-    Ok(result)
+    batch_enrichment_query(
+        conn,
+        provider,
+        artists,
+        " AND match_quality IN ('exact', 'fuzzy')",
+    )
+}
+
+/// Batch check for enrichment entries that have label data.
+/// Returns (artist, title) pairs where the cached response has a non-empty label field.
+pub fn batch_enrichment_with_label(
+    conn: &Connection,
+    provider: &str,
+    artists: &[&str],
+) -> Result<HashSet<(String, String)>, rusqlite::Error> {
+    batch_enrichment_query(
+        conn,
+        provider,
+        artists,
+        " AND match_quality IN ('exact', 'fuzzy') \
+         AND json_extract(response_json, '$.label') IS NOT NULL \
+         AND json_extract(response_json, '$.label') != ''",
+    )
 }
 
 pub fn set_enrichment(

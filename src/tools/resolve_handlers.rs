@@ -183,6 +183,9 @@ pub(super) fn handle_cache_coverage(
     let mut no_audio_analysis = 0usize;
     let mut no_enrichment = 0usize;
     let mut no_data_at_all = 0usize;
+    let mut has_label = 0usize;
+    let mut no_label = 0usize;
+    let mut enrichment_has_label = 0usize;
 
     {
         // Pre-compute normalized keys for each track.
@@ -239,6 +242,9 @@ pub(super) fn handle_cache_coverage(
         let beatport_result_set =
             store::batch_enrichment_with_results(&store, "beatport", &unique_artists)
                 .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+        let discogs_label_set =
+            store::batch_enrichment_with_label(&store, "discogs", &unique_artists)
+                .map_err(|e| mcp_internal_error(format!("Label enrichment cache read error: {e}")))?;
         let audio_set = store::batch_audio_analysis_existence(&store, &unique_paths)
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
 
@@ -259,12 +265,16 @@ pub(super) fn handle_cache_coverage(
             .iter()
             .map(|(a, t)| (a.as_str(), t.as_str()))
             .collect();
+        let discogs_label_ref: std::collections::HashSet<(&str, &str)> = discogs_label_set
+            .iter()
+            .map(|(a, t)| (a.as_str(), t.as_str()))
+            .collect();
         let audio_ref: std::collections::HashSet<(&str, &str)> = audio_set
             .iter()
             .map(|(p, a)| (p.as_str(), a.as_str()))
             .collect();
 
-        for (norm_artist, norm_title, audio_key) in &track_keys {
+        for (idx, (norm_artist, norm_title, audio_key)) in track_keys.iter().enumerate() {
             let key = (norm_artist.as_str(), norm_title.as_str());
             let has_discogs = discogs_ref.contains(&key);
             let has_beatport = beatport_ref.contains(&key);
@@ -300,6 +310,16 @@ pub(super) fn handle_cache_coverage(
             if !has_stratum && !has_essentia && !has_discogs_result && !has_beatport_result {
                 no_data_at_all += 1;
             }
+
+            let track_has_label = !tracks[idx].label.is_empty();
+            if track_has_label {
+                has_label += 1;
+            } else {
+                no_label += 1;
+                if discogs_label_ref.contains(&key) {
+                    enrichment_has_label += 1;
+                }
+            }
         }
     }
 
@@ -331,6 +351,12 @@ pub(super) fn handle_cache_coverage(
                 "has_result": beatport_has_result,
                 "has_result_percent": to_percent(beatport_has_result, matched_tracks),
             },
+        },
+        "label": {
+            "has_label": has_label,
+            "has_label_percent": to_percent(has_label, matched_tracks),
+            "no_label": no_label,
+            "enrichment_has_label": enrichment_has_label,
         },
         "gaps": {
             "no_audio_analysis": no_audio_analysis,

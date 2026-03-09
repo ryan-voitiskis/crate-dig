@@ -138,6 +138,7 @@ pub struct SearchParams {
     pub key: Option<String>,
     pub playlist: Option<String>,
     pub has_genre: Option<bool>,
+    pub has_label: Option<bool>,
     pub label: Option<String>,
     pub path: Option<String>,
     pub path_prefix: Option<String>,
@@ -207,6 +208,14 @@ fn apply_search_filters(
             sql.push_str(" AND g.Name IS NOT NULL AND g.Name != ''");
         } else {
             sql.push_str(" AND (g.Name IS NULL OR g.Name = '')");
+        }
+    }
+
+    if let Some(has_label) = params.has_label {
+        if has_label {
+            sql.push_str(" AND l.Name IS NOT NULL AND l.Name != ''");
+        } else {
+            sql.push_str(" AND (l.Name IS NULL OR l.Name = '')");
         }
     }
 

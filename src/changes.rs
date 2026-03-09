@@ -853,6 +853,7 @@ mod tests {
             key: None,
             playlist: None,
             has_genre: None,
+            has_label: None,
             label: None,
             path: None,
             path_prefix: None,

@@ -184,6 +184,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
         key: args.key,
         playlist: args.playlist,
         has_genre: None,
+        has_label: None,
         label: args.label,
         path: args.path,
         path_prefix: None,

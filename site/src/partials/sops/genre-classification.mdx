@@ -23,6 +23,18 @@ enrich_tracks(has_genre=false, skip_cached=true, providers=["beatport"], max_tra
 
 Repeat until all providers reach 100%. Report progress between batches.
 
+### Label coverage (advisory)
+
+Check `label` in the `cache_coverage` results. If `enrichment_has_label` is non-zero, those tracks have label data in Discogs but no label tag — label is the strongest genre signal for electronic music.
+
+To find unlabelled tracks:
+
+```
+search_tracks(has_label=false, has_genre=false)
+```
+
+Present to the user with the suggestion to apply labels before classification. This is advisory — classification can proceed without labels but accuracy improves with them.
+
 ## Steps
 
 ### 0. Metadata quality pre-check
