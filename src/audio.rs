@@ -58,7 +58,7 @@ pub const ANALYZER_ESSENTIA: &str = "essentia";
 /// Expected analysis schema versions. Bump these when adding/changing output
 /// fields so that stale cache entries are evicted automatically.
 pub const STRATUM_SCHEMA_VERSION: &str = "1";
-pub const ESSENTIA_SCHEMA_VERSION: &str = "1";
+pub const ESSENTIA_SCHEMA_VERSION: &str = "2";
 
 const ESSENTIA_TIMEOUT_SECS: u64 = 300;
 
@@ -167,6 +167,8 @@ hop_size = 1024
 windowing = es.Windowing(type='hann')
 spectrum_algo = es.Spectrum()
 mfcc_algo = es.MFCC(numberCoefficients=13)
+centroid_algo = es.Centroid(range=44100/2)
+flux_algo = es.Flux()
 contrast_algo = es.SpectralContrast()
 peaks_algo = es.SpectralPeaks()
 dissonance_algo = es.Dissonance()
@@ -178,6 +180,8 @@ except Exception:
     has_intensity = False
 
 mfcc_accum = []
+centroid_accum = []
+flux_accum = []
 contrast_accum = []
 dissonance_accum = []
 intensity_values = []
@@ -188,6 +192,15 @@ for frame in es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size):
 
     _, mfcc_coeffs = mfcc_algo(spec)
     mfcc_accum.append(mfcc_coeffs)
+
+    centroid_val = first_scalar_or_none(centroid_algo(spec))
+    if centroid_val is not None:
+        centroid_accum.append(centroid_val)
+
+    frame_energy = float(np.sum(np.asarray(spec) ** 2))
+    raw_flux = first_scalar_or_none(flux_algo(spec))
+    if raw_flux is not None and frame_energy > 1e-10:
+        flux_accum.append(raw_flux / frame_energy)
 
     sc = contrast_algo(spec)
     if isinstance(sc, (tuple, list)) and len(sc) >= 1:
@@ -216,9 +229,30 @@ for frame in es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size):
             pass
 
 if mfcc_accum:
-    features["mfcc_mean"] = [float(sum(c[i] for c in mfcc_accum) / len(mfcc_accum)) for i in range(13)]
+    mfcc_arr = np.array(mfcc_accum)
+    features["mfcc_mean"] = [float(x) for x in np.mean(mfcc_arr, axis=0)]
+    features["mfcc_std"] = [float(x) for x in np.std(mfcc_arr, axis=0)]
 else:
     features["mfcc_mean"] = None
+    features["mfcc_std"] = None
+
+if centroid_accum:
+    c_arr = np.array(centroid_accum)
+    c_mean = float(np.mean(c_arr))
+    c_std = float(np.std(c_arr))
+    features["spectral_centroid_cv"] = c_std / c_mean if c_mean > 1e-10 else None
+else:
+    features["spectral_centroid_cv"] = None
+
+if flux_accum:
+    f_arr = np.sort(np.array(flux_accum))
+    features["spectral_flux_mean"] = float(np.mean(f_arr))
+    q1 = float(np.percentile(f_arr, 25))
+    q3 = float(np.percentile(f_arr, 75))
+    features["spectral_flux_iqr"] = q3 - q1
+else:
+    features["spectral_flux_mean"] = None
+    features["spectral_flux_iqr"] = None
 
 if contrast_accum:
     n_bands = len(contrast_accum[0])
@@ -261,6 +295,10 @@ pub struct EssentiaOutput {
     pub intensity_mean: Option<f64>,
     pub intensity_var: Option<f64>,
     pub mfcc_mean: Option<Vec<f64>>,
+    pub mfcc_std: Option<Vec<f64>>,
+    pub spectral_centroid_cv: Option<f64>,
+    pub spectral_flux_mean: Option<f64>,
+    pub spectral_flux_iqr: Option<f64>,
     pub spectral_contrast_mean: Option<Vec<f64>>,
 }
 
@@ -788,6 +826,16 @@ class Dissonance:
     def __call__(self, freqs, mags):
         return 0.35
 
+class Centroid:
+    def __init__(self, range=22050):
+        pass
+    def __call__(self, spec):
+        return 0.42
+
+class Flux:
+    def __call__(self, spec):
+        return 0.15
+
 class Intensity:
     def __call__(self, spec):
         return 0.65
@@ -798,10 +846,18 @@ class Intensity:
         std::fs::write(
             tmp.path().join("numpy.py"),
             r#"
+import builtins as _builtins
+
 class _FakeArray:
     def __init__(self, value):
         self._flat = []
-        self._flatten(value)
+        self._rows = None
+        if isinstance(value, (list, tuple)) and value and isinstance(value[0], (list, tuple)):
+            self._rows = [list(r) for r in value]
+            for r in self._rows:
+                self._flat.extend(r)
+        else:
+            self._flatten(value)
         self.size = len(self._flat)
 
     def _flatten(self, value):
@@ -818,8 +874,82 @@ class _FakeArray:
     def reshape(self, *_):
         return self._flat
 
+    def __pow__(self, exp):
+        return _FakeArray([x ** exp for x in self._flat])
+
+    def __iter__(self):
+        return iter(self._flat)
+
+    def __len__(self):
+        return len(self._flat)
+
+    def __getitem__(self, idx):
+        return self._flat[idx]
+
 def asarray(value):
     return _FakeArray(value)
+
+def array(value):
+    if isinstance(value, _FakeArray):
+        return value
+    return _FakeArray(value)
+
+def sum(arr):
+    if isinstance(arr, _FakeArray):
+        return _builtins.sum(arr._flat)
+    return _builtins.sum(arr)
+
+def mean(arr, axis=None):
+    if isinstance(arr, _FakeArray) and axis == 0 and arr._rows:
+        ncols = len(arr._rows[0])
+        nrows = len(arr._rows)
+        return _FakeArray([_builtins.sum(arr._rows[r][c] for r in range(nrows)) / nrows for c in range(ncols)])
+    if isinstance(arr, _FakeArray):
+        vals = arr._flat
+    elif isinstance(arr, (list, tuple)):
+        vals = list(arr)
+    else:
+        return float(arr)
+    return _builtins.sum(vals) / max(len(vals), 1)
+
+def std(arr, axis=None):
+    if isinstance(arr, _FakeArray) and axis == 0 and arr._rows:
+        ncols = len(arr._rows[0])
+        nrows = len(arr._rows)
+        result = []
+        for c in range(ncols):
+            col = [arr._rows[r][c] for r in range(nrows)]
+            m = _builtins.sum(col) / nrows
+            var = _builtins.sum((x - m) ** 2 for x in col) / nrows
+            result.append(var ** 0.5)
+        return _FakeArray(result)
+    if isinstance(arr, _FakeArray):
+        vals = arr._flat
+    elif isinstance(arr, (list, tuple)):
+        vals = list(arr)
+    else:
+        return 0.0
+    m = _builtins.sum(vals) / max(len(vals), 1)
+    var = _builtins.sum((x - m) ** 2 for x in vals) / max(len(vals), 1)
+    return var ** 0.5
+
+def sort(arr):
+    if isinstance(arr, _FakeArray):
+        return _FakeArray(sorted(arr._flat))
+    return _FakeArray(sorted(arr))
+
+def percentile(arr, p):
+    if isinstance(arr, _FakeArray):
+        vals = sorted(arr._flat)
+    else:
+        vals = sorted(arr)
+    if not vals:
+        return 0.0
+    k = (p / 100.0) * (len(vals) - 1)
+    lo = int(k)
+    hi = min(lo + 1, len(vals) - 1)
+    frac = k - lo
+    return vals[lo] + frac * (vals[hi] - vals[lo])
 
 def column_stack(cols):
     return ("stereo", cols)
@@ -894,6 +1024,26 @@ def column_stack(cols):
         assert!(
             result.intensity_var.is_some(),
             "intensity_var should be present"
+        );
+
+        // Phase 1: temporal statistics
+        let mfcc_std = result
+            .mfcc_std
+            .as_ref()
+            .expect("mfcc_std should be present");
+        assert_eq!(mfcc_std.len(), 13, "mfcc_std should have 13 coefficients");
+
+        assert!(
+            result.spectral_centroid_cv.is_some(),
+            "spectral_centroid_cv should be present"
+        );
+        assert!(
+            result.spectral_flux_mean.is_some(),
+            "spectral_flux_mean should be present"
+        );
+        assert!(
+            result.spectral_flux_iqr.is_some(),
+            "spectral_flux_iqr should be present"
         );
     }
 

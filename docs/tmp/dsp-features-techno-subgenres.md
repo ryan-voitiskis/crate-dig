@@ -321,15 +321,44 @@ stratum-dsp is a published crate pinned at `=1.0.0`. To add features:
 3. Fork stratum-dsp, set up `[patch.crates-io]`
 4. Verify STFT and HPSS internals are accessible from new analysis passes
 
-### Phase 1: Quick wins (Essentia, no Rust changes)
+### Phase 1: Temporal statistics (Essentia) — ✅ Done
 
-Add to the Essentia Python script:
-- `spectral_centroid_cv` (coefficient of variation, per-frame computation)
-- `spectral_flux_mean`, `spectral_flux_iqr` (energy-normalized)
-- `mfcc_std` (13 values)
+Added to Essentia Python script and `EssentiaOutput` struct:
+- ~~`spectral_centroid_cv` (coefficient of variation, per-frame `Centroid`)~~ ✅
+- ~~`spectral_flux_mean`, `spectral_flux_iqr` (energy-normalized `Flux`)~~ ✅
+- ~~`mfcc_std` (13 values, std dev across frames)~~ ✅
 
-Cost: ~15-20 lines of Python. Test against the 15 reference tracks
-immediately (force re-analysis with `skip_cached: false`).
+Bumped `ESSENTIA_SCHEMA_VERSION` to `"2"`. All 15 reference tracks analyzed.
+
+#### Validation results
+
+**`spectral_centroid_cv`** — **Most discriminative.** Measures temporal
+variability of spectral brightness (high CV = large fluctuations = more
+reverb-smeared dynamics).
+
+| Genre | Tracks | Mean | Std |
+|-------|--------|------|-----|
+| Dub Techno | 0.99, 0.76, 0.73, 0.87, 1.34 | **0.94** | 0.23 |
+| Deep Techno | 0.99, 0.88, 0.77, 0.52, 0.60 | **0.75** | 0.19 |
+| Techno | 0.64, 0.85, 0.62, 0.67, 0.67 | **0.69** | 0.09 |
+
+Dub mean (0.94) is ~1.1 std devs above Techno mean (0.69). Deep falls
+between as expected. Best single feature from Phase 1.
+
+**`spectral_flux_mean`** — **Too noisy.** Energy-normalized flux has extreme
+outliers (S.A.M. = 323, SDB = 1.4). Means: Dub 45.8, Techno 97.7, Deep
+35.2 — high within-genre variance makes this unreliable. May need log
+transform or outlier clamping to be useful.
+
+**`spectral_flux_iqr`** — **Mild signal.** Dub (4.29) > Deep (2.27) ≈
+Techno (2.27). Captures that dub techno has more variable spectral change
+rates (reverb tails create alternating smooth/transient sections). High
+within-genre variance limits usefulness as a standalone feature.
+
+**`mfcc_std`** — 13 coefficients captured per track. Not yet analyzed for
+per-coefficient discrimination; useful as classifier input alongside other
+features. MFCC[0] std (energy variation) shows: Dub 112, Techno 124,
+Deep 117 — no clear separation on its own.
 
 ### Phase 2: Modulation spectral centroid
 
