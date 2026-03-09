@@ -78,10 +78,18 @@ pub(super) fn handle_get_library_summary(
 pub(super) fn handle_get_genre_taxonomy() -> Result<CallToolResult, McpError> {
     let genres = genre::GENRES;
     let aliases = genre::genre_alias_map();
+    let bpm_ranges: serde_json::Map<String, serde_json::Value> = genres
+        .iter()
+        .filter_map(|&g| {
+            genre::genre_bpm_range(g)
+                .map(|r| (g.to_string(), serde_json::json!([r.typical_min, r.typical_max])))
+        })
+        .collect();
     let mut result = serde_json::json!({
         "genres": genres,
         "aliases": aliases,
-        "description": "Flat genre taxonomy. Not a closed list — arbitrary genres are accepted. This list provides consistency suggestions. Aliases map non-canonical genre names to their canonical forms."
+        "bpm_ranges": bpm_ranges,
+        "description": "Flat genre taxonomy. Not a closed list — arbitrary genres are accepted. This list provides consistency suggestions. Aliases map non-canonical genre names to their canonical forms. bpm_ranges shows typical BPM ranges for genres where BPM is diagnostic; genres not listed have ranges too wide to be useful."
     });
     attach_corpus_provenance(&mut result, consult_genre_workflow_docs());
     let json =

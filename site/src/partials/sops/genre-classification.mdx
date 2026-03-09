@@ -112,8 +112,10 @@ Apply for every track during classification.
 
 - `current_genre` (may be empty)
 - `current_genre_canonical` (may be null)
-- `discogs_mapped_genres[]` — each has `genre` and `style_count` (may be null)
+- `current_genre_bpm_range` — typical BPM range `[min, max]` for the current genre, or null
+- `discogs_mapped_genres[]` — each has `genre`, `style_count`, and `bpm_range` (may be null)
 - `beatport_mapped_genre` (single canonical value or null)
+- `beatport_mapped_genre_bpm_range` — typical BPM range `[min, max]` for the Beatport genre, or null
 - `beatport_genre_raw` (original Beatport subgenre string, e.g. "Melodic House & Techno")
 - `audio.danceability`, `audio.dynamic_complexity`, `audio.rhythm_regularity`, `audio.spectral_centroid_mean`, `audio.stratum_bpm`, `audio.rekordbox_bpm`, `audio.bpm_agreement`
 - Session overrides from Step 1
@@ -123,6 +125,15 @@ Apply for every track during classification.
 1. From `discogs_mapped_genres`, collect `genre` values, deduplicate → `discogs_genres` (set).
 2. `beatport_mapped_genre` → `beatport_genre` (single value or null).
 3. If `current_genre` is non-empty, use `current_genre_canonical` if available, else `current_genre` as-is → `current`.
+
+### Step A.2: BPM plausibility check
+
+For each mapped genre that has a `bpm_range` in the classification output, compare the track's BPM (top-level `bpm` field) against the range:
+
+- If `rekordbox_bpm` falls **outside** the typical range, mark that source's suggestion as **bpm-implausible**. In Steps C–D, treat bpm-implausible suggestions as lower-weight evidence: downgrade confidence by one level (high→medium, medium→low) and note "BPM outside typical range [min–max]".
+- If `rekordbox_bpm` falls **within** the range, or the genre has no `bpm_range` (null), proceed normally.
+
+Also check `current_genre_bpm_range` against the track's `bpm`. If the current genre is bpm-implausible, note it alongside genre results — this is informational for conflict review (Step 4).
 
 ### Step B: Audio screening
 

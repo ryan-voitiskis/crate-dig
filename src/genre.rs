@@ -130,6 +130,54 @@ pub fn canonical_genre_from_alias(genre: &str) -> Option<&'static str> {
         .copied()
 }
 
+/// Typical BPM range for a genre. Tracks outside this range are not necessarily
+/// mistagged, but the suggestion should be treated with lower confidence.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BpmRange {
+    pub typical_min: f64,
+    pub typical_max: f64,
+}
+
+impl BpmRange {
+    const fn new(typical_min: f64, typical_max: f64) -> Self {
+        Self { typical_min, typical_max }
+    }
+}
+
+/// Returns the typical BPM range for a canonical genre, if BPM is diagnostic for that genre.
+/// Returns `None` for genres where BPM spread is too wide to be useful (e.g. IDM, Jazz, Experimental).
+pub fn genre_bpm_range(canonical: &str) -> Option<BpmRange> {
+    match canonical {
+        "Acid" => Some(BpmRange::new(120.0, 145.0)),
+        "Afro House" => Some(BpmRange::new(118.0, 128.0)),
+        "Ambient Techno" => Some(BpmRange::new(110.0, 130.0)),
+        "Bassline" => Some(BpmRange::new(130.0, 142.0)),
+        "Dancehall" => Some(BpmRange::new(85.0, 108.0)),
+        "Deep House" => Some(BpmRange::new(118.0, 126.0)),
+        "Deep Techno" => Some(BpmRange::new(120.0, 132.0)),
+        "Disco" => Some(BpmRange::new(110.0, 130.0)),
+        "Downtempo" => Some(BpmRange::new(80.0, 115.0)),
+        "Drone Techno" => Some(BpmRange::new(115.0, 135.0)),
+        "Drum & Bass" => Some(BpmRange::new(168.0, 180.0)),
+        "Dub Techno" => Some(BpmRange::new(118.0, 132.0)),
+        "Dubstep" => Some(BpmRange::new(136.0, 144.0)),
+        "Garage" => Some(BpmRange::new(130.0, 138.0)),
+        "Gospel House" => Some(BpmRange::new(120.0, 128.0)),
+        "Grime" => Some(BpmRange::new(138.0, 145.0)),
+        "Hard Techno" => Some(BpmRange::new(145.0, 160.0)),
+        "House" => Some(BpmRange::new(120.0, 130.0)),
+        "Jungle" => Some(BpmRange::new(160.0, 175.0)),
+        "Minimal" => Some(BpmRange::new(120.0, 132.0)),
+        "Progressive House" => Some(BpmRange::new(122.0, 132.0)),
+        "Psytrance" => Some(BpmRange::new(138.0, 148.0)),
+        "Speed Garage" => Some(BpmRange::new(130.0, 140.0)),
+        "Tech House" => Some(BpmRange::new(124.0, 132.0)),
+        "Techno" => Some(BpmRange::new(128.0, 140.0)),
+        "Trance" => Some(BpmRange::new(136.0, 145.0)),
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GenreFamily {
     House,
@@ -328,5 +376,43 @@ mod tests {
         for g in GENRES {
             let _ = genre_family(g); // should not panic
         }
+    }
+
+    #[test]
+    fn bpm_ranges_are_valid() {
+        for g in GENRES {
+            if let Some(range) = genre_bpm_range(g) {
+                assert!(
+                    range.typical_min < range.typical_max,
+                    "genre '{}' has invalid BPM range: {} >= {}",
+                    g,
+                    range.typical_min,
+                    range.typical_max
+                );
+                assert!(
+                    range.typical_min > 0.0,
+                    "genre '{}' has non-positive typical_min: {}",
+                    g,
+                    range.typical_min
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn known_bpm_ranges() {
+        let deep_techno = genre_bpm_range("Deep Techno").unwrap();
+        assert_eq!(deep_techno.typical_min, 120.0);
+        assert_eq!(deep_techno.typical_max, 132.0);
+
+        let dnb = genre_bpm_range("Drum & Bass").unwrap();
+        assert_eq!(dnb.typical_min, 168.0);
+        assert_eq!(dnb.typical_max, 180.0);
+
+        // Genres without diagnostic BPM ranges return None
+        assert!(genre_bpm_range("IDM").is_none());
+        assert!(genre_bpm_range("Experimental").is_none());
+        assert!(genre_bpm_range("Jazz").is_none());
+        assert!(genre_bpm_range("Polka").is_none());
     }
 }

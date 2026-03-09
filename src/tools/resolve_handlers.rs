@@ -517,15 +517,22 @@ fn resolve_single_track_compact(
     stratum_cache: Option<&store::CachedAudioAnalysis>,
     essentia_cache: Option<&store::CachedAudioAnalysis>,
 ) -> serde_json::Value {
+    // Helper: serialize a BPM range as [min, max] or null.
+    let bpm_range_json = |genre: &str| -> serde_json::Value {
+        genre::genre_bpm_range(genre)
+            .map(|r| serde_json::json!([r.typical_min, r.typical_max]))
+            .unwrap_or(serde_json::Value::Null)
+    };
+
     // Current genre canonical (same logic as full version)
-    let current_genre_canonical = if track.genre.is_empty() {
-        serde_json::Value::Null
+    let (current_genre_canonical, current_genre_bpm_range) = if track.genre.is_empty() {
+        (serde_json::Value::Null, serde_json::Value::Null)
     } else if let Some(canonical) = genre::canonical_genre_name(&track.genre) {
-        serde_json::json!(canonical)
+        (serde_json::json!(canonical), bpm_range_json(canonical))
     } else if let Some(canonical) = genre::canonical_genre_from_alias(&track.genre) {
-        serde_json::json!(canonical)
+        (serde_json::json!(canonical), bpm_range_json(canonical))
     } else {
-        serde_json::Value::Null
+        (serde_json::Value::Null, serde_json::Value::Null)
     };
 
     // Parse Discogs styles and map through taxonomy, keeping only exact/alias matches.
@@ -553,7 +560,10 @@ fn resolve_single_track_compact(
         } else {
             let mut entries: Vec<serde_json::Value> = genre_counts
                 .into_iter()
-                .map(|(genre, count)| serde_json::json!({"genre": genre, "style_count": count}))
+                .map(|(g, count)| {
+                    let bpm = bpm_range_json(&g);
+                    serde_json::json!({"genre": g, "style_count": count, "bpm_range": bpm})
+                })
                 .collect();
             // Sort for deterministic output
             entries.sort_by(|a, b| {
@@ -569,27 +579,33 @@ fn resolve_single_track_compact(
     // Parse Beatport genre and map through taxonomy, only keeping exact/alias.
     // Preserve the raw Beatport genre string alongside the canonical mapping.
     let beatport_val = parse_enrichment_cache(beatport_cache);
-    let (beatport_mapped_genre, beatport_genre_raw): (serde_json::Value, serde_json::Value) =
-        match beatport_val
-            .as_ref()
-            .and_then(|v| v.get("genre"))
-            .and_then(|v| v.as_str())
-            .filter(|g| !g.is_empty())
-        {
-            Some(bp_genre) => {
-                let raw = serde_json::json!(bp_genre);
-                let (maps_to, mapping_type) = map_genre_through_taxonomy(bp_genre);
-                let mapped = if mapping_type == "exact" || mapping_type == "alias" {
-                    maps_to
-                        .map(|g| serde_json::json!(g))
-                        .unwrap_or(serde_json::Value::Null)
-                } else {
-                    serde_json::Value::Null
-                };
-                (mapped, raw)
-            }
-            None => (serde_json::Value::Null, serde_json::Value::Null),
-        };
+    let bp_raw_str = beatport_val
+        .as_ref()
+        .and_then(|v| v.get("genre"))
+        .and_then(|v| v.as_str())
+        .filter(|g| !g.is_empty());
+
+    let beatport_genre_raw = bp_raw_str
+        .map(|s| serde_json::json!(s))
+        .unwrap_or(serde_json::Value::Null);
+
+    let bp_canonical = bp_raw_str.and_then(|bp_genre| {
+        let (maps_to, mapping_type) = map_genre_through_taxonomy(bp_genre);
+        if mapping_type == "exact" || mapping_type == "alias" {
+            maps_to
+        } else {
+            None
+        }
+    });
+
+    let beatport_mapped_genre = bp_canonical
+        .as_deref()
+        .map(|g| serde_json::json!(g))
+        .unwrap_or(serde_json::Value::Null);
+    let beatport_mapped_genre_bpm_range = bp_canonical
+        .as_deref()
+        .map(|g| bpm_range_json(g))
+        .unwrap_or(serde_json::Value::Null);
 
     // Parse stratum cache for bpm, key
     let stratum_json = stratum_cache
@@ -646,11 +662,13 @@ fn resolve_single_track_compact(
         "title": track.title,
         "current_genre": track.genre,
         "current_genre_canonical": current_genre_canonical,
+        "current_genre_bpm_range": current_genre_bpm_range,
         "bpm": track.bpm,
         "key": track.key,
         "rating": track.rating,
         "discogs_mapped_genres": discogs_mapped_genres,
         "beatport_mapped_genre": beatport_mapped_genre,
+        "beatport_mapped_genre_bpm_range": beatport_mapped_genre_bpm_range,
         "beatport_genre_raw": beatport_genre_raw,
         "audio": audio_obj,
         "data": {
