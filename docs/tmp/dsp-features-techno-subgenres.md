@@ -391,16 +391,31 @@ dub 11.7; Donato Dozzy deep 11.3 overlaps with techno range). Not a
 standalone discriminator but provides complementary signal alongside
 `spectral_centroid_cv`.
 
-### Phase 3: HPSS harmonic/percussive proportion
+### Phase 3: HPSS harmonic/percussive proportion — ✅ Done
 
-Implement in stratum-dsp fork:
-1. Modify `hpss_decompose` to accept separate time/frequency kernel sizes
-   (or add a new function alongside the existing one)
-2. After existing STFT, run HPSS with 31×17 kernels
-3. Compute H/(H+P) on trimmed spectrogram (15% from each end)
-4. Add `harmonic_proportion: Option<f32>` to `AnalysisResult`
+Implemented in stratum-dsp fork:
+- ~~Add `harmonic_proportion()` with asymmetric kernels (31×17)~~ ✅
+- ~~Single-pass HPSS (no iteration needed for proportion)~~ ✅
+- ~~15% trim, compute H/(H+P) energy ratio~~ ✅
+- ~~`harmonic_proportion: Option<f32>` on `AnalysisResult`~~ ✅
+- ~~Wired through `StratumResult`, bumped schema to `"3"`~~ ✅
 
-Test against 15 reference tracks.
+#### Validation results
+
+| Genre | Values | Mean | Std |
+|-------|--------|------|-----|
+| Dub Techno | 0.93, 0.86, 0.87, 0.74, 0.66 | **0.811** | 0.106 |
+| Techno | 0.77, 0.78, 0.81, 0.82, 0.77 | **0.791** | 0.022 |
+| Deep Techno | 0.74, 0.85, 0.29, 0.70, 0.76 | **0.666** | 0.209 |
+
+Techno clusters very tightly (0.77-0.82). Dub has high variance — Elvism
+(0.93, very padded) to Talkstart (0.66, more rhythmic). Prince of Denmark
+tool 517 is a major outlier at 0.29 (extremely percussive for deep techno).
+Without that outlier, Deep mean = 0.760 ≈ Techno.
+
+Not a strong standalone discriminator — Dub-Techno overlap substantially.
+But useful as a secondary feature: extreme values (>0.90 or <0.40) are
+informative, and the tight Techno cluster provides a reference point.
 
 ### Phase 4: Post-transient decay rate
 

@@ -235,6 +235,7 @@ mod tests {
             processing_time_ms: 42.0,
             analyzer_version: "1.0.0".to_string(),
             mod_centroid: Some(12.5),
+            harmonic_proportion: Some(0.65),
             flags: vec![],
             warnings: vec![],
         }
