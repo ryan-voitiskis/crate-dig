@@ -137,18 +137,6 @@ enum HydrateCacheMsg {
 }
 
 // ---------------------------------------------------------------------------
-// Discogs auth modes
-// ---------------------------------------------------------------------------
-
-enum DiscogsMode {
-    Broker {
-        cfg: discogs::BrokerConfig,
-        session_token: String,
-    },
-    Legacy,
-}
-
-// ---------------------------------------------------------------------------
 // Main orchestrator
 // ---------------------------------------------------------------------------
 
@@ -518,7 +506,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
             if discogs_pending.is_empty() {
                 return;
             }
-            let mode = match discogs_mode {
+            let (broker_cfg, session_token) = match discogs_mode {
                 Some(m) => m,
                 None => return,
             };
@@ -537,12 +525,8 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                 let cache_tx = cache_tx.clone();
                 let counters = counters.clone();
                 let pb = pb.clone();
-                let mode_cfg = match &mode {
-                    DiscogsMode::Broker { cfg, session_token } => {
-                        Some((cfg.clone(), session_token.clone()))
-                    }
-                    DiscogsMode::Legacy => None,
-                };
+                let cfg = broker_cfg.clone();
+                let token = session_token.clone();
                 let cancel = cancel.clone();
 
                 handles.push(tokio::spawn(async move {
@@ -554,27 +538,16 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                     let norm_artist = normalize::normalize_for_matching(&track.artist);
                     let norm_title = normalize::normalize_for_matching(&track.title);
 
-                    let result = match mode_cfg {
-                        Some((cfg, token)) => discogs::lookup_via_broker(
-                            &client,
-                            &cfg,
-                            &token,
-                            &track.artist,
-                            &track.title,
-                            Some(&track.album),
-                        )
-                        .await
-                        .map_err(|e| e.to_string()),
-                        None => {
-                            discogs::lookup_with_legacy_credentials(
-                                &client,
-                                &track.artist,
-                                &track.title,
-                                Some(&track.album),
-                            )
-                            .await
-                        }
-                    };
+                    let result = discogs::lookup_via_broker(
+                        &client,
+                        &cfg,
+                        &token,
+                        &track.artist,
+                        &track.title,
+                        Some(&track.album),
+                    )
+                    .await
+                    .map_err(|e| e.to_string());
 
                     let (match_quality, response_json) = match result {
                         Ok(Some(ref r)) => {
@@ -808,8 +781,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
 async fn cli_ensure_discogs_auth(
     client: &reqwest::Client,
     store_path: &str,
-) -> Result<DiscogsMode, Box<dyn std::error::Error>> {
-    // Try broker path first
+) -> Result<(discogs::BrokerConfig, String), Box<dyn std::error::Error>> {
     match discogs::BrokerConfig::from_env() {
         discogs::BrokerConfigStatus::Ok(cfg) => {
             let store_conn = store::open(store_path)?;
@@ -820,10 +792,7 @@ async fn cli_ensure_discogs_auth(
                     if session.expires_at - now < 3600 {
                         println!("  Warning: session expires in <1 hour");
                     }
-                    return Ok(DiscogsMode::Broker {
-                        cfg,
-                        session_token: session.session_token,
-                    });
+                    return Ok((cfg, session.session_token));
                 }
                 // Expired — clear and re-auth
                 store::clear_broker_discogs_session(&store_conn, &cfg.base_url)?;
@@ -881,10 +850,7 @@ async fn cli_ensure_discogs_auth(
 
                         spinner.finish_and_clear();
                         println!("Discogs: authenticated successfully");
-                        return Ok(DiscogsMode::Broker {
-                            cfg,
-                            session_token: finalized.session_token,
-                        });
+                        return Ok((cfg, finalized.session_token));
                     }
                     "pending" => continue,
                     other => {
@@ -895,20 +861,9 @@ async fn cli_ensure_discogs_auth(
             }
         }
         discogs::BrokerConfigStatus::InvalidUrl(url) => {
-            return Err(format!("Invalid Discogs broker URL: {url}").into());
-        }
-        discogs::BrokerConfigStatus::NotConfigured => {
-            // Fall through to legacy
+            Err(format!("Invalid Discogs broker URL: {url}").into())
         }
     }
-
-    // Legacy credentials fallback
-    if discogs::legacy_credentials_configured() {
-        println!("Discogs: using legacy credentials");
-        return Ok(DiscogsMode::Legacy);
-    }
-
-    Err("Discogs: no authentication configured. Set REKLAWDBOX_DISCOGS_BROKER_URL or legacy credentials.".into())
 }
 
 // ---------------------------------------------------------------------------

@@ -1477,7 +1477,6 @@ dependencies = [
  "libc",
  "lofty",
  "percent-encoding",
- "rand",
  "regex",
  "reqwest",
  "rmcp",

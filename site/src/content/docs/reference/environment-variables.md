@@ -64,20 +64,6 @@ The cache database stores Discogs/Beatport enrichment results, audio analysis ou
 
 These are internal tuning knobs. The Beatport interval controls rate limiting — lower values risk HTTP 429 errors. The corpus path points to the knowledge manifest used for contextual tool responses.
 
-## Deprecated (legacy Discogs direct auth)
-
-These variables still work as a fallback but are not the recommended path. The built-in broker handles auth and rate limiting automatically.
-
-| Variable                          | Description                 |
-| --------------------------------- | --------------------------- |
-| `REKLAWDBOX_DISCOGS_KEY`          | Discogs consumer key        |
-| `REKLAWDBOX_DISCOGS_SECRET`       | Discogs consumer secret     |
-| `REKLAWDBOX_DISCOGS_TOKEN`        | Discogs OAuth token         |
-| `REKLAWDBOX_DISCOGS_TOKEN_SECRET` | Discogs OAuth token secret  |
-| `REKLAWDBOX_DISCOGS_API_BASE_URL` | Custom Discogs API base URL |
-
-Direct auth requires you to manage your own Discogs API credentials and rate limiting. The broker handles both automatically.
-
 ## Example MCP config
 
 A complete `mcp_servers` config block with all commonly used variables:

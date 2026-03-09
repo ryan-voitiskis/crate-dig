@@ -60,14 +60,6 @@ Essentia probe behavior:
 - If neither imports Essentia, tools report Essentia as unavailable and continue with stratum-dsp only.
 - Probe result is memoized for process lifetime, so restart the MCP server after changing Essentia install/config (or run `setup_essentia`, which installs and activates Essentia immediately).
 
-Deprecated Discogs fallback (not the default path):
-
-- `REKLAWDBOX_DISCOGS_KEY`
-- `REKLAWDBOX_DISCOGS_SECRET`
-- `REKLAWDBOX_DISCOGS_TOKEN`
-- `REKLAWDBOX_DISCOGS_TOKEN_SECRET`
-- `REKLAWDBOX_DISCOGS_API_BASE_URL` (optional custom Discogs API base URL)
-
 ### Codex Quickstart
 
 1. Build the binary:

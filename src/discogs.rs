@@ -1,8 +1,6 @@
-use rand::Rng;
 use reqwest::{Client, Url};
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::sync::OnceLock;
 
 pub const BROKER_URL_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_URL";
 pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
@@ -11,12 +9,6 @@ const DEFAULT_BROKER_URL: &str = "https://reklawdbox-discogs-broker.ryanvoitiski
 const DEFAULT_BROKER_TOKEN: &str =
     "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
 
-pub const LEGACY_KEY_ENV: &str = "REKLAWDBOX_DISCOGS_KEY";
-pub const LEGACY_SECRET_ENV: &str = "REKLAWDBOX_DISCOGS_SECRET";
-pub const LEGACY_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_TOKEN";
-pub const LEGACY_TOKEN_SECRET_ENV: &str = "REKLAWDBOX_DISCOGS_TOKEN_SECRET";
-
-pub const DISCOGS_API_BASE_URL_ENV: &str = "REKLAWDBOX_DISCOGS_API_BASE_URL";
 
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
@@ -28,8 +20,6 @@ pub struct BrokerConfig {
 pub enum BrokerConfigStatus {
     /// Config loaded successfully.
     Ok(BrokerConfig),
-    /// Env var not set — broker auth is not configured.
-    NotConfigured,
     /// Env var set but URL is malformed.
     InvalidUrl(String),
 }
@@ -130,22 +120,6 @@ pub struct DiscogsResult {
 }
 
 #[derive(Deserialize)]
-struct SearchResponse {
-    results: Option<Vec<SearchResult>>,
-}
-
-#[derive(Deserialize)]
-struct SearchResult {
-    title: Option<String>,
-    year: Option<String>,
-    label: Option<Vec<String>>,
-    genre: Option<Vec<String>>,
-    style: Option<Vec<String>>,
-    uri: Option<String>,
-    cover_image: Option<String>,
-}
-
-#[derive(Deserialize)]
 struct DeviceSessionStartResponse {
     device_id: String,
     pending_token: String,
@@ -188,43 +162,6 @@ fn normalize_base_url(raw: &str) -> Option<String> {
         return None;
     }
     Some(normalized)
-}
-
-fn legacy_values_configured(
-    key: Option<&str>,
-    secret: Option<&str>,
-    token: Option<&str>,
-    token_secret: Option<&str>,
-) -> bool {
-    [key, secret, token, token_secret]
-        .iter()
-        .all(|v| v.is_some_and(|s| !s.trim().is_empty()))
-}
-
-pub fn legacy_credentials_configured() -> bool {
-    let key = std::env::var(LEGACY_KEY_ENV).ok();
-    let secret = std::env::var(LEGACY_SECRET_ENV).ok();
-    let token = std::env::var(LEGACY_TOKEN_ENV).ok();
-    let token_secret = std::env::var(LEGACY_TOKEN_SECRET_ENV).ok();
-    legacy_values_configured(
-        key.as_deref(),
-        secret.as_deref(),
-        token.as_deref(),
-        token_secret.as_deref(),
-    )
-}
-
-pub fn missing_auth_remediation() -> AuthRemediation {
-    AuthRemediation {
-        message: format!(
-            "Discogs auth is not configured. Set {} to use broker auth (recommended), then retry.
-Legacy {} credentials are deprecated from the default path.",
-            BROKER_URL_ENV, LEGACY_KEY_ENV
-        ),
-        auth_url: None,
-        poll_interval_seconds: None,
-        expires_at: None,
-    }
 }
 
 pub fn pending_auth_remediation(pending: &PendingDeviceSession) -> AuthRemediation {
@@ -421,189 +358,6 @@ pub(crate) fn parse_broker_lookup_payload(
         .map_err(|e| format!("invalid broker payload: {e}"))
 }
 
-struct Credentials {
-    consumer_key: String,
-    signature: String,
-    token: String,
-}
-
-static CREDENTIALS: OnceLock<Credentials> = OnceLock::new();
-
-fn load_credentials() -> Result<Credentials, String> {
-    let key = env_var_trimmed_non_empty(LEGACY_KEY_ENV)
-        .ok_or_else(|| format!("{} not set or empty", LEGACY_KEY_ENV))?;
-    let secret = env_var_trimmed_non_empty(LEGACY_SECRET_ENV)
-        .ok_or_else(|| format!("{} not set or empty", LEGACY_SECRET_ENV))?;
-    let token = env_var_trimmed_non_empty(LEGACY_TOKEN_ENV)
-        .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_ENV))?;
-    let token_secret = env_var_trimmed_non_empty(LEGACY_TOKEN_SECRET_ENV)
-        .ok_or_else(|| format!("{} not set or empty", LEGACY_TOKEN_SECRET_ENV))?;
-    let signature = format!("{secret}&{token_secret}");
-    Ok(Credentials {
-        consumer_key: key,
-        signature,
-        token,
-    })
-}
-
-fn get_credentials() -> Result<&'static Credentials, String> {
-    if let Some(creds) = CREDENTIALS.get() {
-        return Ok(creds);
-    }
-    let creds = load_credentials()?;
-    Ok(CREDENTIALS.get_or_init(|| creds))
-}
-
-fn generate_oauth_nonce() -> String {
-    let mut rng = rand::rng();
-    let bytes: [u8; 16] = rng.random();
-    bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
-fn build_legacy_search_url(base_url: &str, query_params: &str) -> String {
-    format!(
-        "{}/database/search?{query_params}",
-        base_url.trim_end_matches('/')
-    )
-}
-
-fn build_legacy_oauth_authorization_header(
-    creds: &Credentials,
-    oauth_nonce: &str,
-    timestamp: u64,
-) -> String {
-    format!(
-        "OAuth oauth_consumer_key=\"{consumer_key}\", oauth_nonce=\"{nonce}\", oauth_signature=\"{signature}\", oauth_signature_method=\"PLAINTEXT\", oauth_timestamp=\"{timestamp}\", oauth_token=\"{token}\", oauth_version=\"1.0\"",
-        consumer_key = urlencoding(&creds.consumer_key),
-        nonce = urlencoding(oauth_nonce),
-        signature = urlencoding(&creds.signature),
-        token = urlencoding(&creds.token),
-    )
-}
-
-pub async fn lookup_with_legacy_credentials(
-    client: &Client,
-    artist: &str,
-    title: &str,
-    album: Option<&str>,
-) -> Result<Option<DiscogsResult>, String> {
-    lookup_inner_legacy(client, artist, title, album, false).await
-}
-
-async fn lookup_inner_legacy(
-    client: &Client,
-    artist: &str,
-    title: &str,
-    album: Option<&str>,
-    is_retry: bool,
-) -> Result<Option<DiscogsResult>, String> {
-    // Rate limit
-    tokio::time::sleep(std::time::Duration::from_millis(1100)).await;
-
-    let creds = get_credentials()?;
-
-    let timestamp = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    let mut query_params = format!(
-        "artist={artist}&track={track}&type=release&per_page=15",
-        artist = urlencoding(artist),
-        track = urlencoding(title),
-    );
-    if let Some(album) = album.filter(|a| !a.is_empty()) {
-        query_params.push_str(&format!("&release_title={}", urlencoding(album)));
-    }
-
-    let base_url = std::env::var(DISCOGS_API_BASE_URL_ENV)
-        .ok()
-        .and_then(|raw| normalize_base_url(&raw))
-        .unwrap_or_else(|| "https://api.discogs.com".to_string());
-
-    let oauth_nonce = generate_oauth_nonce();
-    let url = build_legacy_search_url(&base_url, &query_params);
-    let auth_header = build_legacy_oauth_authorization_header(creds, &oauth_nonce, timestamp);
-
-    let response = client
-        .get(&url)
-        .header(reqwest::header::AUTHORIZATION, auth_header)
-        .send()
-        .await
-        .map_err(|e| format!("request failed: {e}"))?;
-
-    if response.status() == 429 {
-        if is_retry {
-            return Err("rate limited after retry".into());
-        }
-        tracing::warn!("Discogs rate limited, waiting 30s...");
-        tokio::time::sleep(std::time::Duration::from_secs(30)).await;
-        return Box::pin(lookup_inner_legacy(client, artist, title, album, true)).await;
-    }
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        let snippet = if body.len() > 200 {
-            &body[..200]
-        } else {
-            &body
-        };
-        return Err(format!("Discogs HTTP {status}: {snippet}"));
-    }
-
-    let search_response: SearchResponse = response
-        .json()
-        .await
-        .map_err(|e| format!("JSON parse error: {e}"))?;
-
-    let results = match search_response.results {
-        Some(r) if !r.is_empty() => r,
-        _ => return Ok(None),
-    };
-
-    // Find best match by artist name in result title.
-    for search_result in &results {
-        let result_title = search_result.title.as_deref().unwrap_or("");
-        if result_title_matches_artist(result_title, artist) {
-            return Ok(Some(to_discogs_result(search_result, false)));
-        }
-    }
-
-    // Fallback to first result
-    Ok(Some(to_discogs_result(&results[0], true)))
-}
-
-fn to_discogs_result(r: &SearchResult, fuzzy: bool) -> DiscogsResult {
-    let url = r
-        .uri
-        .as_deref()
-        .map(|uri| format!("https://www.discogs.com{uri}"))
-        .unwrap_or_default();
-    DiscogsResult {
-        title: r.title.clone().unwrap_or_default(),
-        year: r.year.clone().unwrap_or_default(),
-        label: r
-            .label
-            .as_ref()
-            .and_then(|v| v.first().cloned())
-            .unwrap_or_default(),
-        genres: r.genre.clone().unwrap_or_default(),
-        styles: r.style.clone().unwrap_or_default(),
-        url,
-        cover_image: r.cover_image.clone().unwrap_or_default(),
-        fuzzy_match: fuzzy,
-    }
-}
-
-fn result_title_matches_artist(result_title: &str, artist: &str) -> bool {
-    let norm_artist = crate::normalize::normalize_for_matching(artist);
-    if norm_artist.len() < 3 {
-        return true;
-    }
-    crate::normalize::normalize_for_matching(result_title).contains(&norm_artist)
-}
-
 pub(crate) fn urlencoding(s: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
     const SET: &AsciiSet = &NON_ALPHANUMERIC
@@ -672,19 +426,6 @@ mod tests {
     }
 
     #[test]
-    fn result_title_match_handles_punctuation() {
-        assert!(result_title_matches_artist(
-            "A$AP Rocky - Praise The Lord",
-            "A$AP Rocky"
-        ));
-    }
-
-    #[test]
-    fn result_title_match_allows_short_artist_names() {
-        assert!(result_title_matches_artist("Random Result", "DJ"));
-    }
-
-    #[test]
     fn normalize_base_url_rejects_blank_or_malformed_urls() {
         assert_eq!(
             normalize_base_url("https://broker.example.com/"),
@@ -697,49 +438,4 @@ mod tests {
         assert_eq!(normalize_base_url("ftp://broker.example.com"), None);
     }
 
-    #[test]
-    fn legacy_values_configured_requires_non_empty_values() {
-        assert!(legacy_values_configured(
-            Some("key"),
-            Some("secret"),
-            Some("token"),
-            Some("token-secret")
-        ));
-        assert!(!legacy_values_configured(
-            Some("key"),
-            Some("  "),
-            Some("token"),
-            Some("token-secret")
-        ));
-        assert!(!legacy_values_configured(
-            Some("key"),
-            None,
-            Some("token"),
-            Some("token-secret")
-        ));
-    }
-
-    #[test]
-    fn legacy_request_keeps_oauth_secrets_out_of_url() {
-        let creds = Credentials {
-            consumer_key: "consumer key".to_string(),
-            signature: "secret/part&token?secret".to_string(),
-            token: "token value".to_string(),
-        };
-        let query = "artist=Artist&track=Title&type=release&per_page=15";
-        let url = build_legacy_search_url("https://api.discogs.com", query);
-        let auth =
-            build_legacy_oauth_authorization_header(&creds, "nonce value", 1_700_000_000_u64);
-
-        assert_eq!(
-            url,
-            "https://api.discogs.com/database/search?artist=Artist&track=Title&type=release&per_page=15"
-        );
-        assert!(!url.contains("oauth_"));
-        assert!(auth.starts_with("OAuth "));
-        assert!(auth.contains("oauth_consumer_key=\"consumer%20key\""));
-        assert!(auth.contains("oauth_nonce=\"nonce%20value\""));
-        assert!(auth.contains("oauth_signature=\"secret%2Fpart%26token%3Fsecret\""));
-        assert!(auth.contains("oauth_token=\"token%20value\""));
-    }
 }

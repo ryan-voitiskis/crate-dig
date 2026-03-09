@@ -261,18 +261,7 @@ pub(super) async fn lookup_discogs_remote(
             let pending = fetch_pending_state(server, &cfg, now).await?;
             return dispatch_pending(server, &cfg, pending, artist, title, album).await;
         }
-        discogs::BrokerConfigStatus::NotConfigured => {}
     }
-
-    if discogs::legacy_credentials_configured() {
-        return discogs::lookup_with_legacy_credentials(&server.state.http, artist, title, album)
-            .await
-            .map_err(discogs::LookupError::message);
-    }
-
-    Err(discogs::LookupError::AuthRequired(
-        discogs::missing_auth_remediation(),
-    ))
 }
 
 pub(super) async fn lookup_beatport_remote(
