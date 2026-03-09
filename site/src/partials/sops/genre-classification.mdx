@@ -113,8 +113,9 @@ Apply for every track during classification.
 - `current_genre` (may be empty)
 - `current_genre_canonical` (may be null)
 - `discogs_mapped_genres[]` — each has `genre` and `style_count` (may be null)
-- `beatport_mapped_genre` (single value or null)
-- `audio.danceability`, `audio.dynamic_complexity`, `audio.rhythm_regularity`, `audio.spectral_centroid_mean`, `audio.stratum_bpm`
+- `beatport_mapped_genre` (single canonical value or null)
+- `beatport_genre_raw` (original Beatport subgenre string, e.g. "Melodic House & Techno")
+- `audio.danceability`, `audio.dynamic_complexity`, `audio.rhythm_regularity`, `audio.spectral_centroid_mean`, `audio.stratum_bpm`, `audio.rekordbox_bpm`, `audio.bpm_agreement`
 - Session overrides from Step 1
 
 ### Step A: Gather mapped genres
@@ -273,3 +274,13 @@ Used by the decision tree (Steps B.3, C.7–9) to determine same-family vs cross
 ## Key Mismatch Detection
 
 Side-check during Steps 2–4. If `key_agreement` is false, surface it alongside genre results in a separate section. Not a genre decision — just useful data for the user.
+
+## BPM Mismatch Detection
+
+Side-check during Steps 2–4. When `bpm_agreement` is false:
+
+1. Compute `ratio = stratum_bpm / rekordbox_bpm`.
+2. If ratio is near 2.0 or 0.5 (within ±15%), it is a half-time/double-time disagreement. Use `rekordbox_bpm` for all BPM thresholds in Steps B–D — Rekordbox's analyzer has been validated by the user via beatgridding.
+3. If ratio is not near a 2:1 relationship, flag as a genuine BPM conflict. Present both values to the user alongside genre results.
+
+BPM mismatches affect audio vetoes (B.3 `slow`/`fast` flags) and subgenre inference (D.2 BPM table). An incorrect BPM can shift a track between Downtempo and Techno ranges.

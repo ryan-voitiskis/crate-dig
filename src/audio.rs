@@ -153,11 +153,7 @@ if len(beats) > 4:
 else:
     features["rhythm_regularity"] = None
 
-spectral_centroid = es.SpectralCentroidTime()(audio)
-if hasattr(spectral_centroid, "__len__") and len(spectral_centroid) > 0:
-    features["spectral_centroid_mean"] = float(sum(spectral_centroid) / len(spectral_centroid))
-else:
-    features["spectral_centroid_mean"] = None
+features["spectral_centroid_mean"] = first_scalar_or_none(es.SpectralCentroidTime()(audio))
 
 # --- Frame-based features (shared loop) ---
 frame_size = 2048

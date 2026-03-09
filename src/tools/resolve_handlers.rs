@@ -177,7 +177,9 @@ pub(super) fn handle_cache_coverage(
     let mut stratum_cached = 0usize;
     let mut essentia_cached = 0usize;
     let mut discogs_cached = 0usize;
+    let mut discogs_has_result = 0usize;
     let mut beatport_cached = 0usize;
+    let mut beatport_has_result = 0usize;
     let mut no_audio_analysis = 0usize;
     let mut no_enrichment = 0usize;
     let mut no_data_at_all = 0usize;
@@ -231,6 +233,12 @@ pub(super) fn handle_cache_coverage(
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
         let beatport_set = store::batch_enrichment_existence(&store, "beatport", &unique_artists)
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+        let discogs_result_set =
+            store::batch_enrichment_with_results(&store, "discogs", &unique_artists)
+                .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
+        let beatport_result_set =
+            store::batch_enrichment_with_results(&store, "beatport", &unique_artists)
+                .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
         let audio_set = store::batch_audio_analysis_existence(&store, &unique_paths)
             .map_err(|e| mcp_internal_error(format!("Cache read error: {e}")))?;
 
@@ -243,14 +251,25 @@ pub(super) fn handle_cache_coverage(
             .iter()
             .map(|(a, t)| (a.as_str(), t.as_str()))
             .collect();
+        let discogs_result_ref: std::collections::HashSet<(&str, &str)> = discogs_result_set
+            .iter()
+            .map(|(a, t)| (a.as_str(), t.as_str()))
+            .collect();
+        let beatport_result_ref: std::collections::HashSet<(&str, &str)> = beatport_result_set
+            .iter()
+            .map(|(a, t)| (a.as_str(), t.as_str()))
+            .collect();
         let audio_ref: std::collections::HashSet<(&str, &str)> = audio_set
             .iter()
             .map(|(p, a)| (p.as_str(), a.as_str()))
             .collect();
 
         for (norm_artist, norm_title, audio_key) in &track_keys {
-            let has_discogs = discogs_ref.contains(&(norm_artist.as_str(), norm_title.as_str()));
-            let has_beatport = beatport_ref.contains(&(norm_artist.as_str(), norm_title.as_str()));
+            let key = (norm_artist.as_str(), norm_title.as_str());
+            let has_discogs = discogs_ref.contains(&key);
+            let has_beatport = beatport_ref.contains(&key);
+            let has_discogs_result = discogs_result_ref.contains(&key);
+            let has_beatport_result = beatport_result_ref.contains(&key);
             let has_stratum = audio_ref.contains(&(audio_key.as_str(), audio::ANALYZER_STRATUM));
             let has_essentia = audio_ref.contains(&(audio_key.as_str(), audio::ANALYZER_ESSENTIA));
 
@@ -263,16 +282,22 @@ pub(super) fn handle_cache_coverage(
             if has_discogs {
                 discogs_cached += 1;
             }
+            if has_discogs_result {
+                discogs_has_result += 1;
+            }
             if has_beatport {
                 beatport_cached += 1;
+            }
+            if has_beatport_result {
+                beatport_has_result += 1;
             }
             if !has_stratum {
                 no_audio_analysis += 1;
             }
-            if !has_discogs && !has_beatport {
+            if !has_discogs_result && !has_beatport_result {
                 no_enrichment += 1;
             }
-            if !has_stratum && !has_essentia && !has_discogs && !has_beatport {
+            if !has_stratum && !has_essentia && !has_discogs_result && !has_beatport_result {
                 no_data_at_all += 1;
             }
         }
@@ -295,12 +320,16 @@ pub(super) fn handle_cache_coverage(
                 "installed": essentia_installed,
             },
             "discogs": {
-                "cached": discogs_cached,
-                "percent": to_percent(discogs_cached, matched_tracks),
+                "searched": discogs_cached,
+                "searched_percent": to_percent(discogs_cached, matched_tracks),
+                "has_result": discogs_has_result,
+                "has_result_percent": to_percent(discogs_has_result, matched_tracks),
             },
             "beatport": {
-                "cached": beatport_cached,
-                "percent": to_percent(beatport_cached, matched_tracks),
+                "searched": beatport_cached,
+                "searched_percent": to_percent(beatport_cached, matched_tracks),
+                "has_result": beatport_has_result,
+                "has_result_percent": to_percent(beatport_has_result, matched_tracks),
             },
         },
         "gaps": {
@@ -538,21 +567,29 @@ fn resolve_single_track_compact(
     };
 
     // Parse Beatport genre and map through taxonomy, only keeping exact/alias.
+    // Preserve the raw Beatport genre string alongside the canonical mapping.
     let beatport_val = parse_enrichment_cache(beatport_cache);
-    let beatport_mapped_genre: serde_json::Value = beatport_val
-        .as_ref()
-        .and_then(|v| v.get("genre"))
-        .and_then(|v| v.as_str())
-        .filter(|g| !g.is_empty())
-        .and_then(|bp_genre| {
-            let (maps_to, mapping_type) = map_genre_through_taxonomy(bp_genre);
-            if mapping_type == "exact" || mapping_type == "alias" {
-                maps_to.map(|g| serde_json::json!(g))
-            } else {
-                None
+    let (beatport_mapped_genre, beatport_genre_raw): (serde_json::Value, serde_json::Value) =
+        match beatport_val
+            .as_ref()
+            .and_then(|v| v.get("genre"))
+            .and_then(|v| v.as_str())
+            .filter(|g| !g.is_empty())
+        {
+            Some(bp_genre) => {
+                let raw = serde_json::json!(bp_genre);
+                let (maps_to, mapping_type) = map_genre_through_taxonomy(bp_genre);
+                let mapped = if mapping_type == "exact" || mapping_type == "alias" {
+                    maps_to
+                        .map(|g| serde_json::json!(g))
+                        .unwrap_or(serde_json::Value::Null)
+                } else {
+                    serde_json::Value::Null
+                };
+                (mapped, raw)
             }
-        })
-        .unwrap_or(serde_json::Value::Null);
+            None => (serde_json::Value::Null, serde_json::Value::Null),
+        };
 
     // Parse stratum cache for bpm, key
     let stratum_json = stratum_cache
@@ -568,10 +605,11 @@ fn resolve_single_track_compact(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    // Key agreement (same as full version)
+    // Key and BPM agreement (same as full version)
     let key_agreement = stratum_key
         .as_deref()
         .map(|sk| sk.eq_ignore_ascii_case(&track.key));
+    let bpm_agreement = stratum_bpm.map(|sb| (sb - track.bpm).abs() <= 2.0);
 
     // Parse essentia cache
     let essentia_data = essentia_cache
@@ -581,6 +619,8 @@ fn resolve_single_track_compact(
     let audio_obj = if stratum_json.is_some() || essentia_data.is_some() {
         let mut obj = serde_json::json!({
             "stratum_bpm": stratum_bpm,
+            "rekordbox_bpm": track.bpm,
+            "bpm_agreement": bpm_agreement,
             "stratum_key": stratum_key,
             "key_agreement": key_agreement,
         });
@@ -611,6 +651,7 @@ fn resolve_single_track_compact(
         "rating": track.rating,
         "discogs_mapped_genres": discogs_mapped_genres,
         "beatport_mapped_genre": beatport_mapped_genre,
+        "beatport_genre_raw": beatport_genre_raw,
         "audio": audio_obj,
         "data": {
             "stratum": stratum_cache.is_some(),

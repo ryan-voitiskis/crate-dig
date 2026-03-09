@@ -1936,11 +1936,15 @@ async fn cache_coverage_reports_provider_coverage_and_gap_counts() {
     assert_eq!(payload["coverage"]["essentia"]["percent"], 33.3);
     assert_eq!(payload["coverage"]["essentia"]["installed"], true);
 
-    assert_eq!(payload["coverage"]["discogs"]["cached"], 2);
-    assert_eq!(payload["coverage"]["discogs"]["percent"], 66.7);
+    assert_eq!(payload["coverage"]["discogs"]["searched"], 2);
+    assert_eq!(payload["coverage"]["discogs"]["searched_percent"], 66.7);
+    assert_eq!(payload["coverage"]["discogs"]["has_result"], 2);
+    assert_eq!(payload["coverage"]["discogs"]["has_result_percent"], 66.7);
 
-    assert_eq!(payload["coverage"]["beatport"]["cached"], 1);
-    assert_eq!(payload["coverage"]["beatport"]["percent"], 33.3);
+    assert_eq!(payload["coverage"]["beatport"]["searched"], 1);
+    assert_eq!(payload["coverage"]["beatport"]["searched_percent"], 33.3);
+    assert_eq!(payload["coverage"]["beatport"]["has_result"], 1);
+    assert_eq!(payload["coverage"]["beatport"]["has_result_percent"], 33.3);
 
     assert_eq!(payload["gaps"]["no_audio_analysis"], 2);
     assert_eq!(payload["gaps"]["no_enrichment"], 1);
