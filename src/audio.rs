@@ -1085,7 +1085,7 @@ def column_stack(cols):
             "stratum-dsp",
             file_size,
             file_mtime,
-            &result.analyzer_version,
+            STRATUM_SCHEMA_VERSION,
             &features_json,
         )
         .unwrap();
