@@ -1,0 +1,58 @@
+---
+title: Library Triage
+description: A recommended sequence for organizing a messy library, based on the dependency chain between workflows.
+sidebar:
+  order: -1
+---
+
+import { Steps, LinkCard, Aside } from '@astrojs/starlight/components';
+
+If your library has missing genres, wrong labels, inconsistent naming, or sparse metadata, you might not know where to start. The reklawdbox workflows aren't all independent — several form a dependency chain where each step improves the accuracy of the next.
+
+## Why order matters
+
+The dependency chain looks like this:
+
+**Clean metadata → accurate enrichment matches → label data → genre signals**
+
+- **Enrichment** matches on artist name and track title. Typos and inconsistent naming cause missed or wrong matches.
+- **Genre classification** uses enrichment data (Discogs styles, Beatport genres), labels, and audio analysis as evidence. The more signals available, the more accurate the result.
+- **Genre audit** verifies existing tags against the same cached evidence (Discogs styles, Beatport genres, audio descriptors). Running it before enrichment means you're checking tags without the data needed to correct them.
+
+Working out of order means you'll either get poor results or end up re-running workflows.
+
+## Recommended sequence
+
+<Steps>
+
+1. **Collection Audit** — fix artist names, track titles, and naming conventions. Enrichment matches on these fields, so cleaning them first dramatically improves match rates.
+
+   <LinkCard title="Collection Audit workflow" href="/workflows/collection-audit/" />
+
+2. **Enrichment** — hydrate your caches. Run `cache_coverage` to see gaps, then `enrich_tracks` with `providers: ["discogs", "beatport"]` and `analyze_audio_batch` for audio descriptors. This is the longest step but only needs to happen once.
+
+   <LinkCard title="Cache-first design" href="/workflows/#cache-first-design" />
+
+3. **Label verification** — check label coverage across your collection using `search_tracks`. Labels are strong genre indicators and enrichment usually fills them automatically. Where gaps remain, use `update_tracks` to fill from enrichment results — this is high-accuracy, low-effort work.
+
+4. **Genre Classification** — classify tracks that have no genre tag. With enrichment data, labels, and audio analysis all cached, the classifier has maximum signal to work with.
+
+   <LinkCard title="Genre Classification workflow" href="/workflows/genre-classification/" />
+
+5. **Genre Audit** — verify and correct existing genre tags. Tracks that already had genres might have outdated or incorrect ones. The audit cross-references your tags against all available evidence.
+
+   <LinkCard title="Genre Audit workflow" href="/workflows/genre-audit/" />
+
+</Steps>
+
+<Aside type="tip">
+  You don't have to do everything in one session. Each phase produces durable results (cached data, exported XML). Pick up where you left off any time.
+</Aside>
+
+## Skipping phases
+
+Not every library needs all phases:
+
+- **Metadata already clean?** Skip the collection audit and start at enrichment.
+- **Already enriched?** Check with `cache_coverage` — if you're at 100%, jump to genre classification.
+- **No existing genre tags?** Skip the genre audit — classification covers untagged tracks.

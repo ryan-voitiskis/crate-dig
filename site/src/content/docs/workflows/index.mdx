@@ -5,7 +5,7 @@ sidebar:
   order: 0
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Aside, Card, CardGrid } from '@astrojs/starlight/components';
 
 reklawdbox provides structured workflows for common library management tasks. Each workflow is designed for an AI agent to follow step-by-step, with human approval at every decision point. Nothing is written to your Rekordbox database — all changes are staged in memory and exported as XML.
 
@@ -57,6 +57,13 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 
 ## Where to start
 
-If you just acquired new music, start with [Batch Import](/workflows/batch-import/). If your collection has inconsistent genres, follow up with [Genre Classification](/workflows/genre-classification/). If your tags and filenames are messy, run a [Collection Audit](/workflows/collection-audit/). If your metadata is already clean and you want to build a set, go straight to [Set Building](/workflows/set-building/).
+- **Just acquired new music?** Start with [Batch Import](/workflows/batch-import/).
+- **Metadata is clean, need genres?** Go to [Genre Classification](/workflows/genre-classification/).
+- **Tags and filenames are messy?** Run a [Collection Audit](/workflows/collection-audit/).
+- **Want to build a set?** Go straight to [Set Building](/workflows/set-building/).
 
 All workflows share the same prerequisite: 100% cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
+
+<Aside type="tip" title="Messy library?">
+  Workflows build on each other — clean metadata improves enrichment, and enrichment improves genre classification. If your library needs significant cleanup, follow the [Library Triage](/workflows/library-triage/) guide for the recommended sequence.
+</Aside>
