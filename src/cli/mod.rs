@@ -1,5 +1,6 @@
 mod analyze;
 mod hydrate;
+mod setup;
 mod tags;
 
 use std::path::{Path, PathBuf};
@@ -75,6 +76,8 @@ enum Cli {
     ExtractArt(tags::ExtractArtArgs),
     /// Embed cover art into audio files
     EmbedArt(tags::EmbedArtArgs),
+    /// Configure reklawdbox (broker token, etc.)
+    Setup(setup::SetupArgs),
 }
 
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -90,6 +93,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Cli::WriteTags(args) => tags::run_write_tags(args),
         Cli::ExtractArt(args) => tags::run_extract_art(args),
         Cli::EmbedArt(args) => tags::run_embed_art(args),
+        Cli::Setup(args) => setup::run_setup(args),
     }
 }
 

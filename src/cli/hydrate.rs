@@ -955,12 +955,12 @@ async fn cli_ensure_discogs_auth(
         discogs::BrokerConfigStatus::InvalidUrl(url) => {
             Err(format!("Invalid Discogs broker URL: {url}").into())
         }
-        discogs::BrokerConfigStatus::MissingBrokerToken(url) => Err(format!(
-            "Discogs broker token is required for hosted broker access. Set {} to use {}.",
-            discogs::BROKER_TOKEN_ENV,
-            url
-        )
-        .into()),
+        discogs::BrokerConfigStatus::MissingBrokerToken => Err(
+            "Discogs broker token is not configured. \
+             Run `reklawdbox setup` to configure, \
+             or set REKLAWDBOX_DISCOGS_BROKER_TOKEN."
+                .into(),
+        ),
     }
 }
 

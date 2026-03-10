@@ -198,12 +198,13 @@ pub(super) async fn lookup_discogs_remote(
                 discogs::BROKER_URL_ENV
             )));
         }
-        discogs::BrokerConfigStatus::MissingBrokerToken(url) => {
-            return Err(discogs::LookupError::message(format!(
-                "Discogs broker token is required for hosted broker access. Set {} to use {}.",
-                discogs::BROKER_TOKEN_ENV,
-                url
-            )));
+        discogs::BrokerConfigStatus::MissingBrokerToken => {
+            return Err(discogs::LookupError::message(
+                "Discogs broker token is not configured. \
+                 Run `reklawdbox setup` to configure, \
+                 or set REKLAWDBOX_DISCOGS_BROKER_TOKEN."
+                    .to_string(),
+            ));
         }
         discogs::BrokerConfigStatus::Ok(cfg) => {
             let now = std::time::SystemTime::now()

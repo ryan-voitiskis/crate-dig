@@ -4,6 +4,7 @@ mod beatport;
 mod changes;
 mod cli;
 mod color;
+mod config;
 mod corpus;
 mod db;
 mod discogs;
@@ -56,6 +57,7 @@ where
         matches!(
             a,
             "analyze" | "hydrate" | "read-tags" | "write-tags" | "extract-art" | "embed-art"
+                | "setup"
         )
     })
 }
@@ -66,7 +68,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("reklawdbox {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
+    // Both functions only set vars not already present, so call order
+    // determines priority: shell env > .mcp.json > config.toml.
     load_env_from_mcp_json();
+    // SAFETY: same context as load_env_from_mcp_json above.
+    unsafe { config::load_into_env() };
     if should_run_cli(std::env::args()) {
         tracing_subscriber::fmt()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
@@ -122,6 +128,11 @@ mod tests {
     #[test]
     fn runs_cli_for_embed_art_subcommand() {
         assert!(should_run_cli(vec!["reklawdbox", "embed-art"].into_iter()));
+    }
+
+    #[test]
+    fn runs_cli_for_setup_subcommand() {
+        assert!(should_run_cli(vec!["reklawdbox", "setup"].into_iter()));
     }
 
     #[test]

@@ -5,7 +5,8 @@ use std::fmt;
 pub const BROKER_URL_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_URL";
 pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
 
-const DEFAULT_BROKER_URL: &str = "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
+pub const DEFAULT_BROKER_URL: &str =
+    "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
 
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
@@ -20,7 +21,7 @@ pub enum BrokerConfigStatus {
     /// Env var set but URL is malformed.
     InvalidUrl(String),
     /// The hosted broker URL is configured without a client token.
-    MissingBrokerToken(String),
+    MissingBrokerToken,
 }
 
 impl BrokerConfig {
@@ -33,7 +34,7 @@ impl BrokerConfig {
         };
         let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
         if broker_token.is_none() && base_url == DEFAULT_BROKER_URL {
-            return BrokerConfigStatus::MissingBrokerToken(base_url);
+            return BrokerConfigStatus::MissingBrokerToken;
         }
         BrokerConfigStatus::Ok(Self {
             base_url,
@@ -148,7 +149,7 @@ fn env_var_trimmed_non_empty(name: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-fn normalize_base_url(raw: &str) -> Option<String> {
+pub fn normalize_base_url(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return None;
