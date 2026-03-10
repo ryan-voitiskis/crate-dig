@@ -1,5 +1,8 @@
 use std::time::Instant;
 
+use console::style;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+
 use crate::{audio, db, store, tools};
 
 use super::{
@@ -166,6 +169,16 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
         return Ok(());
     }
 
+    let mp = MultiProgress::new();
+    let pb = mp.add(ProgressBar::new(pending as u64));
+    pb.set_style(
+        ProgressStyle::with_template(
+            "Analyzing [{bar:40.cyan/blue}] {pos}/{len}  {percent}%  ETA {eta}",
+        )
+        .unwrap()
+        .progress_chars("##-"),
+    );
+
     // Drop pre-filter connection — writer task will open its own
     drop(store_conn);
 
@@ -216,6 +229,8 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
         let analyzed = analyzed.clone();
         let failed = failed.clone();
         let completed_count = completed_count.clone();
+        let mp = mp.clone();
+        let pb = pb.clone();
 
         handles.push(tokio::spawn(async move {
             let result = cli_analyze_single_track(
@@ -243,9 +258,9 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
                             } else {
                                 " (essentia failed)"
                             };
-                            tracing::info!(
+                            mp.println(format!(
                                 "[{idx}/{pending}] {label} ... BPM={bpm:.1} Key={key_camelot}{essentia_status} ({elapsed:.1}s)"
-                            );
+                            )).ok();
                             if essentia_ok {
                                 analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             } else {
@@ -253,32 +268,37 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
                             }
                         }
                         CliTrackOutcome::StratumOnly { bpm, key_camelot } => {
-                            tracing::info!(
+                            mp.println(format!(
                                 "[{idx}/{pending}] {label} ... BPM={bpm:.1} Key={key_camelot} ({elapsed:.1}s)"
-                            );
+                            )).ok();
                             analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         }
                         CliTrackOutcome::EssentiaOnly { ok } => {
                             if ok {
-                                tracing::info!(
+                                mp.println(format!(
                                     "[{idx}/{pending}] {label} ... +essentia ({elapsed:.1}s)"
-                                );
+                                )).ok();
                                 analyzed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             } else {
-                                tracing::error!(
-                                    "[{idx}/{pending}] FAIL {label}: Essentia error ({elapsed:.1}s)"
-                                );
+                                mp.println(format!(
+                                    "[{idx}/{pending}] {} {label}: Essentia error ({elapsed:.1}s)",
+                                    style("FAIL").red()
+                                )).ok();
                                 failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             }
                         }
                     }
                 }
                 Err(msg) => {
-                    tracing::warn!("[{idx}/{pending}] SKIP {label}: {msg}");
+                    mp.println(format!(
+                        "[{idx}/{pending}] {} {label}: {msg}",
+                        style("SKIP").yellow()
+                    )).ok();
                     failed.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 }
             }
 
+            pb.inc(1);
             drop(permit);
         }));
     }
@@ -287,6 +307,8 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
     for handle in handles {
         let _ = handle.await;
     }
+
+    pb.finish_and_clear();
 
     // Shut down writer
     drop(cache_tx);
@@ -297,7 +319,19 @@ pub(crate) async fn run_analyze(args: AnalyzeArgs) -> Result<(), Box<dyn std::er
     let total_time = batch_start.elapsed();
     let mins = total_time.as_secs() / 60;
     let secs = total_time.as_secs() % 60;
-    tracing::info!("Done: {analyzed} analyzed, {failed} failed ({mins}m {secs}s)");
+    println!();
+    if failed == 0 {
+        println!(
+            "Done: {} analyzed ({mins}m {secs}s)",
+            style(analyzed).green()
+        );
+    } else {
+        println!(
+            "Done: {} analyzed, {} failed ({mins}m {secs}s)",
+            style(analyzed).green(),
+            style(failed).red()
+        );
+    }
 
     Ok(())
 }

@@ -5,6 +5,8 @@ use std::time::{Duration, Instant};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use tokio_util::sync::CancellationToken;
 
+use console::style;
+
 use crate::{audio, beatport, db, discogs, normalize, store, tools};
 
 use super::{
@@ -834,24 +836,30 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
 
     println!("\nDone ({mins}m {secs}s)");
     if want_discogs {
+        let enriched = discogs_counters.enriched.load(Ordering::Relaxed);
+        let errors = discogs_counters.errors.load(Ordering::Relaxed);
         println!(
             "  Discogs:  {} enriched, {} errors",
-            discogs_counters.enriched.load(Ordering::Relaxed),
-            discogs_counters.errors.load(Ordering::Relaxed),
+            style(enriched).green(),
+            if errors > 0 { style(errors).red() } else { style(errors).dim() },
         );
     }
     if want_beatport {
+        let enriched = beatport_counters.enriched.load(Ordering::Relaxed);
+        let errors = beatport_counters.errors.load(Ordering::Relaxed);
         println!(
             "  Beatport: {} enriched, {} errors",
-            beatport_counters.enriched.load(Ordering::Relaxed),
-            beatport_counters.errors.load(Ordering::Relaxed),
+            style(enriched).green(),
+            if errors > 0 { style(errors).red() } else { style(errors).dim() },
         );
     }
     if want_analysis {
+        let done = analysis_counters.enriched.load(Ordering::Relaxed);
+        let errors = analysis_counters.errors.load(Ordering::Relaxed);
         println!(
             "  Analysis: {} done, {} errors",
-            analysis_counters.enriched.load(Ordering::Relaxed),
-            analysis_counters.errors.load(Ordering::Relaxed),
+            style(done).green(),
+            if errors > 0 { style(errors).red() } else { style(errors).dim() },
         );
     }
 

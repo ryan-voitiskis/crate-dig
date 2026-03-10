@@ -17,6 +17,9 @@ pub(crate) struct ReadTagsArgs {
     /// Include cover art metadata
     #[arg(long)]
     cover_art: bool,
+    /// Recursively scan directories for audio files
+    #[arg(long, short = 'r')]
+    recursive: bool,
     /// Output as JSON (JSONL for multiple files)
     #[arg(long)]
     json: bool,
@@ -164,7 +167,7 @@ fn print_tag_map(tags: &HashMap<String, Option<String>>, indent: usize) {
 }
 
 pub(crate) fn run_read_tags(args: ReadTagsArgs) -> Result<(), Box<dyn std::error::Error>> {
-    let files = expand_paths(&args.paths);
+    let files = expand_paths(&args.paths, args.recursive);
     if files.is_empty() {
         return Err("No audio files found.".into());
     }

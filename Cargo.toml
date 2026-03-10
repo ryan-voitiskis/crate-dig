@@ -1,6 +1,6 @@
 [package]
 name = "reklawdbox"
-version = "0.1.6"
+version = "0.1.7"
 edition = "2024"
 homepage = "https://reklawdbox.com"
 license = "MIT"
@@ -10,6 +10,7 @@ description = "MCP server for Rekordbox library management"
 [dependencies]
 chrono = "0.4"
 clap = { version = "4", features = ["derive"] }
+console = "0.15"
 dirs = "6"
 globset = "0.4"
 indicatif = "0.17"

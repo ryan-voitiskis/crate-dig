@@ -78,6 +78,10 @@ enum Cli {
 }
 
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    eprintln!(
+        "{}",
+        console::style(format!("reklawdbox v{}", env!("CARGO_PKG_VERSION"))).dim()
+    );
     let cli = Cli::parse();
     match cli {
         Cli::Analyze(args) => analyze::run_analyze(args).await,
@@ -221,25 +225,12 @@ fn is_audio_file(path: &Path) -> bool {
         })
 }
 
-fn expand_paths(paths: &[String]) -> Vec<PathBuf> {
+fn expand_paths(paths: &[String], recursive: bool) -> Vec<PathBuf> {
     let mut result = Vec::new();
     for p in paths {
         let path = PathBuf::from(p);
         if path.is_dir() {
-            match std::fs::read_dir(&path) {
-                Ok(entries) => {
-                    let mut files: Vec<PathBuf> = entries
-                        .filter_map(|e| e.ok())
-                        .map(|e| e.path())
-                        .filter(|p| p.is_file() && is_audio_file(p))
-                        .collect();
-                    files.sort();
-                    result.extend(files);
-                }
-                Err(e) => {
-                    tracing::warn!("Skipping unreadable directory {p}: {e}");
-                }
-            }
+            collect_audio_files(&path, recursive, &mut result);
         } else {
             result.push(path);
         }
@@ -247,19 +238,49 @@ fn expand_paths(paths: &[String]) -> Vec<PathBuf> {
     result
 }
 
+fn collect_audio_files(dir: &Path, recursive: bool, result: &mut Vec<PathBuf>) {
+    match std::fs::read_dir(dir) {
+        Ok(entries) => {
+            let mut files = Vec::new();
+            let mut subdirs = Vec::new();
+            for entry in entries.filter_map(|e| e.ok()) {
+                let is_symlink = entry.file_type().map_or(false, |ft| ft.is_symlink());
+                let path = entry.path();
+                if path.is_file() && is_audio_file(&path) {
+                    files.push(path);
+                } else if recursive && path.is_dir() && !is_symlink {
+                    subdirs.push(path);
+                }
+            }
+            files.sort();
+            result.extend(files);
+            subdirs.sort();
+            for subdir in subdirs {
+                collect_audio_files(&subdir, true, result);
+            }
+        }
+        Err(e) => {
+            eprintln!("Warning: skipping unreadable directory {}: {e}", dir.display());
+        }
+    }
+}
+
 /// Title-case a canonical field name for human output.
-/// "album_artist" → "Album Artist", "bpm" → "Bpm", etc.
+/// "album_artist" → "Album Artist", "bpm" → "BPM", etc.
 fn display_field_name(field: &str) -> String {
     field
         .split('_')
-        .map(|word| {
-            let mut chars = word.chars();
-            match chars.next() {
-                Some(c) => {
-                    let upper: String = c.to_uppercase().collect();
-                    format!("{upper}{}", chars.as_str())
+        .map(|word| match word {
+            "bpm" => "BPM".to_string(),
+            _ => {
+                let mut chars = word.chars();
+                match chars.next() {
+                    Some(c) => {
+                        let upper: String = c.to_uppercase().collect();
+                        format!("{upper}{}", chars.as_str())
+                    }
+                    None => String::new(),
                 }
-                None => String::new(),
             }
         })
         .collect::<Vec<_>>()
