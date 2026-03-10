@@ -1,7 +1,14 @@
+use std::sync::OnceLock;
+use std::time::Duration;
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use tokio::sync::Mutex as TokioMutex;
+use tokio::time::Instant;
 
 use crate::discogs::urlencoding;
+
+static RATE_LIMITER: OnceLock<TokioMutex<Option<Instant>>> = OnceLock::new();
 
 const BEATPORT_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 \
     (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -37,17 +44,34 @@ pub struct BeatportResult {
     pub artists: Vec<String>,
 }
 
+async fn wait_for_rate_limit() {
+    let interval_ms: u64 = std::env::var("REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1000);
+    let interval = Duration::from_millis(interval_ms);
+
+    let mut last = RATE_LIMITER
+        .get_or_init(|| TokioMutex::new(None))
+        .lock()
+        .await;
+
+    if let Some(prev) = *last {
+        let elapsed = prev.elapsed();
+        if elapsed < interval {
+            tokio::time::sleep(interval - elapsed).await;
+        }
+    }
+
+    *last = Some(Instant::now());
+}
+
 pub async fn lookup(
     client: &Client,
     artist: &str,
     title: &str,
 ) -> Result<Option<BeatportResult>, BeatportError> {
-    // Rate limit (configurable via env, default 1000ms)
-    let interval_ms: u64 = std::env::var("REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(1000);
-    tokio::time::sleep(std::time::Duration::from_millis(interval_ms)).await;
+    wait_for_rate_limit().await;
 
     let query = format!("{artist} {title}");
     let url = format!(
@@ -522,5 +546,33 @@ mod tests {
         let msg = err.to_string();
         assert!(msg.contains("403 Forbidden"));
         assert!(msg.contains("client"));
+    }
+
+    #[tokio::test]
+    async fn test_rate_limiter_enforces_minimum_spacing() {
+        // Use a short interval so the test completes quickly.
+        // SAFETY: test runs sequentially (no other threads reading this env var).
+        unsafe { std::env::set_var("REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS", "50") };
+
+        let n = 4;
+        let start = Instant::now();
+
+        // Run N calls sequentially — each should wait for the interval.
+        for _ in 0..n {
+            wait_for_rate_limit().await;
+        }
+
+        let elapsed = start.elapsed();
+        let min_expected = Duration::from_millis(50 * (n - 1));
+        assert!(
+            elapsed >= min_expected,
+            "expected >= {min_expected:?}, got {elapsed:?}"
+        );
+
+        // Reset stored instant so it doesn't leak into other tests.
+        *RATE_LIMITER.get().unwrap().lock().await = None;
+
+        // SAFETY: cleaning up test-only env var.
+        unsafe { std::env::remove_var("REKLAWDBOX_BEATPORT_MIN_INTERVAL_MS") };
     }
 }
