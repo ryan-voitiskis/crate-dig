@@ -452,10 +452,34 @@ pub fn get_broker_discogs_session(
             updated_at: row.get(4)?,
         })
     })?;
-    match rows.next() {
-        Some(Ok(entry)) => Ok(Some(entry)),
-        Some(Err(e)) => Err(e),
-        None => Ok(None),
+    let mut session = match rows.next() {
+        Some(Ok(entry)) => entry,
+        Some(Err(e)) => return Err(e),
+        None => return Ok(None),
+    };
+
+    // Migrate legacy plaintext tokens to Keychain.
+    if !session.session_token.is_empty() {
+        crate::keychain::set_session_token(broker_url, &session.session_token).map_err(|msg| {
+            rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_ERROR), Some(msg))
+        })?;
+        conn.execute(
+            "UPDATE broker_discogs_session SET session_token = '' WHERE broker_url = ?1",
+            params![broker_url],
+        )?;
+    }
+
+    // Fetch the real token from Keychain.
+    match crate::keychain::get_session_token(broker_url) {
+        Ok(Some(token)) => {
+            session.session_token = token;
+            Ok(Some(session))
+        }
+        Ok(None) => Ok(None),
+        Err(msg) => Err(rusqlite::Error::SqliteFailure(
+            ffi::Error::new(ffi::SQLITE_ERROR),
+            Some(msg),
+        )),
     }
 }
 
@@ -465,15 +489,20 @@ pub fn set_broker_discogs_session(
     session_token: &str,
     expires_at: i64,
 ) -> Result<(), rusqlite::Error> {
+    // Store the secret in Keychain first; if this fails, don't persist metadata.
+    crate::keychain::set_session_token(broker_url, session_token).map_err(|msg| {
+        rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_ERROR), Some(msg))
+    })?;
+
     conn.execute(
         "INSERT INTO broker_discogs_session (broker_url, session_token, expires_at)
-         VALUES (?1, ?2, ?3)
+         VALUES (?1, '', ?2)
          ON CONFLICT(broker_url)
          DO UPDATE SET
-            session_token = ?2,
-            expires_at = ?3,
+            session_token = '',
+            expires_at = ?2,
             updated_at = datetime('now')",
-        params![broker_url, session_token, expires_at],
+        params![broker_url, expires_at],
     )?;
     Ok(())
 }
@@ -507,6 +536,10 @@ pub fn clear_broker_discogs_session(
     conn: &Connection,
     broker_url: &str,
 ) -> Result<(), rusqlite::Error> {
+    crate::keychain::delete_session_token(broker_url).map_err(|msg| {
+        rusqlite::Error::SqliteFailure(ffi::Error::new(ffi::SQLITE_ERROR), Some(msg))
+    })?;
+
     conn.execute(
         "DELETE FROM broker_discogs_session WHERE broker_url = ?1",
         params![broker_url],
@@ -1172,40 +1205,82 @@ mod tests {
     #[test]
     fn test_broker_discogs_session_round_trip() {
         let (_dir, conn) = open_temp_store();
+        let url = "https://broker.example.com/store-round-trip-test";
 
-        set_broker_discogs_session(
-            &conn,
-            "https://broker.example.com",
-            "session-token-1",
-            1_800_000_000,
-        )
-        .unwrap();
+        // Ensure clean keychain state from any prior failed run.
+        let _ = crate::keychain::delete_session_token(url);
 
-        let row = get_broker_discogs_session(&conn, "https://broker.example.com")
+        set_broker_discogs_session(&conn, url, "session-token-1", 1_800_000_000).unwrap();
+
+        let row = get_broker_discogs_session(&conn, url)
             .unwrap()
             .expect("broker session should exist");
-        assert_eq!(row.broker_url, "https://broker.example.com");
+        assert_eq!(row.broker_url, url);
         assert_eq!(row.session_token, "session-token-1");
         assert_eq!(row.expires_at, 1_800_000_000);
         assert!(!row.created_at.is_empty());
         assert!(!row.updated_at.is_empty());
 
-        set_broker_discogs_session(
-            &conn,
-            "https://broker.example.com",
-            "session-token-2",
-            1_900_000_000,
-        )
-        .unwrap();
-        let row = get_broker_discogs_session(&conn, "https://broker.example.com")
+        // SQLite column should be empty (secret is in Keychain).
+        let db_token: String = conn
+            .query_row(
+                "SELECT session_token FROM broker_discogs_session WHERE broker_url = ?1",
+                params![url],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(db_token.is_empty(), "token should not be stored in SQLite");
+
+        set_broker_discogs_session(&conn, url, "session-token-2", 1_900_000_000).unwrap();
+        let row = get_broker_discogs_session(&conn, url)
             .unwrap()
             .expect("broker session should still exist");
         assert_eq!(row.session_token, "session-token-2");
         assert_eq!(row.expires_at, 1_900_000_000);
 
-        clear_broker_discogs_session(&conn, "https://broker.example.com").unwrap();
-        let missing = get_broker_discogs_session(&conn, "https://broker.example.com").unwrap();
+        clear_broker_discogs_session(&conn, url).unwrap();
+        let missing = get_broker_discogs_session(&conn, url).unwrap();
         assert!(missing.is_none());
+    }
+
+    #[test]
+    fn test_broker_discogs_session_migrates_legacy_plaintext() {
+        let (_dir, conn) = open_temp_store();
+        let url = "https://broker.example.com/store-migration-test";
+
+        // Ensure clean keychain state.
+        let _ = crate::keychain::delete_session_token(url);
+
+        // Simulate legacy: write plaintext token directly to SQLite.
+        conn.execute(
+            "INSERT INTO broker_discogs_session (broker_url, session_token, expires_at)
+             VALUES (?1, ?2, ?3)",
+            params![url, "legacy-plaintext-token", 1_800_000_000],
+        )
+        .unwrap();
+
+        // Reading should transparently migrate to Keychain.
+        let row = get_broker_discogs_session(&conn, url)
+            .unwrap()
+            .expect("session should exist after migration");
+        assert_eq!(row.session_token, "legacy-plaintext-token");
+
+        // SQLite column should now be empty.
+        let db_token: String = conn
+            .query_row(
+                "SELECT session_token FROM broker_discogs_session WHERE broker_url = ?1",
+                params![url],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(db_token.is_empty(), "plaintext token should be cleared from SQLite");
+
+        // Keychain should have the token.
+        let kc_token = crate::keychain::get_session_token(url).unwrap();
+        assert_eq!(kc_token.as_deref(), Some("legacy-plaintext-token"));
+
+        // Clean up.
+        clear_broker_discogs_session(&conn, url).unwrap();
     }
 
     #[test]

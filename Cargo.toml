@@ -23,6 +23,7 @@ lofty = "0.23"
 percent-encoding = "2"
 regex = "1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+security-framework = "3"
 rmcp = { version = "0.15", features = ["server", "transport-io"] }
 rusqlite = { version = "0.34", features = ["bundled-sqlcipher-vendored-openssl"] }
 schemars = "1"

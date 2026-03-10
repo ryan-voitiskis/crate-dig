@@ -339,3 +339,14 @@ Validation on 2026-03-10:
 - `cd broker && npm test` -> passed (`13 passed`)
 - `cd broker && npm run build` -> passed (`wrangler deploy --dry-run`)
 - `cargo build --release` -> passed
+
+## Remediation Status (2026-03-11)
+
+- 11. Broker session tokens are now stored in macOS Keychain (`com.reklawdbox.broker-session` service) instead of plaintext in SQLite. The `session_token` column stores an empty sentinel; legacy plaintext tokens are transparently migrated to Keychain on first read.
+- 12. Beatport throttling now uses a process-wide rate limiter (`OnceLock<TokioMutex<Option<Instant>>>`) that serializes all callers and enforces minimum inter-request spacing.
+
+All 17 findings are now resolved.
+
+Validation on 2026-03-11:
+- `cargo test` -> passed (`404 passed, 0 failed, 28 ignored`)
+- `cargo build --release` -> passed
