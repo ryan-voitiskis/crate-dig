@@ -1,6 +1,10 @@
+[workspace]
+members = [".", "stratum-dsp"]
+resolver = "3"
+
 [package]
 name = "reklawdbox"
-version = "0.1.7"
+version = "0.1.8"
 edition = "2024"
 homepage = "https://reklawdbox.com"
 license = "MIT"
@@ -25,7 +29,7 @@ schemars = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
-stratum-dsp = "=1.0.0"
+stratum-dsp = { path = "stratum-dsp" }
 strum = { version = "0.27", features = ["derive"] }
 symphonia = { version = "0.5", features = ["mp3", "flac", "pcm", "aac"] }
 thiserror = "2"
@@ -38,9 +42,6 @@ unicode-casefold = "0.2"
 [dev-dependencies]
 rmcp = { version = "0.15", features = ["client", "transport-io"] }
 tempfile = "3"
-
-[patch.crates-io]
-stratum-dsp = { path = "../stratum-dsp" }
 
 [profile.release]
 lto = "thin"

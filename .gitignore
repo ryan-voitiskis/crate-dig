@@ -12,6 +12,11 @@
 # Rust
 /target
 
+# stratum-dsp test fixtures (generated WAV/MP3/FLAC)
+stratum-dsp/tests/fixtures/*.wav
+stratum-dsp/tests/fixtures/*.mp3
+stratum-dsp/tests/fixtures/*.flac
+
 # Rekordbox data
 rekordbox-exports/
 
