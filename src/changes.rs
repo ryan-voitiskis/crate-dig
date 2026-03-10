@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Mutex, MutexGuard};
 
 use crate::color;
@@ -11,26 +11,34 @@ fn acquire_or_recover_lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     })
 }
 
+/// Per-track set of fields modified (staged or cleared) after the most recent `take()`.
+/// Used by `restore()` to avoid overwriting user intent with snapshot values.
+type TouchedFields = HashMap<String, HashSet<EditableField>>;
+
 pub struct ChangeManager {
     changes: Mutex<HashMap<String, TrackChange>>,
+    touched_since_take: Mutex<TouchedFields>,
 }
 
 impl ChangeManager {
     pub fn new() -> Self {
         Self {
             changes: Mutex::new(HashMap::new()),
+            touched_since_take: Mutex::new(HashMap::new()),
         }
     }
 
     /// Stage changes for one or more tracks. Merges with previously staged changes for the same track.
     pub fn stage(&self, changes: Vec<TrackChange>) -> (usize, usize) {
         let mut staged_changes_by_track_id = acquire_or_recover_lock(&self.changes);
+        let mut touched = acquire_or_recover_lock(&self.touched_since_take);
         let mut staged = 0;
         for change in changes {
             if !has_any_staged_field(&change) {
                 continue;
             }
             staged += 1;
+            record_touched_fields(&change, &mut touched);
             staged_changes_by_track_id
                 .entry(change.track_id.clone())
                 .and_modify(|existing| merge_track_change(existing, &change))
@@ -144,11 +152,19 @@ impl ChangeManager {
     }
 
     /// Remove and return staged changes. If `track_ids` is None, drains all staged changes.
+    /// Clears the touched-since-take set so subsequent mutations are tracked against this snapshot.
     pub fn take(&self, track_ids: Option<Vec<String>>) -> Vec<TrackChange> {
         let mut map = acquire_or_recover_lock(&self.changes);
+        let mut touched = acquire_or_recover_lock(&self.touched_since_take);
         match track_ids {
-            Some(ids) => ids.into_iter().filter_map(|id| map.remove(&id)).collect(),
+            Some(ids) => {
+                for id in &ids {
+                    touched.remove(id);
+                }
+                ids.into_iter().filter_map(|id| map.remove(&id)).collect()
+            }
             None => {
+                touched.clear();
                 let mut drained: Vec<TrackChange> = map.drain().map(|(_, change)| change).collect();
                 drained.sort_by(|a, b| a.track_id.cmp(&b.track_id));
                 drained
@@ -156,65 +172,71 @@ impl ChangeManager {
         }
     }
 
-    /// Restore previously taken changes without overwriting newer staged values.
+    /// Restore previously taken changes without overwriting fields the user
+    /// touched (staged or cleared) since the snapshot was taken.
     pub fn restore(&self, snapshot: Vec<TrackChange>) -> (usize, usize) {
         let mut map = acquire_or_recover_lock(&self.changes);
+        let touched = acquire_or_recover_lock(&self.touched_since_take);
         let restored = snapshot.len();
+        let empty_set = HashSet::new();
         for change in snapshot {
-            map.entry(change.track_id.clone())
-                .and_modify(|existing| merge_missing_fields(existing, &change))
-                .or_insert(change);
+            let touched_fields = touched.get(&change.track_id).unwrap_or(&empty_set);
+            let existing = map.entry(change.track_id.clone()).or_insert_with(|| TrackChange {
+                track_id: change.track_id.clone(),
+                genre: None,
+                comments: None,
+                rating: None,
+                color: None,
+            });
+            merge_untouched_fields(existing, &change, touched_fields);
         }
+        // Remove phantom entries where all fields were filtered out by touched tracking.
+        map.retain(|_, v| has_any_staged_field(v));
         (restored, map.len())
     }
 
     /// Clear specific fields from staged changes. Returns (tracks_affected, remaining_tracks).
     /// If all fields on a track become None, the entry is removed entirely.
+    /// Records cleared fields as touched even when the track has no current entry
+    /// (e.g. after `take()` drained it), so that `restore()` won't resurrect them.
     pub fn clear_fields(
         &self,
         track_ids: Option<Vec<String>>,
         fields: &[String],
     ) -> (usize, usize) {
         let mut map = acquire_or_recover_lock(&self.changes);
+        let mut touched_map = acquire_or_recover_lock(&self.touched_since_take);
         let target_ids: Vec<String> = match track_ids {
             Some(ids) => ids,
             None => map.keys().cloned().collect(),
         };
 
+        // Resolve field names once.
+        let parsed_fields: Vec<EditableField> = fields
+            .iter()
+            .filter_map(|f| EditableField::from_str(f.as_str()))
+            .collect();
+
         let mut affected = 0;
         for id in &target_ids {
+            // Always record the touch — the user expressed intent to clear these
+            // fields, even if the track has no current staged entry.
+            let touched_set = touched_map.entry(id.clone()).or_default();
+            for &ef in &parsed_fields {
+                touched_set.insert(ef);
+            }
+
             if let Some(entry) = map.get_mut(id) {
-                let mut touched = false;
-                for field in fields {
-                    match EditableField::from_str(field.as_str()) {
-                        Some(EditableField::Genre) if entry.genre.is_some() => {
-                            entry.genre = None;
-                            touched = true;
-                        }
-                        Some(EditableField::Comments) if entry.comments.is_some() => {
-                            entry.comments = None;
-                            touched = true;
-                        }
-                        Some(EditableField::Rating) if entry.rating.is_some() => {
-                            entry.rating = None;
-                            touched = true;
-                        }
-                        Some(EditableField::Color) if entry.color.is_some() => {
-                            entry.color = None;
-                            touched = true;
-                        }
-                        _ => {}
+                let mut field_touched = false;
+                for &ef in &parsed_fields {
+                    if clear_field(entry, ef) {
+                        field_touched = true;
                     }
                 }
-                if touched {
+                if field_touched {
                     affected += 1;
                 }
-                // Remove entry if all fields are now None
-                if entry.genre.is_none()
-                    && entry.comments.is_none()
-                    && entry.rating.is_none()
-                    && entry.color.is_none()
-                {
+                if !has_any_staged_field(entry) {
                     map.remove(id);
                 }
             }
@@ -224,10 +246,15 @@ impl ChangeManager {
 
     pub fn clear(&self, track_ids: Option<Vec<String>>) -> (usize, usize) {
         let mut map = acquire_or_recover_lock(&self.changes);
+        let mut touched_map = acquire_or_recover_lock(&self.touched_since_take);
+        let all_fields: HashSet<EditableField> = EditableField::ALL.iter().copied().collect();
         let cleared = match track_ids {
             Some(ids) => {
                 let mut count = 0;
                 for id in ids {
+                    // Always record the touch — the user expressed intent to clear
+                    // this track, even if it was already drained by take().
+                    touched_map.insert(id.clone(), all_fields.clone());
                     if map.remove(&id).is_some() {
                         count += 1;
                     }
@@ -236,6 +263,9 @@ impl ChangeManager {
             }
             None => {
                 let count = map.len();
+                for id in map.keys() {
+                    touched_map.insert(id.clone(), all_fields.clone());
+                }
                 map.clear();
                 count
             }
@@ -266,18 +296,47 @@ fn merge_track_change(existing: &mut TrackChange, incoming: &TrackChange) {
     }
 }
 
-fn merge_missing_fields(existing: &mut TrackChange, incoming: &TrackChange) {
-    if existing.genre.is_none() {
+/// Fill missing fields from `incoming` into `existing`, skipping any field
+/// present in `touched`.
+fn merge_untouched_fields(
+    existing: &mut TrackChange,
+    incoming: &TrackChange,
+    touched: &HashSet<EditableField>,
+) {
+    if existing.genre.is_none() && !touched.contains(&EditableField::Genre) {
         existing.genre = incoming.genre.clone();
     }
-    if existing.comments.is_none() {
+    if existing.comments.is_none() && !touched.contains(&EditableField::Comments) {
         existing.comments = incoming.comments.clone();
     }
-    if existing.rating.is_none() {
+    if existing.rating.is_none() && !touched.contains(&EditableField::Rating) {
         existing.rating = incoming.rating;
     }
-    if existing.color.is_none() {
+    if existing.color.is_none() && !touched.contains(&EditableField::Color) {
         existing.color = incoming.color.clone();
+    }
+}
+
+/// Record which fields are set in `change` as touched for its track_id.
+fn record_touched_fields(change: &TrackChange, touched: &mut TouchedFields) {
+    if !has_any_staged_field(change) {
+        return;
+    }
+    let set = touched.entry(change.track_id.clone()).or_default();
+    if change.genre.is_some() { set.insert(EditableField::Genre); }
+    if change.comments.is_some() { set.insert(EditableField::Comments); }
+    if change.rating.is_some() { set.insert(EditableField::Rating); }
+    if change.color.is_some() { set.insert(EditableField::Color); }
+}
+
+/// Clear a single field on a `TrackChange`, returning true if the field was set.
+fn clear_field(entry: &mut TrackChange, field: EditableField) -> bool {
+    match field {
+        EditableField::Genre if entry.genre.is_some() => { entry.genre = None; true }
+        EditableField::Comments if entry.comments.is_some() => { entry.comments = None; true }
+        EditableField::Rating if entry.rating.is_some() => { entry.rating = None; true }
+        EditableField::Color if entry.color.is_some() => { entry.color = None; true }
+        _ => false,
     }
 }
 
@@ -833,6 +892,153 @@ mod tests {
         assert_eq!(restored.genre.as_deref(), Some("House"));
         assert_eq!(restored.comments.as_deref(), Some("new"));
         assert_eq!(restored.rating, Some(5));
+    }
+
+    #[test]
+    fn test_restore_does_not_resurrect_cleared_field() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("notes".to_string()),
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+
+        // User explicitly clears genre while export is in flight.
+        // First re-stage so there's something to clear.
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: None,
+            rating: None,
+            color: None,
+        }]);
+        cm.clear_fields(Some(vec!["t1".to_string()]), &["genre".to_string()]);
+
+        // Export fails — restore snapshot.
+        cm.restore(snapshot);
+        let restored = cm.get("t1").expect("t1 should exist");
+        // Genre must NOT be resurrected — the user explicitly cleared it.
+        assert_eq!(restored.genre, None);
+        // Comments were not touched post-take, so they should be restored.
+        assert_eq!(restored.comments.as_deref(), Some("notes"));
+    }
+
+    #[test]
+    fn test_restore_does_not_resurrect_field_on_absent_entry() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: None,
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+
+        // User stages and then fully clears, removing the entry entirely.
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("Techno".to_string()),
+            comments: None,
+            rating: None,
+            color: None,
+        }]);
+        cm.clear(Some(vec!["t1".to_string()]));
+        assert!(cm.get("t1").is_none());
+
+        // Restore should not bring back any fields that were touched.
+        cm.restore(snapshot);
+        // All fields on t1 were touched via clear(), so the phantom entry
+        // should be cleaned up — no ghost entry in the map.
+        assert!(cm.get("t1").is_none());
+        assert_eq!(cm.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_restore_respects_clear_on_taken_track() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("notes".to_string()),
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+        // t1 is no longer in the map — it was drained by take().
+
+        // User clears t1 while the export is in flight. The entry doesn't
+        // exist in the map, but the intent must still be recorded.
+        cm.clear(Some(vec!["t1".to_string()]));
+
+        // Export fails — restore snapshot.
+        cm.restore(snapshot);
+        // The clear expressed intent to remove t1 entirely, so restore
+        // must not resurrect it.
+        assert!(cm.get("t1").is_none());
+        assert_eq!(cm.pending_count(), 0);
+    }
+
+    #[test]
+    fn test_restore_respects_clear_fields_on_taken_track() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("notes".to_string()),
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+
+        // User clears just genre on a taken track (no entry in map).
+        cm.clear_fields(Some(vec!["t1".to_string()]), &["genre".to_string()]);
+
+        // Export fails — restore snapshot.
+        cm.restore(snapshot);
+        let restored = cm.get("t1").expect("t1 should exist with untouched comments");
+        // Genre was explicitly cleared — must not be resurrected.
+        assert_eq!(restored.genre, None);
+        // Comments were not touched — should be restored from snapshot.
+        assert_eq!(restored.comments.as_deref(), Some("notes"));
+    }
+
+    #[test]
+    fn test_restore_partial_touch_preserves_untouched_fields() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("old notes".to_string()),
+            rating: Some(4),
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+
+        // User only stages a new genre — comments and rating are untouched.
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("Techno".to_string()),
+            comments: None,
+            rating: None,
+            color: None,
+        }]);
+
+        cm.restore(snapshot);
+        let restored = cm.get("t1").expect("t1 should exist");
+        // Genre was re-staged, so keep the new value.
+        assert_eq!(restored.genre.as_deref(), Some("Techno"));
+        // Comments and rating were not touched post-take, so restore from snapshot.
+        assert_eq!(restored.comments.as_deref(), Some("old notes"));
+        assert_eq!(restored.rating, Some(4));
     }
 
     // ==================== Integration tests (real DB) ====================

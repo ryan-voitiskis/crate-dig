@@ -325,13 +325,11 @@ Fixed in the 2026-03-10 remediation pass:
 - 13. The format workflow no longer uses `curl | sh`; it now uses pinned `npm exec dprint`.
 - 14. Broker CI now runs `npm run typecheck`, `npm run build`, and `npm test`.
 - 16. CLI analyze/hydrate cache-write paths now surface serialization/send failures instead of silently writing corrupt payloads or dropping results.
+- 10. `ChangeManager` now tracks fields touched (staged or cleared) since the last `take()` and `restore()` skips those fields, preventing resurrection of explicitly-cleared values.
+- 15. All workflows now pin GitHub Actions to commit SHAs (checkout bumped to v4.3.1 for consistency).
 - 17. The dead genre regression test now runs again.
 
-Partially addressed:
-- 15. Action pins were added to touched workflows (`broker-ci.yml`, `format.yml`), but other workflows listed in the audit still use floating refs.
-
 Still open after this pass:
-- 10. XML export restore semantics can still resurrect explicitly-cleared fields after a failed export attempt.
 - 11. Local broker session tokens in `internal.sqlite3` are still stored in plaintext.
 - 12. Beatport throttling is still not globally coordinated across concurrent tasks.
 
