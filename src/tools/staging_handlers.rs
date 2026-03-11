@@ -77,6 +77,12 @@ pub(super) fn handle_update_tracks(
     params: UpdateTracksParams,
 ) -> Result<CallToolResult, McpError> {
     for c in &params.changes {
+        if c.track_id.trim().is_empty() {
+            return Err(McpError::invalid_params(
+                "track_id must not be empty",
+                None,
+            ));
+        }
         if let Some(r) = c.rating
             && (r == 0 || r > 5)
         {

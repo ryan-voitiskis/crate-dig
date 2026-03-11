@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard};
 
 use crate::color;
@@ -18,6 +19,10 @@ type TouchedFields = HashMap<String, HashSet<EditableField>>;
 pub struct ChangeManager {
     changes: Mutex<HashMap<String, TrackChange>>,
     touched_since_take: Mutex<TouchedFields>,
+    /// Set by `clear(None)` after `take()` to signal that the user intended to
+    /// wipe everything.  `restore()` treats all snapshot fields as touched when
+    /// this is true, preventing resurrection of taken-then-cleared changes.
+    cleared_all_since_take: AtomicBool,
 }
 
 impl ChangeManager {
@@ -25,6 +30,7 @@ impl ChangeManager {
         Self {
             changes: Mutex::new(HashMap::new()),
             touched_since_take: Mutex::new(HashMap::new()),
+            cleared_all_since_take: AtomicBool::new(false),
         }
     }
 
@@ -165,6 +171,7 @@ impl ChangeManager {
             }
             None => {
                 touched.clear();
+                self.cleared_all_since_take.store(false, Ordering::Release);
                 let mut drained: Vec<TrackChange> = map.drain().map(|(_, change)| change).collect();
                 drained.sort_by(|a, b| a.track_id.cmp(&b.track_id));
                 drained
@@ -175,6 +182,16 @@ impl ChangeManager {
     /// Restore previously taken changes without overwriting fields the user
     /// touched (staged or cleared) since the snapshot was taken.
     pub fn restore(&self, snapshot: Vec<TrackChange>) -> (usize, usize) {
+        // If clear(None) was called since the last take(), the user expressed
+        // intent to wipe everything — don't resurrect any snapshot fields.
+        if self.cleared_all_since_take.load(Ordering::Acquire) {
+            tracing::warn!(
+                snapshot_len = snapshot.len(),
+                "restore skipped: clear(None) was called since last take()"
+            );
+            let map = acquire_or_recover_lock(&self.changes);
+            return (0, map.len());
+        }
         let mut map = acquire_or_recover_lock(&self.changes);
         let touched = acquire_or_recover_lock(&self.touched_since_take);
         let restored = snapshot.len();
@@ -267,6 +284,7 @@ impl ChangeManager {
                     touched_map.insert(id.clone(), all_fields.clone());
                 }
                 map.clear();
+                self.cleared_all_since_take.store(true, Ordering::Release);
                 count
             }
         };
@@ -1039,6 +1057,29 @@ mod tests {
         // Comments and rating were not touched post-take, so restore from snapshot.
         assert_eq!(restored.comments.as_deref(), Some("old notes"));
         assert_eq!(restored.rating, Some(4));
+    }
+
+    #[test]
+    fn test_restore_respects_clear_all_after_take() {
+        let cm = ChangeManager::new();
+        cm.stage(vec![TrackChange {
+            track_id: "t1".to_string(),
+            genre: Some("House".to_string()),
+            comments: Some("notes".to_string()),
+            rating: None,
+            color: None,
+        }]);
+
+        let snapshot = cm.take(None);
+        // t1 is drained. User calls clear(None) — "wipe everything".
+        cm.clear(None);
+
+        // Export fails — restore snapshot.
+        cm.restore(snapshot);
+        // clear(None) expressed intent to wipe all, so restore must not
+        // resurrect any snapshot entries.
+        assert!(cm.get("t1").is_none());
+        assert_eq!(cm.pending_count(), 0);
     }
 
     // ==================== Integration tests (real DB) ====================

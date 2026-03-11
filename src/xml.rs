@@ -61,22 +61,28 @@ pub fn path_to_rekordbox_location_uri(file_path: &str) -> String {
     }
 
     // Encode everything except unreserved chars and path separators.
-    // Keep ':' for Windows drive letters in file URIs.
     const ENCODE_SET: &AsciiSet = &NON_ALPHANUMERIC
         .remove(b'-')
         .remove(b'_')
         .remove(b'.')
         .remove(b'~')
-        .remove(b':')
         .remove(b'/');
 
     let encoded = utf8_percent_encode(&normalized, ENCODE_SET).to_string();
+    // Restore the colon for Windows drive letters (e.g. /C%3A/ → /C:/).
+    // The colon is now encoded globally to avoid producing invalid URIs for
+    // filenames that contain literal colons.
+    let encoded = if is_windows_drive {
+        encoded.replacen("%3A", ":", 1)
+    } else {
+        encoded
+    };
     format!("file://localhost{encoded}")
 }
 
 fn write_collection_track(out: &mut String, track: &Track, track_id: usize) {
     let rating = crate::types::stars_to_rating(track.rating);
-    let location = path_to_rekordbox_location_uri(&track.file_path);
+    let location = xml_escape(&path_to_rekordbox_location_uri(&track.file_path));
     let kind = track.file_kind.as_kind_str();
 
     write!(
@@ -302,6 +308,23 @@ mod tests {
         assert_eq!(
             path_to_rekordbox_location_uri("file://localhost/Users/vz/Music/my%20track.flac"),
             "file://localhost/Users/vz/Music/my%20track.flac"
+        );
+    }
+
+    #[test]
+    fn test_path_to_rekordbox_location_uri_encodes_colon_in_filename() {
+        assert_eq!(
+            path_to_rekordbox_location_uri("/Users/vz/Music/Title: Subtitle.flac"),
+            "file://localhost/Users/vz/Music/Title%3A%20Subtitle.flac"
+        );
+    }
+
+    #[test]
+    fn test_path_to_rekordbox_location_uri_windows_drive_colon_preserved() {
+        // Windows drive letter colon is preserved, but a colon in the filename is encoded.
+        assert_eq!(
+            path_to_rekordbox_location_uri(r"C:\Music\A:B.flac"),
+            "file://localhost/C:/Music/A%3AB.flac"
         );
     }
 
