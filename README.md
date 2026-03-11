@@ -229,10 +229,11 @@ For enrichment/audio/set workflows, the common sequence is:
 - [reklawdbox.com](https://reklawdbox.com) — Astro Starlight docs site
 - [`docs/README.md`](docs/README.md) — Documentation index by area
 - [`docs/rekordbox/README.md`](docs/rekordbox/README.md) — Rekordbox corpus map and manifest-first usage
-- [`docs/reference/rekordbox-internals.md`](docs/reference/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
-- [`docs/developer/rekordbox-gotchas.md`](docs/developer/rekordbox-gotchas.md) — Rekordbox schema/XML edge cases and invariants used by code paths
-- [`docs/developer/rekordbox-gotchas.md#queries`](docs/developer/rekordbox-gotchas.md#queries) — Query-building and binding patterns used in DB access code
-- [`docs/runbooks/backup-and-restore.md`](docs/runbooks/backup-and-restore.md) — Backup usage and restore procedures
+- [`docs/conventions.md`](docs/conventions.md) — Collection naming, directory structure, and tagging conventions
+- [`docs/rekordbox-internals.md`](docs/rekordbox-internals.md) — Rekordbox file formats, database schema, XML structure, ecosystem tools
+- [`docs/rekordbox-gotchas.md`](docs/rekordbox-gotchas.md) — Rekordbox schema/XML edge cases and invariants used by code paths
+- [`docs/rekordbox-gotchas.md#queries`](docs/rekordbox-gotchas.md#queries) — Query-building and binding patterns used in DB access code
+- [`docs/backup-and-restore.md`](docs/backup-and-restore.md) — Backup usage and restore procedures
 - [`README.md#discogs-auth-flow`](README.md#discogs-auth-flow) — Discogs broker setup, first-run auth, and re-auth/reset guidance
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — Development workflow, testing expectations, and pull request checklist
 - [`SECURITY.md`](SECURITY.md) — Supported versions and vulnerability reporting process

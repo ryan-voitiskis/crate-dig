@@ -11,14 +11,13 @@
 1. [File Locations (macOS)](#1-file-locations-macos)
 2. [The Encrypted Database (master.db)](#2-the-encrypted-database-masterdb)
 3. [Database Schema](#3-database-schema)
-4. [XML Export Format](#4-xml-export-format)
-5. [XML Import/Export Workflow](#5-xml-importexport-workflow)
-6. [Analysis Files (ANLZ)](#6-analysis-files-anlz)
-7. [Metadata Fields Reference](#7-metadata-fields-reference)
-8. [pyrekordbox Reference](#8-pyrekordbox-reference)
-9. [Ecosystem Tools](#9-ecosystem-tools)
-10. [Gotchas and Footguns](#10-gotchas-and-footguns)
-11. [Architecture Decision: XML vs DB](#11-architecture-decision-xml-vs-db)
+4. [XML Format & Import/Export](#4-xml-format--importexport) *(condensed — see corpus for full reference)*
+5. [Analysis Files (ANLZ)](#5-analysis-files-anlz)
+6. [Metadata & Genre Strategy](#6-metadata--genre-strategy) *(condensed — see corpus for field mapping)*
+7. [pyrekordbox Reference](#7-pyrekordbox-reference)
+8. [Ecosystem Tools](#8-ecosystem-tools)
+9. [Gotchas and Footguns](#9-gotchas-and-footguns)
+10. [Architecture Decision: XML vs DB](#10-architecture-decision-xml-vs-db)
 
 ---
 
@@ -284,239 +283,30 @@ The encrypted `master.db` contains **34 tables**. All IDs are `VARCHAR(255)` str
 
 ---
 
-## 4. XML Export Format
+## 4. XML Format & Import/Export
 
-### Official Documentation
+Full XML format spec, attribute tables, and import/export workflow are in the Rekordbox corpus:
 
-Pioneer provides a PDF specification:
-https://cdn.rekordbox.com/files/20200410160904/xml_format_list.pdf
+- [XML Format Spec](rekordbox/guides/xml-format-spec.md) — complete element/attribute reference
+- [XML Import/Export Reference](rekordbox/reference/xml-import-export.md) — workflows, round-trip behavior, reimport bug
+- [Developer Integration](rekordbox/reference/developer-integration.md) — official Pioneer developer docs
+- [Official PDF spec](https://cdn.rekordbox.com/files/20200410160904/xml_format_list.pdf)
 
-Developer page: https://rekordbox.com/en/support/developer/
-
-### Structure
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<DJ_PLAYLISTS Version="1.0.0">
-  <PRODUCT Name="rekordbox" Version="7.2.10" Company="AlphaTheta"/>
-  <COLLECTION Entries="2839">
-    <TRACK TrackID="1" Name="Track Title" Artist="Artist Name"
-           Composer="" Album="Album Name" Grouping="" Genre="Deep House"
-           Kind="FLAC File" Size="45234567" TotalTime="432"
-           DiscNumber="0" TrackNumber="1" Year="2023"
-           AverageBpm="124.00" DateModified="2023-05-15"
-           DateAdded="2023-06-01" BitRate="1411" SampleRate="44100"
-           Comments="Great track" PlayCount="12"
-           LastPlayed="2023-12-01" Rating="204"
-           Location="file://localhost/Users/vz/Music/track.flac"
-           Remixer="" Tonality="Am" Label="Giegling" Mix=""
-           Colour="0x25FDE9">
-      <TEMPO Inizio="0.123" Bpm="124.00" Metro="4/4" Battito="1"/>
-      <POSITION_MARK Name="" Type="0" Start="0.123" Num="-1"/>
-      <POSITION_MARK Name="Drop" Type="0" Start="64.500" Num="0"
-                     Red="40" Green="226" Blue="20"/>
-    </TRACK>
-    <!-- ... more tracks ... -->
-  </COLLECTION>
-  <PLAYLISTS>
-    <NODE Type="0" Name="ROOT" Count="2">
-      <NODE Type="0" Name="My Folder" Count="1">
-        <NODE Type="1" Name="Deep Cuts" KeyType="0" Entries="3">
-          <TRACK Key="1"/>
-          <TRACK Key="2"/>
-          <TRACK Key="3"/>
-        </NODE>
-      </NODE>
-    </NODE>
-  </PLAYLISTS>
-</DJ_PLAYLISTS>
-```
-
-### TRACK Attributes (Complete)
+### Quick Reference (dev-critical values)
 
 <!-- dprint-ignore -->
-| Attribute | Type | Description | Notes |
-|-----------|------|-------------|-------|
-| `TrackID` | string | Track identifier | Unique within XML |
-| `Name` | string | Track title | |
-| `Artist` | string | Artist name | |
-| `Composer` | string | Composer/producer | |
-| `Album` | string | Album name | |
-| `Grouping` | string | Grouping tag | Not a direct DB column |
-| `Genre` | string | Genre name | Free text |
-| `Kind` | string | File type description | e.g., "FLAC File", "WAV File", "MP3 File" |
-| `Size` | int | File size in bytes | |
-| `TotalTime` | int | Duration in seconds | No decimals |
-| `DiscNumber` | int | Disc number | |
-| `TrackNumber` | int | Track number | |
-| `Year` | int | Release year | |
-| `AverageBpm` | float | BPM with decimals | e.g., "128.00" |
-| `DateModified` | string | Last modified | Format: `yyyy-mm-dd` |
-| `DateAdded` | string | Date added to library | Format: `yyyy-mm-dd` |
-| `BitRate` | int | Bit rate in Kbps | |
-| `SampleRate` | float | Sample rate in Hz | |
-| `Comments` | string | Comment field | Free text, **editable via XML** |
-| `PlayCount` | int | Play count | |
-| `LastPlayed` | string | Last played date | Format: `yyyy-mm-dd` |
-| `Rating` | int | Star rating | 0=0, 51=1, 102=2, 153=3, 204=4, 255=5 |
-| `Location` | string | File URI | `file://localhost/path/to/file.ext` |
-| `Remixer` | string | Remixer name | |
-| `Tonality` | string | Musical key | Classic: "Am", "Bb", "F#m"; Alphanumeric: "8A", "6B" |
-| `Label` | string | Record label | |
-| `Mix` | string | Mix name | |
-| `Colour` | string | Track color | Hex RGB: `0xFF007F` |
-
-### TEMPO Sub-element (Beat Grid)
-
-<!-- dprint-ignore -->
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `Inizio` | float | Start position in seconds |
-| `Bpm` | float | BPM value at this point |
-| `Metro` | string | Time signature (e.g., "4/4", "3/4", "7/8") |
-| `Battito` | int | Beat number in bar (1-4 for 4/4) |
-
-Multiple TEMPO elements per track are valid (for tracks with BPM changes).
-
-### POSITION_MARK Sub-element (Cue Points)
-
-<!-- dprint-ignore -->
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `Name` | string | Cue point label |
-| `Type` | int | 0=Cue, 1=Fade-In, 2=Fade-Out, 3=Load, 4=Loop |
-| `Start` | float | Start position in seconds |
-| `End` | float | End position in seconds (for loops) |
-| `Num` | int | Hot cue slot: A=0, B=1, C=2...; Memory cue = -1 |
-| `Red` | int | Red channel (0-255) — hot cue color |
-| `Green` | int | Green channel (0-255) — hot cue color |
-| `Blue` | int | Blue channel (0-255) — hot cue color |
-
-### Playlist NODE Attributes
-
-<!-- dprint-ignore -->
-| Attribute | Type | Description |
-|-----------|------|-------------|
-| `Type` | int | 0=Folder, 1=Playlist |
-| `Name` | string | Folder/playlist name |
-| `Count` | int | Number of child nodes (folders only) |
-| `Entries` | int | Number of tracks (playlists only) |
-| `KeyType` | int | 0=TrackID, 1=Location |
-
-### Track Colors (Colour attribute)
-
-<!-- dprint-ignore -->
-| Name | Hex | RGB |
-|------|-----|-----|
-| Rose | `0xFF007F` | 255, 0, 127 |
-| Red | `0xFF0000` | 255, 0, 0 |
-| Orange | `0xFFA500` | 255, 165, 0 |
-| Lemon | `0xFFFF00` | 255, 255, 0 |
-| Green | `0x00FF00` | 0, 255, 0 |
-| Turquoise | `0x25FDE9` | 37, 253, 233 |
-| Blue | `0x0000FF` | 0, 0, 255 |
-| Violet | `0x660099` | 102, 0, 153 |
-
-### Musical Key (Tonality) Values
-
-Rekordbox uses classic notation. The Camelot wheel mapping:
-
-<!-- dprint-ignore -->
-| Classic | Camelot | Classic | Camelot |
-|---------|---------|---------|---------|
-| G#m | 1A | B | 1B |
-| Ebm | 2A | Gb | 2B |
-| Bbm | 3A | Db | 3B |
-| Fm | 4A | Ab | 4B |
-| Cm | 5A | Eb | 5B |
-| Gm | 6A | Bb | 6B |
-| Dm | 7A | F | 7B |
-| Am | 8A | C | 8B |
-| Em | 9A | G | 9B |
-| Bm | 10A | D | 10B |
-| F#m | 11A | A | 11B |
-| C#m | 12A | E | 12B |
-
-Display format selectable in Preferences > View > Key display format: Classic or Alphanumeric (Camelot).
-
-### Rating Values
-
-<!-- dprint-ignore -->
-| Stars | XML Value |
-|-------|-----------|
-| 0 | 0 |
-| 1 | 51 |
-| 2 | 102 |
-| 3 | 153 |
-| 4 | 204 |
-| 5 | 255 |
+| Item | Values |
+|------|--------|
+| Rating | 0/51/102/153/204/255 (not 0-5) |
+| Location | `file://localhost/` prefix, URL-encoded |
+| Colour | Hex RGB: `0xFF007F` (8 presets) |
+| Entries count | Must match actual track count or import fails |
+| Reimport bug | Existing tracks not updated — requires two-step "Import To Collection" workaround (RB 5.6.1+) |
+| Additive only | Removing tracks from XML doesn't delete them from RB |
 
 ---
 
-## 5. XML Import/Export Workflow
-
-### Exporting
-
-1. In Rekordbox: **File > Export Collection in xml format**
-2. Choose save location in file dialog
-3. Exports the entire collection with all metadata, playlists, cue points, and beat grids
-
-### Importing
-
-1. In Rekordbox: **File > Import > Import Playlist/Collection**
-2. Navigate to the XML file
-3. Select and click Open
-4. Tracks appear in the "rekordbox xml" section of the browser
-
-### Setting as Live XML Source
-
-1. **Preferences > Advanced > rekordbox xml** — set path to your XML file
-2. **Preferences > View > Layout** — enable "rekordbox xml"
-3. The XML library appears as a separate tree in the browser sidebar
-4. You can drag tracks/playlists from XML view into your main collection
-
-### What Survives a Round-Trip (Export → Modify → Import)
-
-**Preserved on reimport:**
-
-- Genre, Comments, Rating, Colour — **these are the primary targets for reklawdbox**
-- Track title, artist, album, composer, remixer, label
-- Tonality (key), BPM
-- Cue points (POSITION_MARK) — including hot cue colors
-- Beat grids (TEMPO)
-- Playlist structure and track ordering
-- Play count, dates
-
-**NOT preserved / limitations:**
-
-- My Tags — not represented in XML format
-- Hot Cue Banks — not in XML
-- Phrase analysis (PSSI) — not in XML
-- Smart playlist criteria — not in XML
-- Related tracks — not in XML
-- Analysis status flags — not in XML
-- Waveform data — not in XML (stored in ANLZ files)
-- Active censors — not in XML
-
-**Matching behavior on import:**
-
-- Rekordbox matches tracks by `Location` (file path)
-- If the path doesn't match any existing track, a new entry is created
-- **BUG**: If a track with the same path already exists, metadata is **NOT updated** via standard import (RB 5.6.1+). You must use the two-step workaround: import playlist first, then select all tracks and import again to force overwrite.
-- TrackIDs in the XML are local to that XML file, not the same as DB IDs
-- XML import is **additive only** — removing tracks from XML doesn't delete them from RB
-
-### Critical Import Notes
-
-1. **Location paths must be valid** — Rekordbox won't import tracks it can't find on disk
-2. **URI encoding** — paths use `file://localhost/` prefix with URL-encoded special chars
-3. **Entries count must match** — `<COLLECTION Entries="N">` must equal actual track count
-4. **Rekordbox should be closed** when writing XML intended for import (to avoid conflicts)
-5. **XML is UTF-8** — ensure proper encoding for international characters
-
----
-
-## 6. Analysis Files (ANLZ)
+## 5. Analysis Files (ANLZ)
 
 ### File Types
 
@@ -565,44 +355,14 @@ each byte from offset 18 with `(XOR_MASK[i % 19] + len_entries) & 0xFF`.
 
 ---
 
-## 7. Metadata Fields Reference
+## 6. Metadata & Genre Strategy
 
-### Fields Most Useful for DJ Workflow
-
-<!-- dprint-ignore -->
-| Field | XML Attribute | DB Column | Editable via XML | Notes |
-|-------|--------------|-----------|-----------------|-------|
-| **Genre** | `Genre` | `GenreID` (FK) | Yes | Free text — our primary target |
-| **Comments** | `Comments` | `Commnt` | Yes | Free text — great for notes/tags |
-| **Rating** | `Rating` | `Rating` | Yes | 0/51/102/153/204/255 |
-| **Color** | `Colour` | `ColorID` (FK) | Yes | 8 preset colors (hex) |
-| **Key** | `Tonality` | `KeyID` (FK) | Yes | Classic or Camelot notation |
-| **BPM** | `AverageBpm` | `BPM` | Yes | Float in XML, int x100 in DB |
-| **Artist** | `Artist` | `ArtistID` (FK) | Yes | |
-| **Album** | `Album` | `AlbumID` (FK) | Yes | |
-| **Label** | `Label` | `LabelID` (FK) | Yes | |
-| **Remixer** | `Remixer` | `RemixerID` (FK) | Yes | |
-| **Year** | `Year` | `ReleaseYear` | Yes | |
-| **Grouping** | `Grouping` | — | Yes | Not a direct DB column |
-| **Mix** | `Mix` | — | Yes | Mix name field |
-| **My Tag** | — | `djmdSongMyTag` | **No** | DB only, not in XML |
-| **Energy** | — | — | No | Not a native RB field (use Comments) |
-
-### DB-Only Fields (not in XML)
-
-- History (play sessions)
-- My Tags
-- Hot Cue Banks
-- Smart playlist criteria
-- Phrase analysis
-- ISRC codes
-- Sampler pad assignments
-- Related tracks grouping
+For the full XML↔DB field mapping and DB-only field list, see [XML Import/Export Reference](rekordbox/reference/xml-import-export.md).
 
 ### Genre Strategy for reklawdbox
 
 The `Genre` field is free text — Rekordbox has no predefined genre list.
-reklawdbox uses a flat canonical taxonomy (e.g., "Deep House", "Techno", "Minimal") defined in `src/genre.rs`. Genre classification follows the [genre classification SOP](../operations/sops/genre-classification.md).
+reklawdbox uses a flat canonical taxonomy (e.g., "Deep House", "Techno", "Minimal") defined in `src/genre.rs`. Genre classification follows the [genre classification SOP](https://reklawdbox.com/workflows/genre-classification/).
 
 - `Comments` field is excellent for additional tags that don't fit genre
 - `Grouping` can serve as a secondary classification
@@ -611,7 +371,7 @@ reklawdbox uses a flat canonical taxonomy (e.g., "Deep House", "Techno", "Minima
 
 ---
 
-## 8. pyrekordbox Reference
+## 7. pyrekordbox Reference
 
 ### What It Is
 
@@ -646,7 +406,7 @@ reklawdbox does not depend on pyrekordbox (different language), but pyrekordbox 
 
 ---
 
-## 9. Ecosystem Tools
+## 8. Ecosystem Tools
 
 ### Libraries & Frameworks
 
@@ -703,7 +463,7 @@ for the future but not actionable for us yet.
 
 ---
 
-## 10. Gotchas and Footguns
+## 9. Gotchas and Footguns
 
 ### Database Access
 
@@ -741,7 +501,7 @@ for the future but not actionable for us yet.
 
 ---
 
-## 11. Architecture Decision: DB Reads + XML Writes
+## 10. Architecture Decision: DB Reads + XML Writes
 
 ### Chosen: Hybrid Approach
 

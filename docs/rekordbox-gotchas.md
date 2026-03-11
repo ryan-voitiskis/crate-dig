@@ -1,6 +1,6 @@
 # Rekordbox Gotchas
 
-Implementation-specific gotchas for reklawdbox development. For the broader list of Rekordbox platform gotchas (XML import, file paths, general), see [rekordbox-internals.md § Gotchas and Footguns](../reference/rekordbox-internals.md#10-gotchas-and-footguns).
+Implementation-specific gotchas for reklawdbox development. For the broader list of Rekordbox platform gotchas (XML import, file paths, general), see [rekordbox-internals.md § Gotchas and Footguns](rekordbox-internals.md#9-gotchas-and-footguns).
 
 ## Database
 
