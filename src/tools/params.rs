@@ -50,8 +50,17 @@ impl SearchFilterParams {
         exclude_samples: bool,
         limit: Option<u32>,
         offset: Option<u32>,
-    ) -> db::SearchParams {
-        db::SearchParams {
+    ) -> Result<db::SearchParams, String> {
+        let added_after = self
+            .added_after
+            .map(|s| db::validate_iso_date(&s, "added_after"))
+            .transpose()?;
+        let added_before = self
+            .added_before
+            .map(|s| db::validate_iso_date(&s, "added_before"))
+            .transpose()?;
+
+        Ok(db::SearchParams {
             query: self.query,
             artist: self.artist,
             genre: self.genre,
@@ -65,12 +74,12 @@ impl SearchFilterParams {
             label: self.label,
             path: self.path,
             path_prefix: self.path_prefix,
-            added_after: self.added_after,
-            added_before: self.added_before,
+            added_after,
+            added_before,
             exclude_samples,
             limit,
             offset,
-        }
+        })
     }
 }
 

@@ -66,7 +66,9 @@ pub(super) fn resolve_tracks(
         }
     } else {
         let limit = effective_max.map(|m| m as u32);
-        let search = filters.into_search_params(true, limit, offset);
+        let search = filters
+            .into_search_params(true, limit, offset)
+            .map_err(|e| McpError::invalid_params(e, None))?;
         if bounded {
             db::search_tracks(conn, &search)
                 .map_err(|e| mcp_internal_error(format!("DB error: {e}")))?

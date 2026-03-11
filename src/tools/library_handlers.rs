@@ -12,11 +12,14 @@ pub(super) fn handle_search_tracks(
     conn: MutexGuard<'_, Connection>,
     params: SearchTracksParams,
 ) -> Result<CallToolResult, McpError> {
-    let mut search = params.filters.into_search_params(
-        !params.include_samples.unwrap_or(false),
-        params.limit,
-        params.offset,
-    );
+    let mut search = params
+        .filters
+        .into_search_params(
+            !params.include_samples.unwrap_or(false),
+            params.limit,
+            params.offset,
+        )
+        .map_err(|e| McpError::invalid_params(e, None))?;
     search.playlist = params.playlist;
     let tracks = db::search_tracks(&conn, &search)
         .map_err(|e| mcp_internal_error(format!("DB error: {e}")))?;

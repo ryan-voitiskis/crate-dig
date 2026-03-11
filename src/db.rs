@@ -14,6 +14,7 @@ pub fn open(path: &str) -> Result<Connection, rusqlite::Error> {
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
     // Key is passed as a passphrase — SQLCipher derives the encryption key via PBKDF2.
     conn.execute_batch(&format!("PRAGMA key = '{REKORDBOX_SQLCIPHER_KEY}'"))?;
+    conn.execute_batch("PRAGMA busy_timeout = 5000;")?;
     conn.query_row("SELECT count(*) FROM sqlite_master", [], |_| Ok(()))?;
     Ok(conn)
 }
@@ -125,6 +126,37 @@ fn sampler_path_like_pattern() -> String {
 #[cfg(test)]
 fn is_sampler_path(path: &str) -> bool {
     path.contains(SAMPLER_PATH_FRAGMENT)
+}
+
+/// Validate that a string is a valid ISO date (YYYY-MM-DD) with real calendar values.
+pub fn validate_iso_date(s: &str, field: &str) -> Result<String, String> {
+    let err = || format!("{field} must be a valid ISO date (YYYY-MM-DD), got: {s:?}");
+    let b = s.as_bytes();
+    if s.len() != 10 || b[4] != b'-' || b[7] != b'-' {
+        return Err(err());
+    }
+    let year: u32 = s[..4].parse().map_err(|_| err())?;
+    let month: u32 = s[5..7].parse().map_err(|_| err())?;
+    let day: u32 = s[8..10].parse().map_err(|_| err())?;
+    if month < 1 || month > 12 || day < 1 {
+        return Err(err());
+    }
+    let max_day = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
+        _ => unreachable!(),
+    };
+    if day > max_day {
+        return Err(err());
+    }
+    Ok(s.to_string())
 }
 
 #[derive(Default)]
@@ -338,10 +370,11 @@ fn get_playlist_tracks_with_limit_policy(
         "\nFROM djmdContent c",
         ",\n    sp.TrackNo AS Position\nFROM djmdContent c",
     );
-    debug_assert_ne!(
-        base_sql, TRACK_SELECT,
-        "TRACK_SELECT Position injection failed"
-    );
+    if base_sql == TRACK_SELECT {
+        return Err(rusqlite::Error::InvalidParameterName(
+            "TRACK_SELECT layout changed — Position column injection failed".into(),
+        ));
+    }
     let mut sql = format!(
         "{base_sql}
          INNER JOIN djmdSongPlaylist sp ON sp.ContentID = c.ID
@@ -433,33 +466,38 @@ pub fn get_library_stats_filtered(
 ) -> Result<LibraryStats, rusqlite::Error> {
     let sampler_pattern = sampler_path_like_pattern();
     let sample_filter = if exclude_samples {
-        format!(" AND FolderPath NOT LIKE '{sampler_pattern}' ESCAPE '\\'")
+        " AND FolderPath NOT LIKE ?1 ESCAPE '\\'"
     } else {
-        String::new()
+        ""
     };
     let content_sample_filter = if exclude_samples {
-        format!(" AND c.FolderPath NOT LIKE '{sampler_pattern}' ESCAPE '\\'")
+        " AND c.FolderPath NOT LIKE ?1 ESCAPE '\\'"
     } else {
-        String::new()
+        ""
+    };
+    let bind_params: &[&dyn rusqlite::types::ToSql] = if exclude_samples {
+        &[&sampler_pattern]
+    } else {
+        &[]
     };
 
     let total_tracks: i32 = conn.query_row(
         &format!("SELECT COUNT(*) FROM djmdContent WHERE rb_local_deleted = 0{sample_filter}"),
-        [],
+        bind_params,
         |row| row.get(0),
     )?;
 
     let avg_bpm: f64 = conn
         .query_row(
             &format!("SELECT COALESCE(AVG(BPM), 0) FROM djmdContent WHERE rb_local_deleted = 0 AND BPM > 0{sample_filter}"),
-            [],
+            bind_params,
             |row| row.get(0),
         )
         .map(|v: f64| v / 100.0)?;
 
     let rated_count: i32 = conn.query_row(
         &format!("SELECT COUNT(*) FROM djmdContent WHERE rb_local_deleted = 0 AND Rating > 0{sample_filter}"),
-        [],
+        bind_params,
         |row| row.get(0),
     )?;
 
@@ -478,7 +516,7 @@ pub fn get_library_stats_filtered(
          ORDER BY cnt DESC"
     ))?;
     let genres: Vec<GenreCount> = stmt
-        .query_map([], |row| {
+        .query_map(bind_params, |row| {
             Ok(GenreCount {
                 name: row.get(0)?,
                 count: row.get(1)?,
@@ -495,7 +533,7 @@ pub fn get_library_stats_filtered(
          ORDER BY cnt DESC"
     ))?;
     let key_distribution: Vec<KeyCount> = stmt
-        .query_map([], |row| {
+        .query_map(bind_params, |row| {
             Ok(KeyCount {
                 name: row.get(0)?,
                 count: row.get(1)?,
