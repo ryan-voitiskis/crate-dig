@@ -823,11 +823,12 @@ pub fn check_filename(
         None => return issues,
     };
 
-    // ORIGINAL_MIX_SUFFIX
-    if !skip.contains(&IssueType::OriginalMixSuffix) && filename.contains("(Original Mix)") {
-        let new_name = filename
-            .replace(" (Original Mix)", "")
-            .replace("(Original Mix)", "");
+    // ORIGINAL_MIX_SUFFIX (case-insensitive)
+    static ORIGINAL_MIX_RE: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"(?i)\s*\(Original Mix\)").expect("ORIGINAL_MIX_RE must compile")
+    });
+    if !skip.contains(&IssueType::OriginalMixSuffix) && ORIGINAL_MIX_RE.is_match(filename) {
+        let new_name = ORIGINAL_MIX_RE.replace_all(filename, "");
         issues.push(DetectedIssue {
             issue_type: IssueType::OriginalMixSuffix,
             detail: Some(
@@ -937,9 +938,9 @@ pub fn check_filename(
         }
 
         if let (Some(fn_title), Some(t_title)) = (&parsed.title, &tag_title) {
-            // Strip (Original Mix) from both sides for comparison
-            let fn_t_clean = fn_title.replace(" (Original Mix)", "");
-            let tag_t_clean = t_title.replace(" (Original Mix)", "");
+            // Strip (Original Mix) from both sides for comparison (case-insensitive)
+            let fn_t_clean = ORIGINAL_MIX_RE.replace_all(fn_title, "").into_owned();
+            let tag_t_clean = ORIGINAL_MIX_RE.replace_all(t_title, "").into_owned();
             let filename_title_folded = casefold_text(&normalize_for_drift(fn_t_clean.trim()));
             let tag_title_folded = casefold_text(&normalize_for_drift(tag_t_clean.trim()));
             if !filename_title_folded.is_empty()
@@ -1887,6 +1888,29 @@ mod tests {
     }
 
     #[test]
+    fn check_filename_original_mix_case_insensitive() {
+        let result = make_single(&[("artist", "A"), ("title", "T")]);
+        for variant in [
+            "A - Track (original mix).flac",
+            "A - Track (ORIGINAL MIX).flac",
+            "A - Track (Original mix).flac",
+        ] {
+            let issues = check_filename(
+                Path::new(&format!("/test/{variant}")),
+                &result,
+                &AuditContext::LooseTrack,
+                &HashSet::new(),
+            );
+            assert!(
+                issues
+                    .iter()
+                    .any(|i| i.issue_type == IssueType::OriginalMixSuffix),
+                "should detect Original Mix in: {variant}"
+            );
+        }
+    }
+
+    #[test]
     fn check_filename_tech_specs() {
         let result = make_single(&[("artist", "A"), ("title", "T")]);
         let issues = check_filename(
@@ -2584,6 +2608,24 @@ mod tests {
                 .iter()
                 .any(|i| i.issue_type == IssueType::FilenameTagDrift),
             "(Original Mix) in tag only should not trigger drift"
+        );
+    }
+
+    #[test]
+    fn drift_original_mix_case_insensitive() {
+        // Tag has lowercase "(original mix)" but filename doesn't — should not drift
+        let result = make_single(&[("artist", "Artist"), ("title", "Track (original mix)")]);
+        let issues = check_filename(
+            Path::new("/music/play/Artist - Track.flac"),
+            &result,
+            &AuditContext::LooseTrack,
+            &HashSet::new(),
+        );
+        assert!(
+            !issues
+                .iter()
+                .any(|i| i.issue_type == IssueType::FilenameTagDrift),
+            "case-insensitive (original mix) in tag only should not trigger drift"
         );
     }
 
