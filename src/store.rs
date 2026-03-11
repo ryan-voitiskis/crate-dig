@@ -1203,6 +1203,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn test_broker_discogs_session_round_trip() {
         let (_dir, conn) = open_temp_store();
         let url = "https://broker.example.com/store-round-trip-test";
@@ -1244,6 +1245,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "macos")]
     fn test_broker_discogs_session_migrates_legacy_plaintext() {
         let (_dir, conn) = open_temp_store();
         let url = "https://broker.example.com/store-migration-test";

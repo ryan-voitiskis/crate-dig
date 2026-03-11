@@ -1,39 +1,54 @@
-use security_framework::passwords;
+#[cfg(target_os = "macos")]
+mod imp {
+    use security_framework::passwords;
 
-const SERVICE: &str = "com.reklawdbox.broker-session";
+    const SERVICE: &str = "com.reklawdbox.broker-session";
 
-/// macOS `errSecItemNotFound` (-25300).
-const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
+    /// macOS `errSecItemNotFound` (-25300).
+    const ERR_SEC_ITEM_NOT_FOUND: i32 = -25300;
 
-/// Store a session token in the macOS Keychain.
-pub fn set_session_token(broker_url: &str, token: &str) -> Result<(), String> {
-    passwords::set_generic_password(SERVICE, broker_url, token.as_bytes())
-        .map_err(|e| format!("Keychain write failed: {e}"))
-}
+    pub fn set_session_token(broker_url: &str, token: &str) -> Result<(), String> {
+        passwords::set_generic_password(SERVICE, broker_url, token.as_bytes())
+            .map_err(|e| format!("Keychain write failed: {e}"))
+    }
 
-/// Retrieve a session token from the macOS Keychain.
-/// Returns `Ok(None)` if no entry exists.
-pub fn get_session_token(broker_url: &str) -> Result<Option<String>, String> {
-    match passwords::get_generic_password(SERVICE, broker_url) {
-        Ok(bytes) => String::from_utf8(bytes)
-            .map(Some)
-            .map_err(|e| format!("Keychain value is not UTF-8: {e}")),
-        Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(None),
-        Err(e) => Err(format!("Keychain read failed: {e}")),
+    pub fn get_session_token(broker_url: &str) -> Result<Option<String>, String> {
+        match passwords::get_generic_password(SERVICE, broker_url) {
+            Ok(bytes) => String::from_utf8(bytes)
+                .map(Some)
+                .map_err(|e| format!("Keychain value is not UTF-8: {e}")),
+            Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(None),
+            Err(e) => Err(format!("Keychain read failed: {e}")),
+        }
+    }
+
+    pub fn delete_session_token(broker_url: &str) -> Result<(), String> {
+        match passwords::delete_generic_password(SERVICE, broker_url) {
+            Ok(()) => Ok(()),
+            Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(()),
+            Err(e) => Err(format!("Keychain delete failed: {e}")),
+        }
     }
 }
 
-/// Delete a session token from the macOS Keychain.
-/// Silently succeeds if no entry exists.
-pub fn delete_session_token(broker_url: &str) -> Result<(), String> {
-    match passwords::delete_generic_password(SERVICE, broker_url) {
-        Ok(()) => Ok(()),
-        Err(e) if e.code() == ERR_SEC_ITEM_NOT_FOUND => Ok(()),
-        Err(e) => Err(format!("Keychain delete failed: {e}")),
+#[cfg(not(target_os = "macos"))]
+mod imp {
+    pub fn set_session_token(_broker_url: &str, _token: &str) -> Result<(), String> {
+        Err("Keychain is only available on macOS".into())
+    }
+
+    pub fn get_session_token(_broker_url: &str) -> Result<Option<String>, String> {
+        Ok(None)
+    }
+
+    pub fn delete_session_token(_broker_url: &str) -> Result<(), String> {
+        Ok(())
     }
 }
 
-#[cfg(test)]
+pub use imp::*;
+
+#[cfg(all(test, target_os = "macos"))]
 mod tests {
     use super::*;
 
