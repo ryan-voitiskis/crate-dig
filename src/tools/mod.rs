@@ -149,6 +149,8 @@ impl ReklawdboxServer {
     pub fn new(db_path: Option<String>) -> Self {
         let http = reqwest::Client::builder()
             .user_agent("Reklawdbox/0.1")
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .expect("failed to build HTTP client");
         Self {

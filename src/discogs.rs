@@ -8,6 +8,9 @@ pub const BROKER_TOKEN_ENV: &str = "REKLAWDBOX_DISCOGS_BROKER_TOKEN";
 pub const DEFAULT_BROKER_URL: &str =
     "https://reklawdbox-discogs-broker.ryanvoitiskis.workers.dev";
 
+pub(crate) const DEFAULT_BROKER_TOKEN: &str =
+    "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
+
 #[derive(Debug, Clone)]
 pub struct BrokerConfig {
     pub base_url: String,
@@ -20,8 +23,6 @@ pub enum BrokerConfigStatus {
     Ok(BrokerConfig),
     /// Env var set but URL is malformed.
     InvalidUrl(String),
-    /// The hosted broker URL is configured without a client token.
-    MissingBrokerToken,
 }
 
 impl BrokerConfig {
@@ -32,9 +33,9 @@ impl BrokerConfig {
             Some(url) => url,
             None => return BrokerConfigStatus::InvalidUrl(raw_base_url),
         };
-        let broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
+        let mut broker_token = env_var_trimmed_non_empty(BROKER_TOKEN_ENV);
         if broker_token.is_none() && base_url == DEFAULT_BROKER_URL {
-            return BrokerConfigStatus::MissingBrokerToken;
+            broker_token = Some(DEFAULT_BROKER_TOKEN.to_string());
         }
         BrokerConfigStatus::Ok(Self {
             base_url,
@@ -205,6 +206,13 @@ pub async fn device_session_start(
     if !response.status().is_success() {
         let status = response.status();
         let body = response.text().await.unwrap_or_default();
+        if status == reqwest::StatusCode::UNAUTHORIZED && cfg.broker_token.is_none() {
+            return Err(format!(
+                "Broker returned 401 Unauthorized and no broker token is configured. \
+                 Set {} to authenticate with your custom broker.",
+                BROKER_TOKEN_ENV
+            ));
+        }
         return Err(format!("broker start HTTP {}: {}", status, body));
     }
 

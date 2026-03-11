@@ -3,9 +3,6 @@ use std::io::{self, Write};
 use crate::config;
 use crate::discogs;
 
-const DEFAULT_BROKER_TOKEN: &str =
-    "7d5596122d56ba256cb40ed9b1a6fb0724e45eb9b17399c687fc3cd649ce67ef";
-
 #[derive(clap::Args)]
 pub(crate) struct SetupArgs {
     /// Accept defaults without prompting.
@@ -55,30 +52,43 @@ pub(crate) fn run_setup(args: SetupArgs) -> Result<(), Box<dyn std::error::Error
         }
     }
 
-    // Broker token
-    let show_token = if cfg.discogs.broker.token.is_some() {
-        "(configured)"
-    } else {
-        "(none)"
-    };
-    if args.yes {
-        if cfg.discogs.broker.token.is_none() {
-            cfg.discogs.broker.token = Some(DEFAULT_BROKER_TOKEN.to_string());
-        }
-    } else {
-        println!();
-        println!("Discogs broker token [{show_token}]:");
-        println!("  Press Enter to use the default hosted-broker token.");
-        let input = read_line_trimmed()?;
-        if !input.is_empty() {
-            let cleaned = input.trim_matches('"').trim_matches('\'').to_string();
-            if cleaned.is_empty() {
-                return Err("Token cannot be empty.".into());
+    // Broker token — only needed for custom broker URLs
+    let is_default_url = cfg
+        .discogs
+        .broker
+        .url
+        .as_deref()
+        .and_then(discogs::normalize_base_url)
+        .as_deref()
+        == Some(discogs::DEFAULT_BROKER_URL);
+
+    if !is_default_url {
+        if !args.yes {
+            println!();
+            println!("Custom broker URL detected. A broker token may be required.");
+            let show_token = if cfg.discogs.broker.token.is_some() {
+                "(configured)"
+            } else {
+                "(none)"
+            };
+            println!("Discogs broker token [{show_token}]:");
+            let input = read_line_trimmed()?;
+            if !input.is_empty() {
+                let cleaned = input.trim_matches('"').trim_matches('\'').to_string();
+                if cleaned.is_empty() {
+                    return Err("Token cannot be empty.".into());
+                }
+                cfg.discogs.broker.token = Some(cleaned);
             }
-            cfg.discogs.broker.token = Some(cleaned);
-        } else if cfg.discogs.broker.token.is_none() {
-            cfg.discogs.broker.token = Some(DEFAULT_BROKER_TOKEN.to_string());
         }
+    }
+
+    if !is_default_url && cfg.discogs.broker.token.is_none() {
+        eprintln!(
+            "Warning: Custom broker URL is configured but no broker token is set. \
+             Set {} or re-run setup without --yes to configure it.",
+            discogs::BROKER_TOKEN_ENV
+        );
     }
 
     config::save(&cfg)?;

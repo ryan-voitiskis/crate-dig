@@ -945,6 +945,8 @@ async function lookupDiscogsViaApi(
   }
 
   const normArtist = normalize(params.artist)
+  const normTitle = normalize(params.title)
+
   if (!normArtist) {
     return {
       result: toDiscogsResult(results[0], true),
@@ -953,19 +955,58 @@ async function lookupDiscogsViaApi(
     }
   }
 
-  const matched = results.find((entry) => {
-    const resultTitle = (entry.title ?? '').toLowerCase()
+  // 1. Find results where artist appears in the Discogs title
+  const artistMatches = results.filter((entry) => {
+    const resultTitle = normalize(entry.title ?? '')
     return resultTitle.includes(normArtist)
   })
 
-  if (matched) {
+  // 2. Among artist matches, prefer one where the release title also contains the search title
+  if (artistMatches.length > 0 && normTitle) {
+    const titleMatch = artistMatches.find((entry) => {
+      const resultTitle = normalize(entry.title ?? '')
+      return resultTitle.includes(normTitle)
+    })
+    if (titleMatch) {
+      return {
+        result: toDiscogsResult(titleMatch, false),
+        match_quality: 'exact',
+        cache_hit: false,
+      }
+    }
+    // Artist matched but title didn't — return best artist match as fuzzy
     return {
-      result: toDiscogsResult(matched, false),
-      match_quality: 'exact',
+      result: toDiscogsResult(artistMatches[0], true),
+      match_quality: 'fuzzy',
       cache_hit: false,
     }
   }
 
+  // Artist matched but no title to verify — fuzzy
+  if (artistMatches.length > 0) {
+    return {
+      result: toDiscogsResult(artistMatches[0], true),
+      match_quality: 'fuzzy',
+      cache_hit: false,
+    }
+  }
+
+  // No artist match — return first result as fuzzy only if title matches
+  if (normTitle) {
+    const titleOnly = results.find((entry) => {
+      const resultTitle = normalize(entry.title ?? '')
+      return resultTitle.includes(normTitle)
+    })
+    if (titleOnly) {
+      return {
+        result: toDiscogsResult(titleOnly, true),
+        match_quality: 'fuzzy',
+        cache_hit: false,
+      }
+    }
+  }
+
+  // Nothing matched — still return first result as fuzzy
   return {
     result: toDiscogsResult(results[0], true),
     match_quality: 'fuzzy',

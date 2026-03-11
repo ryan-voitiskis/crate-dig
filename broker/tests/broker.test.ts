@@ -718,6 +718,148 @@ describe('broker test runner baseline', () => {
   })
 })
 
+describe('discogs proxy search matching', () => {
+  async function setupSessionAndSearch(
+    sessionToken: string,
+    searchBody: { artist: string; title: string; album?: string },
+    discogsResults: Array<{
+      title?: string
+      year?: string | number
+      label?: string[]
+      genre?: string[]
+      style?: string[]
+      uri?: string
+    }>,
+  ): Promise<Response> {
+    const sessionTokenHash = await sha256Hex(sessionToken)
+    const now = Math.floor(Date.now() / 1000)
+
+    await env.DB.prepare(
+      `INSERT INTO device_sessions (
+        device_id, pending_token, status, poll_interval_seconds,
+        created_at, updated_at, expires_at, authorized_at,
+        oauth_access_token, oauth_access_token_secret, oauth_identity,
+        session_token_hash, session_expires_at, finalized_at
+      ) VALUES (
+        ?1, ?2, 'finalized', 5, ?3, ?3, ?4, ?3, ?5, ?6, 'tester', ?7, ?4, ?3
+      )`,
+    )
+      .bind(
+        `device-match-${sessionToken}`,
+        `pending-match-${sessionToken}`,
+        now,
+        now + 3600,
+        'oauth-token',
+        'oauth-secret',
+        sessionTokenHash,
+      )
+      .run()
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ results: discogsResults }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }),
+    )
+
+    try {
+      return await request('/v1/discogs/proxy/search', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${sessionToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(searchBody),
+      })
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  }
+
+  it('returns exact match when artist and title both match', async () => {
+    const response = await setupSessionAndSearch(
+      'match-exact-both',
+      { artist: 'Legowelt', title: 'Disco Rout' },
+      [
+        { title: 'Other Artist - Other Track', year: 2020, label: ['Label A'], genre: ['Electronic'], style: ['Techno'], uri: '/release/1' },
+        { title: 'Legowelt - Disco Rout', year: 2021, label: ['Clone'], genre: ['Electronic'], style: ['Electro'], uri: '/release/2' },
+      ],
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json<{ result: { title: string; fuzzy_match: boolean }; match_quality: string }>()
+    expect(body.match_quality).toBe('exact')
+    expect(body.result.title).toBe('Legowelt - Disco Rout')
+    expect(body.result.fuzzy_match).toBe(false)
+  })
+
+  it('returns fuzzy match when artist matches but title does not', async () => {
+    const response = await setupSessionAndSearch(
+      'match-artist-only',
+      { artist: 'Legowelt', title: 'Nonexistent Track' },
+      [
+        { title: 'Legowelt - Disco Rout', year: 2021, label: ['Clone'], genre: ['Electronic'], style: ['Electro'], uri: '/release/1' },
+        { title: 'Legowelt - Other EP', year: 2019, label: ['Clone'], genre: ['Electronic'], style: ['Electro'], uri: '/release/2' },
+      ],
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json<{ result: { title: string; fuzzy_match: boolean }; match_quality: string }>()
+    expect(body.match_quality).toBe('fuzzy')
+    expect(body.result.title).toBe('Legowelt - Disco Rout')
+    expect(body.result.fuzzy_match).toBe(true)
+  })
+
+  it('prefers artist+title match over artist-only match', async () => {
+    const response = await setupSessionAndSearch(
+      'match-prefer-title',
+      { artist: 'Shed', title: 'Silent Witness' },
+      [
+        { title: 'Shed - The Killer', year: 2008, label: ['Ostgut'], genre: ['Electronic'], style: ['Techno'], uri: '/release/1' },
+        { title: 'Shed - Silent Witness', year: 2010, label: ['Ostgut'], genre: ['Electronic'], style: ['Dub Techno'], uri: '/release/2' },
+        { title: 'Shed - Shedding The Past', year: 2012, label: ['Ostgut'], genre: ['Electronic'], style: ['Techno'], uri: '/release/3' },
+      ],
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json<{ result: { title: string; fuzzy_match: boolean; url: string }; match_quality: string }>()
+    expect(body.match_quality).toBe('exact')
+    expect(body.result.title).toBe('Shed - Silent Witness')
+    expect(body.result.fuzzy_match).toBe(false)
+  })
+
+  it('returns fuzzy when no artist matches but title matches', async () => {
+    const response = await setupSessionAndSearch(
+      'match-title-only',
+      { artist: 'Misspelled Artst', title: 'Correct Title' },
+      [
+        { title: 'Real Artist - Correct Title', year: 2023, label: ['Label'], genre: ['Electronic'], style: ['House'], uri: '/release/1' },
+      ],
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json<{ result: { title: string; fuzzy_match: boolean }; match_quality: string }>()
+    expect(body.match_quality).toBe('fuzzy')
+    expect(body.result.fuzzy_match).toBe(true)
+    expect(body.result.title).toBe('Real Artist - Correct Title')
+  })
+
+  it('returns fuzzy first result when nothing matches', async () => {
+    const response = await setupSessionAndSearch(
+      'match-nothing',
+      { artist: 'Unknown', title: 'Nope' },
+      [
+        { title: 'Completely Different - Something Else', year: 2020, label: ['Label'], genre: ['Rock'], style: ['Indie'], uri: '/release/1' },
+      ],
+    )
+
+    expect(response.status).toBe(200)
+    const body = await response.json<{ result: { fuzzy_match: boolean }; match_quality: string }>()
+    expect(body.match_quality).toBe('fuzzy')
+    expect(body.result.fuzzy_match).toBe(true)
+  })
+})
+
 describe('discogs proxy rate limiting', () => {
   it('serializes concurrent proxy searches through the global rate-limit gate', async () => {
     const minIntervalMs = 120
