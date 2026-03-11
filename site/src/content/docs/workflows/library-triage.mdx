@@ -31,6 +31,14 @@ Working out of order means you'll either get poor results or end up re-running w
 
 2. **Enrichment** — hydrate your caches. Run `cache_coverage` to see gaps, then `enrich_tracks` with `providers: ["discogs", "beatport"]` and `analyze_audio_batch` for audio descriptors. This is the longest step but only needs to happen once.
 
+   For large collections (1000+ tracks), use the CLI instead of MCP tools — it runs unattended with progress bars and can be left overnight:
+
+   ```sh
+   reklawdbox hydrate --cpu overnight -y
+   ```
+
+   This runs Discogs, Beatport, and audio analysis in one pass. The `--cpu overnight` flag uses max cores without nicing; `-y` skips the confirmation prompt. Use filters like `--artist`, `--genre`, or `--added-after` to scope to a subset if needed.
+
    <LinkCard title="Cache-first design" href="/workflows/#cache-first-design" />
 
 3. **Label verification** — check label coverage across your collection using `search_tracks`. Labels are strong genre indicators and enrichment usually fills them automatically. Where gaps remain, use `update_tracks` to fill from enrichment results — this is high-accuracy, low-effort work.
