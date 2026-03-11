@@ -86,20 +86,21 @@ These patterns are valid and should not be flagged as errors during audits:
 
 ### Filename parsing rules
 
+The delimiter is always ` - ` (space-dash-space). Bare hyphens inside artist or title names (e.g., "Jean-Michel Jarre") are not delimiters.
+
 **Album tracks** (`NN Artist Name - Track Title.ext`):
 
 1. Strip file extension
-2. First 2 chars = track number (zero-padded)
-3. Char 3 = space (skip)
-4. Char 4 to first `-` = artist
-5. After first `-` = title
+2. Leading digits = track number
+3. Skip whitespace after track number
+4. Split remainder on first ` - ` — left side is artist, right side is title
 
 **Edge cases:**
 
-- Title contains `-` (e.g., "Artist - Track - Subtitle") — split on first `-` only, unless artist is known from directory context.
+- Title contains ` - ` (e.g., `Artist - Track - Subtitle`) — split on first ` - ` only, unless artist is known from directory context.
 - VA compilations — filename artist is the per-track artist, not the AlbumArtist.
 
-**Loose tracks** (`Artist Name - Track Title.ext`): split on first `-`.
+**Loose tracks** (`Artist Name - Track Title.ext`): split on first ` - `.
 
 ## Tags
 
@@ -107,24 +108,28 @@ These patterns are valid and should not be flagged as errors during audits:
 
 What Rekordbox reads on import by format:
 
-<!-- dprint-ignore -->
-| Field     | FLAC            | WAV               | MP3             |
-| --------- | --------------- | ----------------- | --------------- |
-| Artist    | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Title     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Album     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Genre     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Year      | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Track     | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Comment   | Vorbis Comment  | RIFF INFO (tag 3) | ID3v2 (tag 2)   |
-| Label     | Vorbis Comment  | **Not supported** | ID3v2 (tag 2)   |
-| Cover art | Embedded (auto) | **Not imported**  | Embedded (auto) |
+FLAC, MP3, AIFF, and M4A all have full tag support — every field including Label and embedded cover art is read on import. They use different tag containers (Vorbis Comment for FLAC, ID3v2 for MP3 and AIFF, MP4 ilst for M4A) but the field coverage is identical.
 
-**WAV critical:** Rekordbox reads **only** RIFF INFO (tag 3) from WAV files. ID3v2 (tag 2) is ignored. Both must be written — tag 2 for general compatibility, tag 3 for Rekordbox.
+WAV is the exception. Rekordbox reads **only** RIFF INFO (tag 3) from WAV files, which has a limited field set:
+
+<!-- dprint-ignore -->
+| Field     | WAV support                |
+| --------- | -------------------------- |
+| Artist    | RIFF INFO (tag 3)          |
+| Title     | RIFF INFO (tag 3)          |
+| Album     | RIFF INFO (tag 3)          |
+| Genre     | RIFF INFO (tag 3)          |
+| Year      | RIFF INFO (tag 3)          |
+| Comment   | RIFF INFO (tag 3)          |
+| Track     | **Not supported**          |
+| Label     | **Not supported**          |
+| Cover art | **Not imported**           |
+
+**WAV dual-tag rule:** Rekordbox ignores ID3v2 (tag 2) in WAV files. Both must be written — tag 2 for general compatibility, tag 3 for Rekordbox. `write_file_tags` handles this automatically.
 
 **WAV cover art:** Rekordbox cannot import cover art from WAV files. Embed in tag 2 for other apps; WAV tracks need manual cover art in Rekordbox after import.
 
-**WAV label:** RIFF INFO has no publisher/label field. For WAV files, Label is DB-only — set it via XML import or manually in Rekordbox.
+**WAV label and track number:** RIFF INFO has no publisher or track number fields. For WAV files, these are DB-only — set them via XML import or manually in Rekordbox.
 
 ### Reload Tag workflow
 
@@ -141,6 +146,7 @@ Rekordbox's **Reload Tag** (right-click → Reload Tag) re-reads file tags and u
 | Genre   | Yes           | Verified 2026-03-03                     |
 | Year    | Yes           |                                         |
 | Comment | Yes           |                                         |
+| Track   | **No**        | RIFF INFO has no track number field     |
 | Label   | **No**        | RIFF INFO has no publisher field        |
 | BPM     | **No**        | Not in RIFF INFO; Rekordbox uses its own analysis |
 | Key     | **No**        | Not in RIFF INFO; Rekordbox uses its own analysis |
@@ -173,6 +179,6 @@ After reloading, any previously edited track information is replaced with the re
 
 ### Genre policy
 
-Genre is written to file tags via `write_file_tags` and loaded into Rekordbox via Reload Tag. Classification follows the [genre classification SOP](sops/genre-classification.md).
+Genre is written to file tags via `write_file_tags` and loaded into Rekordbox via Reload Tag.
 
 **Pre-existing genre tags:** If genre tags are already set from source downloads (Bandcamp, Juno, etc.), flag for user review with three options: **(a)** clear the tag, **(b)** keep as-is and document the exception, **(c)** migrate the value to comments before clearing. Do not auto-clear without user approval.
