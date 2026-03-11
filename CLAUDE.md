@@ -18,9 +18,11 @@ scoring, and greedy set sequencing with energy-curve shaping.
 
 ## MCP Development Loop
 
-This project IS the MCP server. When modifying server code, `cargo build --release`
-then ask the user to run `/mcp` to reconnect — the running server is the old binary
-until restarted. Always build release (`.mcp.json` points to `target/release/`).
+This project IS the MCP server. When modifying server code:
+
+1. `cargo build --release` (`.mcp.json` points to `target/release/`)
+2. Ask the user to run `/mcp` to reconnect — the running server is the old binary until restarted.
+3. After reconnection, smoke-test the changed functionality by calling the affected MCP tools with representative inputs. Include at least one happy-path call and one edge-case or error-path call per changed tool.
 
 ## Releasing
 
