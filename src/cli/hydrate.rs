@@ -339,9 +339,13 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
     }
 
     // Estimate time
+    let enrich_concurrency_est = args.concurrency.unwrap_or(4).max(1) as u64;
     let beatport_secs = beatport_pending.len() as u64; // ~1 req/s rate limit
-    let discogs_secs = discogs_pending.len() as u64 / 4; // ~4 concurrent
-    let analysis_secs = (analysis_pending.len() as u64 * 3) / analysis_concurrency.max(1) as u64;
+    let discogs_secs = discogs_pending.len() as u64 / enrich_concurrency_est;
+    // stratum-dsp ≈ 18s/track, essentia subprocess adds ≈ 30s/track
+    let secs_per_analysis: u64 = if essentia_python.is_some() { 48 } else { 18 };
+    let analysis_secs =
+        (analysis_pending.len() as u64 * secs_per_analysis) / analysis_concurrency.max(1) as u64;
     let estimated_secs = beatport_secs.max(discogs_secs).max(analysis_secs);
     if estimated_secs > 60 {
         let hours = estimated_secs / 3600;
@@ -558,7 +562,7 @@ pub(crate) async fn run_hydrate(args: HydrateArgs) -> Result<(), Box<dyn std::er
                     let norm_album = normalize::normalize_for_matching(&track.album);
                     let norm_album = (!norm_album.is_empty()).then_some(norm_album);
 
-                    let result = discogs::lookup_via_broker(
+                    let result = cli_discogs_lookup_with_retry(
                         &client,
                         &cfg,
                         &token,
@@ -955,6 +959,51 @@ async fn cli_ensure_discogs_auth(
         discogs::BrokerConfigStatus::InvalidUrl(url) => {
             Err(format!("Invalid Discogs broker URL: {url}").into())
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Discogs retry wrapper
+// ---------------------------------------------------------------------------
+
+async fn cli_discogs_lookup_with_retry(
+    client: &reqwest::Client,
+    cfg: &discogs::BrokerConfig,
+    token: &str,
+    artist: &str,
+    title: &str,
+    album: Option<&str>,
+) -> Result<Option<discogs::DiscogsResult>, discogs::LookupError> {
+    match discogs::lookup_via_broker(client, cfg, token, artist, title, album).await {
+        Ok(result) => Ok(result),
+        // The broker handles Discogs 429s internally and returns 502 on
+        // upstream failure, so this arm is defence-in-depth for platform-
+        // level rate limits (e.g. Cloudflare) or custom broker setups.
+        Err(discogs::LookupError::Http {
+            status: 429,
+            ref retry_after,
+            ref body,
+            ..
+        }) => {
+            let wait = retry_after
+                .as_deref()
+                .and_then(|s| s.parse::<u64>().ok())
+                .unwrap_or(5)
+                .min(120);
+            tracing::warn!(status = 429, wait, "Discogs broker 429, retrying: {body}");
+            tokio::time::sleep(Duration::from_secs(wait)).await;
+            discogs::lookup_via_broker(client, cfg, token, artist, title, album).await
+        }
+        Err(discogs::LookupError::Http {
+            status,
+            ref body,
+            ..
+        }) if (500..=599).contains(&status) => {
+            tracing::warn!(status, "Discogs broker {status}, retrying: {body}");
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            discogs::lookup_via_broker(client, cfg, token, artist, title, album).await
+        }
+        Err(e) => Err(e),
     }
 }
 

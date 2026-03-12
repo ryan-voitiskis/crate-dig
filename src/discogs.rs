@@ -76,6 +76,11 @@ pub struct AuthRemediation {
 #[derive(Debug, Clone)]
 pub enum LookupError {
     AuthRequired(AuthRemediation),
+    Http {
+        status: u16,
+        retry_after: Option<String>,
+        body: String,
+    },
     Message(String),
 }
 
@@ -83,7 +88,7 @@ impl LookupError {
     pub fn auth_remediation(&self) -> Option<&AuthRemediation> {
         match self {
             Self::AuthRequired(remediation) => Some(remediation),
-            Self::Message(_) => None,
+            Self::Http { .. } | Self::Message(_) => None,
         }
     }
 
@@ -102,6 +107,7 @@ impl fmt::Display for LookupError {
                     write!(f, "{}", remediation.message)
                 }
             }
+            Self::Http { status, body, .. } => write!(f, "broker proxy HTTP {status}: {body}"),
             Self::Message(msg) => write!(f, "{}", msg),
         }
     }
@@ -331,12 +337,18 @@ pub async fn lookup_via_broker(
     }
 
     if !response.status().is_success() {
-        let status = response.status();
+        let status = response.status().as_u16();
+        let retry_after = response
+            .headers()
+            .get(reqwest::header::RETRY_AFTER)
+            .and_then(|v| v.to_str().ok())
+            .map(String::from);
         let body = response.text().await.unwrap_or_default();
-        return Err(LookupError::message(format!(
-            "broker proxy HTTP {}: {}",
-            status, body
-        )));
+        return Err(LookupError::Http {
+            status,
+            retry_after,
+            body,
+        });
     }
 
     let json: serde_json::Value = response
