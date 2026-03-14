@@ -43,8 +43,7 @@ const WORKFLOWS: &[Workflow] = &[
         url: "https://reklawdbox.com/agent/genre-classification/",
         key_tools: &[
             "cache_coverage",
-            "enrich_tracks",
-            "resolve_tracks_data",
+            "classify_tracks",
             "suggest_normalizations",
             "update_tracks",
         ],
@@ -73,7 +72,7 @@ const WORKFLOWS: &[Workflow] = &[
         keywords: &["genre audit", "verify genre", "genre conflict"],
         summary: "Verify existing genre tags against enrichment and audio evidence.",
         url: "https://reklawdbox.com/agent/genre-audit/",
-        key_tools: &["cache_coverage", "resolve_tracks_data", "update_tracks"],
+        key_tools: &["cache_coverage", "audit_genres", "update_tracks"],
     },
 ];
 
@@ -118,11 +117,11 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
             "recommended_order": concat!(
                 "For disorganized libraries, workflow order matters — each step's quality depends on the previous:\n",
                 "1. Collection Audit — fix artist/title naming (enrichment matches on these)\n",
-                "2. Genre Classification — classify ungenred tracks with full signal\n",
-                "3. Genre Audit — verify existing genre tags for conflicts\n",
+                "2. Genre Classification — classify ungenred tracks with classify_tracks\n",
+                "3. Genre Audit — verify existing genre tags with audit_genres\n",
                 "4. Set Building — build DJ sets from well-tagged tracks\n",
                 "Prerequisite: run `reklawdbox hydrate` from the CLI first to populate enrichment and analysis caches.\n",
-                "Full guide: https://reklawdbox.com/workflows/library-triage/",
+                "Full guide: https://reklawdbox.com/workflows/library-cleanup/",
             ),
             "getting_started": "https://reklawdbox.com/getting-started/",
             "reference": "https://reklawdbox.com/reference/tools/",

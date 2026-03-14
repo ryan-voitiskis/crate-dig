@@ -2,6 +2,7 @@ mod audio;
 mod audit;
 mod beatport;
 mod changes;
+mod classify;
 mod cli;
 mod color;
 mod config;

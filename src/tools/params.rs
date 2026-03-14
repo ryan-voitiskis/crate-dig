@@ -274,6 +274,51 @@ pub struct ResolveTracksDataParams {
     pub format: Option<ResolveFormat>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClassifyTracksParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
+    #[schemars(description = "Specific track IDs to classify (highest priority selector)")]
+    pub track_ids: Option<Vec<String>>,
+    #[schemars(description = "Classify tracks in this playlist")]
+    pub playlist_id: Option<String>,
+    #[schemars(description = "Max tracks to classify (default 50, max 200)")]
+    pub max_tracks: Option<u32>,
+    #[schemars(description = "Offset for pagination (skip first N tracks)")]
+    pub offset: Option<u32>,
+    #[schemars(
+        description = "Genre overrides: remap a genre string before scoring. Example: [{\"from\": \"Melodic House & Techno\", \"to\": \"Deep Techno\"}]"
+    )]
+    pub genre_overrides: Option<Vec<GenreOverrideInput>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AuditGenresParams {
+    #[serde(flatten)]
+    pub filters: SearchFilterParams,
+    #[schemars(description = "Specific track IDs to audit (highest priority selector)")]
+    pub track_ids: Option<Vec<String>>,
+    #[schemars(description = "Audit tracks in this playlist")]
+    pub playlist_id: Option<String>,
+    #[schemars(description = "Max tracks to audit (default 50, max 200)")]
+    pub max_tracks: Option<u32>,
+    #[schemars(description = "Offset for pagination (skip first N tracks)")]
+    pub offset: Option<u32>,
+    #[schemars(
+        description = "Include confirmed tracks (genre matches evidence) in results (default false)"
+    )]
+    pub include_confirmed: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(inline)]
+pub struct GenreOverrideInput {
+    #[schemars(description = "Source genre string to match (case-insensitive)")]
+    pub from: String,
+    #[schemars(description = "Target canonical genre to use instead")]
+    pub to: String,
+}
+
 #[derive(Debug, Clone, Copy, Default, Deserialize, JsonSchema)]
 #[schemars(inline)]
 #[serde(rename_all = "snake_case")]

@@ -11,6 +11,7 @@ mod audio_handlers;
 mod audio_scan;
 mod audit_handlers;
 mod batch;
+mod classify_handler;
 mod corpus_helpers;
 mod discogs_auth;
 mod enrich_handlers;
@@ -31,6 +32,7 @@ use audio_handlers::*;
 use audio_scan::*;
 use audit_handlers::*;
 use batch::*;
+use classify_handler::*;
 use corpus_helpers::*;
 use discogs_auth::*;
 use enrich_handlers::*;
@@ -385,6 +387,30 @@ impl ReklawdboxServer {
         params: Parameters<ResolveTracksDataParams>,
     ) -> Result<CallToolResult, McpError> {
         handle_cache_coverage(self, params.0)
+    }
+
+    // -----------------------------------------------------------------------
+    // Genre classification and audit
+    // -----------------------------------------------------------------------
+
+    #[tool(
+        description = "Apply genre decision tree to ungenred tracks. Returns genre recommendations with confidence levels (high/medium/low/insufficient), evidence strings, and ranked candidates. High/medium results are ready for approval; low/insufficient may benefit from agent review using artist/title context. Cache-only — never triggers external calls."
+    )]
+    async fn classify_tracks(
+        &self,
+        params: Parameters<ClassifyTracksParams>,
+    ) -> Result<CallToolResult, McpError> {
+        handle_classify_tracks(self, params.0)
+    }
+
+    #[tool(
+        description = "Verify existing genre tags against enrichment and audio evidence. Returns only conflicts (genre disagrees with evidence) and manual-review tracks. Confirmed tracks are silently counted in the summary. Cache-only — never triggers external calls."
+    )]
+    async fn audit_genres(
+        &self,
+        params: Parameters<AuditGenresParams>,
+    ) -> Result<CallToolResult, McpError> {
+        handle_audit_genres(self, params.0)
     }
 
     // -----------------------------------------------------------------------

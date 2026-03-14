@@ -308,6 +308,51 @@ pub enum GenreFamily {
     Other,
 }
 
+/// Depth score within a genre's family. Higher = deeper/darker/more atmospheric.
+///
+/// Used by the classification decision tree (C rule 9a) when two same-family genres
+/// disagree: if audio is atmospheric/low_energy, prefer the higher-depth genre;
+/// if audio is high_energy, prefer the lower-depth genre. Equal depth → present both.
+///
+/// Audio profile validates specificity claims: e.g. if enrichment says "Deep Techno"
+/// but audio is high_energy (not atmospheric), the server prefers "Techno" instead.
+pub fn genre_depth(canonical: &str) -> u8 {
+    match canonical {
+        // House family — 1 = most energetic/driving, 5 = deepest/darkest
+        "Disco" | "Speed Garage" => 1,
+        "Gospel House" | "Garage" | "Afro House" => 2,
+        "House" | "Tech House" => 3,
+        "Progressive House" => 4,
+        "Deep House" => 5,
+
+        // Techno family
+        "Hard Techno" => 1,
+        "Acid" | "Electro" => 2,
+        "Techno" => 3,
+        "Minimal" => 4,
+        "Deep Techno" => 5,
+        "Dub Techno" => 6,
+        "Ambient Techno" => 7,
+        "Drone Techno" => 8,
+
+        // Bass family
+        "Grime" | "Bassline" => 1,
+        "Drum & Bass" => 2,
+        "Jungle" | "Breakbeat" => 3,
+        "Dubstep" | "UK Bass" => 4,
+        "Broken Beat" => 5,
+
+        // Downtempo family
+        "IDM" | "Experimental" => 2,
+        "Downtempo" => 3,
+        "Dub" | "Dub Reggae" => 4,
+        "Ambient" => 5,
+
+        // Other / unknown — no depth comparison possible
+        _ => 0,
+    }
+}
+
 /// Map a canonical genre name to its family. Input should be canonical
 /// (via `canonical_genre_name` or `canonical_genre_from_alias`); non-canonical names
 /// fall through to `Other`.
@@ -613,6 +658,48 @@ mod tests {
         assert_eq!(label_genre("warp"), None);
         assert_eq!(label_genre("xl recordings"), None);
         assert_eq!(label_genre(""), None);
+    }
+
+    #[test]
+    fn all_taxonomy_genres_have_depth() {
+        for g in GENRES {
+            let family = genre_family(g);
+            let depth = genre_depth(g);
+            if family != GenreFamily::Other {
+                assert!(
+                    depth > 0,
+                    "genre '{}' (family {:?}) has depth 0 — add it to genre_depth()",
+                    g,
+                    family,
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn depth_ordering_house() {
+        assert!(genre_depth("Deep House") > genre_depth("House"));
+        assert!(genre_depth("House") > genre_depth("Disco"));
+    }
+
+    #[test]
+    fn depth_ordering_techno() {
+        assert!(genre_depth("Drone Techno") > genre_depth("Deep Techno"));
+        assert!(genre_depth("Deep Techno") > genre_depth("Techno"));
+        assert!(genre_depth("Techno") > genre_depth("Hard Techno"));
+        assert!(genre_depth("Ambient Techno") > genre_depth("Dub Techno"));
+    }
+
+    #[test]
+    fn depth_ordering_bass() {
+        assert!(genre_depth("Broken Beat") > genre_depth("Drum & Bass"));
+        assert!(genre_depth("Dubstep") > genre_depth("Drum & Bass"));
+    }
+
+    #[test]
+    fn depth_ordering_downtempo() {
+        assert!(genre_depth("Ambient") > genre_depth("Downtempo"));
+        assert!(genre_depth("Downtempo") > genre_depth("IDM"));
     }
 
     #[test]
