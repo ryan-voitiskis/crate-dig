@@ -5,6 +5,14 @@ use serde::Deserialize;
 
 use super::mcp_internal_error;
 
+const SOP_BATCH_IMPORT: &str = include_str!("../../site/src/partials/sops/batch-import.mdx");
+const SOP_GENRE_CLASSIFICATION: &str =
+    include_str!("../../site/src/partials/sops/genre-classification.mdx");
+const SOP_GENRE_AUDIT: &str = include_str!("../../site/src/partials/sops/genre-audit.mdx");
+const SOP_SET_BUILDING: &str = include_str!("../../site/src/partials/sops/set-building.mdx");
+const SOP_COLLECTION_AUDIT: &str =
+    include_str!("../../site/src/partials/sops/collection-audit.mdx");
+
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 pub struct HelpParams {
     #[schemars(
@@ -17,8 +25,8 @@ struct Workflow {
     name: &'static str,
     keywords: &'static [&'static str],
     summary: &'static str,
-    url: &'static str,
     key_tools: &'static [&'static str],
+    sop: &'static str,
 }
 
 const WORKFLOWS: &[Workflow] = &[
@@ -26,7 +34,6 @@ const WORKFLOWS: &[Workflow] = &[
         name: "Batch Import",
         keywords: &["import", "batch", "download", "purchase"],
         summary: "Prepare newly acquired music for Rekordbox import: tag, rename, embed cover art.",
-        url: "https://reklawdbox.com/agent/batch-import/",
         key_tools: &[
             "read_file_tags",
             "write_file_tags",
@@ -35,55 +42,47 @@ const WORKFLOWS: &[Workflow] = &[
             "embed_cover_art",
             "extract_cover_art",
         ],
+        sop: SOP_BATCH_IMPORT,
     },
     Workflow {
         name: "Genre Classification",
         keywords: &["genre", "classify", "classification"],
         summary: "Classify genres using Discogs, Beatport, and audio evidence.",
-        url: "https://reklawdbox.com/agent/genre-classification/",
         key_tools: &[
             "cache_coverage",
             "classify_tracks",
             "suggest_normalizations",
             "update_tracks",
         ],
+        sop: SOP_GENRE_CLASSIFICATION,
     },
     Workflow {
         name: "Set Building",
         keywords: &["set", "mix", "sequence", "transition", "playlist"],
         summary: "Build transition-scored DJ set sequences.",
-        url: "https://reklawdbox.com/agent/set-building/",
         key_tools: &[
             "search_tracks",
             "resolve_tracks_data",
             "build_set",
             "score_transition",
         ],
+        sop: SOP_SET_BUILDING,
     },
     Workflow {
         name: "Collection Audit",
         keywords: &["audit", "fix", "naming", "tags", "convention"],
         summary: "Detect and fix naming, tagging, and convention violations.",
-        url: "https://reklawdbox.com/agent/collection-audit/",
         key_tools: &["audit_state", "read_file_tags", "write_file_tags"],
+        sop: SOP_COLLECTION_AUDIT,
     },
     Workflow {
         name: "Genre Audit",
         keywords: &["genre audit", "verify genre", "genre conflict"],
         summary: "Verify existing genre tags against enrichment and audio evidence.",
-        url: "https://reklawdbox.com/agent/genre-audit/",
         key_tools: &["cache_coverage", "audit_genres", "update_tracks"],
+        sop: SOP_GENRE_AUDIT,
     },
 ];
-
-fn workflow_to_json(w: &Workflow) -> serde_json::Value {
-    serde_json::json!({
-        "name": w.name,
-        "summary": w.summary,
-        "url": w.url,
-        "key_tools": w.key_tools,
-    })
-}
 
 pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError> {
     let result = if let Some(ref topic) = params.topic {
@@ -103,8 +102,9 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
 
         match matched {
             Some(w) => serde_json::json!({
-                "workflow": workflow_to_json(w),
-                "tip": "Use WebFetch on the URL above for the full step-by-step SOP.",
+                "workflow": w.name,
+                "key_tools": w.key_tools,
+                "sop": w.sop,
             }),
             None => serde_json::json!({
                 "error": format!("No workflow matching '{topic}'. Try: import, genre, genre audit, set, audit."),
@@ -113,7 +113,13 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
         }
     } else {
         serde_json::json!({
-            "workflows": WORKFLOWS.iter().map(workflow_to_json).collect::<Vec<_>>(),
+            "workflows": WORKFLOWS.iter().map(|w| {
+                serde_json::json!({
+                    "name": w.name,
+                    "summary": w.summary,
+                    "key_tools": w.key_tools,
+                })
+            }).collect::<Vec<_>>(),
             "recommended_order": concat!(
                 "For disorganized libraries, workflow order matters — each step's quality depends on the previous:\n",
                 "1. Collection Audit — fix artist/title naming (enrichment matches on these)\n",
@@ -125,8 +131,7 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
             ),
             "getting_started": "https://reklawdbox.com/getting-started/",
             "reference": "https://reklawdbox.com/reference/tools/",
-            "llms_txt": "https://reklawdbox.com/llms.txt",
-            "tip": "Run cache_coverage to check enrichment and analysis readiness before starting a workflow.",
+            "tip": "Call help(topic='genre'|'import'|'set'|'audit'|'genre audit') for the full step-by-step SOP.",
         })
     };
 

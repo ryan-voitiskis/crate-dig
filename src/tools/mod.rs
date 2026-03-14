@@ -214,7 +214,9 @@ impl ReklawdboxServer {
         handle_get_genre_taxonomy()
     }
 
-    #[tool(description = "Get workflow guides, capability map, and reklawdbox.com URLs")]
+    #[tool(
+        description = "Get step-by-step workflow SOPs. Pass a topic for the full SOP, omit for the menu."
+    )]
     async fn help(&self, params: Parameters<HelpParams>) -> Result<CallToolResult, McpError> {
         handle_help(params.0)
     }
@@ -485,7 +487,7 @@ impl ServerHandler for ReklawdboxServer {
                  - Collection auditing (naming, tagging, missing metadata)\n\
                  \n\
                  Quick start: call read_library to see the collection.\n\
-                 Guided workflows: call help for workflow guides with links to reklawdbox.com."
+                 Guided workflows: call help(topic='genre'|'import'|'set'|'audit'|'genre audit') for step-by-step instructions."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),

@@ -21,32 +21,74 @@ enrich_tracks(has_genre=true, skip_cached=true, providers=["beatport"], max_trac
 
 Repeat until all providers reach 100%. Report progress between batches.
 
+**Recommended:** run `suggest_normalizations()` and stage alias fixes before auditing. This ensures the audit compares against canonical genre names, not aliases that inflate conflict counts.
+
 ## Steps
 
-### 1. Audit existing genres
+### 1. Audit batch
 
 ```
 audit_genres(max_tracks=50)
 ```
 
-The server applies the genre decision tree to tracks that already have genres, comparing the evidence-based result against the current tag. The summary shows confirmed vs conflict counts. Only conflicts and manual-review tracks appear in results.
+The server applies the genre decision tree to tracks that already have genres, comparing the evidence-based result against the current tag. Only conflicts and manual-review tracks appear in results.
 
-**Review the results:**
+Report the confidence distribution before review: "This batch: N high, N medium, N low, N manual out of N total."
 
-- **Conflicts:** the evidence suggests a different genre than what's currently tagged. Present with reasoning: `ARTIST — TITLE | Current: GENRE | Suggested: NEW (reason)`
-- **Manual review:** insufficient or ambiguous evidence. Use artist reputation, label context, and track name hints to decide whether the current tag is correct.
+### 2. Review by confidence tier
 
-Ask user: "keep / change / investigate / skip" for each conflict.
+Process each tier separately, highest confidence first.
 
-### 2. Stage approved changes
+#### High confidence
+
+Present as a numbered list, grouped by suggested genre for scannability:
 
 ```
-update_tracks(changes=[{"track_id": "...", "genre": "..."}])
+High confidence (12 conflicts):
+
+→ Deep Techno (5):
+ #1  Artist A — Track X | Techno → Deep Techno (Beatport: Raw/Deep, Discogs: Deep Techno x3)
+ #2  Artist B — Track Y | Techno → Deep Techno (label: Ilian Tape, audio: atmospheric)
+ ...
+
+→ Tech House (3):
+ #6  Artist C — Track Z | House → Tech House (Beatport: Tech House, Discogs: Tech House x2)
+ ...
 ```
 
-Repeat Step 1 with `offset` pagination until all tracks are processed.
+Ask user: **"Approve all, or reject/change specific numbers."**
 
-### 3. Export
+Stage approved changes.
+
+#### Medium confidence
+
+Same numbered-list format. Highlight evidence tensions where sources disagree.
+
+Ask user: **"Approve all, or reject/change specific numbers. Say 'investigate #N' for any you want more context on."**
+
+For investigated tracks: use artist discography, label roster, and related tracks in the library to form a recommendation.
+
+Stage approved changes.
+
+#### Low confidence and manual review
+
+These need per-track judgment. For each:
+
+1. Read the evidence and flags from the audit result
+2. Use artist reputation, label context, and track title to form a recommendation
+3. Present reasoning: `Artist on Label — known for [context]. Evidence: [summary]. Recommend: GENRE because [reason].`
+
+Present in small groups (3–5) and ask user to approve/reject/change each.
+
+Stage approved changes.
+
+### 3. Paginate
+
+Repeat Steps 1–2 with `offset` until all tracks are processed.
+
+Report cumulative progress between batches: `"Batch 3/N: M audited, X changes staged, Y confirmed."`
+
+### 4. Export
 
 ```
 preview_changes()

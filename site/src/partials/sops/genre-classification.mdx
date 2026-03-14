@@ -37,7 +37,7 @@ update_tracks(changes=[{"track_id": "...", "genre": "..."}])
 
 For debatable aliases, ask the user. Store overrides for Step 2.
 
-### 2. Classify tracks
+### 2. Classify batch
 
 ```
 classify_tracks(max_tracks=50, genre_overrides=[{"from": "...", "to": "..."}])
@@ -45,22 +45,62 @@ classify_tracks(max_tracks=50, genre_overrides=[{"from": "...", "to": "..."}])
 
 The server applies the genre decision tree using all cached evidence (Discogs styles, Beatport genre, label mappings, audio analysis). Results are returned grouped by confidence with a summary.
 
-**Review the results:**
+Report the confidence distribution before review: "This batch: N high, N medium, N low, N insufficient out of N total."
 
-- **High/Medium confidence:** present for bulk approval. Format: `ARTIST — TITLE → SUGGESTED (evidence summary)`
-- **Low/Insufficient (`needs_review`):** review each track individually. Use artist reputation, label context, and track name hints to refine the recommendation. Present with reasoning.
+### 3. Review by confidence tier
 
-Ask user: "approve all / approve high only / reject # / change # Genre / details # / skip"
+Process each tier separately, highest confidence first.
 
-### 3. Stage approved changes
+#### High confidence
+
+Present as a numbered list, grouped by suggested genre:
 
 ```
-update_tracks(changes=[{"track_id": "...", "genre": "..."}])
+High confidence (15 suggestions):
+
+→ Techno (6):
+ #1  Artist A — Track X → Techno (Beatport: Techno, Discogs: Techno x3, 132bpm)
+ #2  Artist B — Track Y → Techno (label: Tresor, Discogs: Techno x2)
+ ...
+
+→ Deep House (4):
+ #7  Artist C — Track Z → Deep House (Beatport: Deep House, audio: atmospheric 122bpm)
+ ...
 ```
 
-Repeat Step 2 with `offset` pagination until all tracks are processed.
+Ask user: **"Approve all, or reject/change specific numbers."**
 
-### 4. Export
+Stage approved changes.
+
+#### Medium confidence
+
+Same numbered-list format. Highlight which evidence sources agree vs disagree.
+
+Ask user: **"Approve all, or reject/change specific numbers. Say 'investigate #N' for any you want more context on."**
+
+For investigated tracks: use artist discography, label roster, and related tracks in the library to form a recommendation.
+
+Stage approved changes.
+
+#### Low confidence and insufficient evidence
+
+These need per-track judgment. For each:
+
+1. Read the evidence and flags from the classification result
+2. Use artist reputation, label context, and track title to form a recommendation
+3. Present reasoning: `Artist on Label — known for [context]. Evidence: [summary]. Recommend: GENRE because [reason].`
+
+Present in small groups (3–5) and ask user to approve/reject/change each.
+
+Stage approved changes.
+
+### 4. Paginate
+
+Repeat Steps 2–3 with `offset` until all tracks are processed.
+
+Report cumulative progress between batches: `"Batch 3/N: M classified, X changes staged."`
+
+### 5. Export
 
 ```
 preview_changes()
