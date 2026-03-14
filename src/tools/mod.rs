@@ -478,16 +478,12 @@ impl ServerHandler for ReklawdboxServer {
             instructions: Some(
                 "Rekordbox library management server. Read-only DB access, staged XML export.\n\
                  \n\
-                 Capabilities:\n\
-                 - Library search and track inspection\n\
-                 - Audio analysis (BPM, key, energy) via stratum-dsp + Essentia\n\
-                 - Metadata enrichment via Discogs and Beatport\n\
-                 - Genre classification with evidence-based recommendations\n\
-                 - Transition scoring and DJ set sequencing\n\
-                 - Collection auditing (naming, tagging, missing metadata)\n\
+                 Before using any workflow tools, call help() to load the matching SOP. Each \
+                 workflow has prerequisite steps and a specific tool sequence \u{2014} following the \
+                 SOP produces significantly better results than ad-hoc tool use.\n\
                  \n\
-                 Quick start: call read_library to see the collection.\n\
-                 Guided workflows: call help(topic='genre'|'import'|'set'|'audit'|'genre audit') for step-by-step instructions."
+                 Call read_library to see the collection.\n\
+                 Call help() for workflow menu, help(topic) for the full SOP."
                     .into(),
             ),
             capabilities: ServerCapabilities::builder().enable_tools().build(),
