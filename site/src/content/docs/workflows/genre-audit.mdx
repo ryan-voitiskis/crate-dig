@@ -21,14 +21,18 @@ Review existing genre tags against Discogs, Beatport, and audio evidence. The ag
 - After importing tracks from another collection with different tagging conventions
 - Periodically, as enrichment data improves over time
 
+## How it works
+
+The `audit_genres` tool applies the same genre decision tree as classification, but compares the evidence-based result against the track's existing genre tag. Only conflicts and manual-review tracks are shown — confirmed tracks are counted in the summary but omitted from results.
+
 ## Audit vs Classification
 
 | | Classification | Audit |
 |---|---|---|
-| **Scope** | Ungenred tracks (`has_genre=false`) | Tracks with genres (`has_genre=true`) |
+| **Tool** | `classify_tracks` | `audit_genres` |
+| **Scope** | Ungenred tracks (enforces `has_genre=false`) | Tracks with genres (enforces `has_genre=true`) |
 | **Goal** | Assign genres from scratch | Verify existing genres are correct |
-| **Filtering** | All tracks need classification | Only conflicts and BPM-implausible tracks shown |
-| **Fast path** | — | BPM plausibility scan catches obvious mismatches first |
+| **Output** | All results grouped by confidence | Only conflicts and manual-review tracks |
 | **Typical volume** | All ungenred tracks | Subset with conflicts only |
 
 ## Cache coverage

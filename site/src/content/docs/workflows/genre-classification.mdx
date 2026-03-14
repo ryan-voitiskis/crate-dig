@@ -22,9 +22,13 @@ All providers must be at 100% before starting. Run `cache_coverage(has_genre=fal
   Run audio analysis first (local, fast), then enrichment (external, rate-limited). This order minimizes wall-clock time.
 </Aside>
 
+## How it works
+
+The `classify_tracks` tool applies the genre decision tree server-side using all cached evidence — Discogs styles, Beatport genre, label mappings, and audio analysis (BPM, danceability, spectral profile). Results are returned grouped by confidence level with a summary.
+
 ## Confidence levels
 
-- **High** — full consensus from multiple sources (Discogs + Beatport agree)
+- **High** — full consensus from multiple sources (Discogs + Beatport agree, BPM plausible)
 - **Medium** — partial consensus or single-source match
 - **Low** — weak or ambiguous evidence (split sources, audio-only inference)
 - **Insufficient** — conflicting or missing data, requires manual decision

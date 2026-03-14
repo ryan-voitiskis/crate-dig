@@ -1,10 +1,8 @@
-import GenreDecisionTree from './genre-decision-tree.mdx'
-
 ## Constraints
 
 - **Taxonomy is compiled.** The alias map in `genre.rs` cannot be changed at runtime. If the user disagrees with a mapping, the agent works around it by using the user's preferred genre directly.
 - **No auto-tagging.** Every genre change requires explicit human approval.
-- **Cache-first.** Audit runs from cached data. If cache is empty for a track, flag as insufficient evidence — do not trigger enrichment mid-audit.
+- **Cache-first.** Audit runs from cached data. If cache is empty for a track, it is flagged as insufficient evidence — do not trigger enrichment mid-audit.
 - **XML export only.** No direct DB writes. All changes flow through `update_tracks` → `preview_changes` → `write_xml`.
 
 ## Prerequisites
@@ -25,45 +23,30 @@ Repeat until all providers reach 100%. Report progress between batches.
 
 ## Steps
 
-### 0. Scope
-
-Ask the user which tracks to audit:
-- **Full library** — all tracks with genres
-- **Specific genre** — e.g. "audit all Techno tracks"
-- **Playlist or folder** — a specific collection subset
-- **Custom track IDs** — user-provided list
-
-### 1. BPM plausibility scan (fast filter)
+### 1. Audit existing genres
 
 ```
-resolve_tracks_data(has_genre=true, format="classification", max_tracks=50)
+audit_genres(max_tracks=50)
 ```
 
-Check `current_genre_bpm_range` against `rekordbox_bpm` for each track. Present BPM-implausible tracks first — this is the fastest signal for bad genre tags.
+The server applies the genre decision tree to tracks that already have genres, comparing the evidence-based result against the current tag. The summary shows confirmed vs conflict counts. Only conflicts and manual-review tracks appear in results.
 
-Format: `ARTIST - TITLE | Current: GENRE | BPM: VALUE | Range for GENRE: [min–max]`
+**Review the results:**
 
-Ask user for each: "investigate / keep / change / skip"
+- **Conflicts:** the evidence suggests a different genre than what's currently tagged. Present with reasoning: `ARTIST — TITLE | Current: GENRE | Suggested: NEW (reason)`
+- **Manual review:** insufficient or ambiguous evidence. Use artist reputation, label context, and track name hints to decide whether the current tag is correct.
 
-### 2. Evidence conflict scan
+Ask user: "keep / change / investigate / skip" for each conflict.
 
-Apply the decision tree (below) to each track. Filter to Step E result = "conflict" (suggested genre ≠ current genre). Include secondary influences (Step C2) where relevant.
-
-Present grouped by current genre:
-
-`ARTIST - TITLE | Current: GENRE | Evidence: SUGGESTED (confidence) | Reason`
-
-Ask user for each: "keep / change / investigate / skip"
-
-### 3. Stage approved changes
+### 2. Stage approved changes
 
 ```
 update_tracks(changes=[{"track_id": "...", "genre": "..."}])
 ```
 
-**Batch tracking:** Initialize `audited_ids` list. After each batch, add ALL track IDs regardless of outcome. For subsequent batches, pass remaining unprocessed IDs. Stop when none remain.
+Repeat Step 1 with `offset` pagination until all tracks are processed.
 
-### 4. Export
+### 3. Export
 
 ```
 preview_changes()
@@ -76,7 +59,3 @@ write_xml()
 ```
 
 Report output path. Remind user to import into Rekordbox.
-
----
-
-<GenreDecisionTree />

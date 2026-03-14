@@ -11,9 +11,18 @@ agent session to start the workflow.
 
 ### LLM-friendly access
 
-All Agent SOPs are available as plaintext markdown at
-[`/_llms-txt/agent-sops.txt`](/_llms-txt/agent-sops.txt) — use this URL in
-Init prompts so agents can fetch the complete SOP without HTML parsing.
+Each SOP is available as individual plaintext markdown — use the per-SOP URL in
+Init prompts so agents fetch only the workflow they need:
+
+| Workflow | URL |
+|---|---|
+| Batch Import | [`/_llms-txt/batch-import-sop.txt`](/_llms-txt/batch-import-sop.txt) |
+| Collection Audit | [`/_llms-txt/collection-audit-sop.txt`](/_llms-txt/collection-audit-sop.txt) |
+| Genre Classification | [`/_llms-txt/genre-classification-sop.txt`](/_llms-txt/genre-classification-sop.txt) |
+| Genre Audit | [`/_llms-txt/genre-audit-sop.txt`](/_llms-txt/genre-audit-sop.txt) |
+| Set Building | [`/_llms-txt/set-building-sop.txt`](/_llms-txt/set-building-sop.txt) |
+
+All SOPs combined: [`/_llms-txt/agent-sops.txt`](/_llms-txt/agent-sops.txt)
 
 See also [`/llms.txt`](/llms.txt) for the full site index.
 

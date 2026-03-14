@@ -1,10 +1,8 @@
-import GenreDecisionTree from './genre-decision-tree.mdx'
-
 ## Constraints
 
 - **Taxonomy is compiled.** The alias map in `genre.rs` cannot be changed at runtime. If the user disagrees with a mapping, the agent works around it by using the user's preferred genre directly.
 - **No auto-tagging.** Every genre change requires explicit human approval.
-- **Cache-first.** Classification runs from cached data. If cache is empty for a track, flag as insufficient evidence — do not trigger enrichment mid-classification.
+- **Cache-first.** Classification runs from cached data. If cache is empty for a track, it is flagged as insufficient evidence — do not trigger enrichment mid-classification.
 - **XML export only.** No direct DB writes. All changes flow through `update_tracks` → `preview_changes` → `write_xml`.
 
 ## Prerequisites
@@ -23,66 +21,34 @@ enrich_tracks(has_genre=false, skip_cached=true, providers=["beatport"], max_tra
 
 Repeat until all providers reach 100%. Report progress between batches.
 
-### Label coverage (advisory)
-
-Check `label` in the `cache_coverage` results. If `enrichment_has_label` is non-zero, those tracks have label data in Discogs but no label tag — label is the strongest genre signal for electronic music.
-
-To find unlabelled tracks:
-
-```
-search_tracks(has_label=false, has_genre=false)
-```
-
-Present to the user with the suggestion to apply labels before classification. This is advisory — classification can proceed without labels but accuracy improves with them.
-
 ## Steps
 
-### 0. Metadata quality pre-check
+### 1. Normalize aliases
 
 ```
-search_tracks(has_genre=false)
-```
-
-Scan results for tracks with empty `artist` or `title` — these will fail enrichment lookups. If found, present to user with options: fix metadata, skip these, or proceed anyway.
-
-If no tracks have missing fields, skip silently.
-
-### 1. Review taxonomy
-
-```
-get_genre_taxonomy()
 suggest_normalizations()
 ```
 
-Present alias mappings to user. For each debatable alias (marked in result):
-- **Accept** — use canonical form
-- **Override** — user specifies preferred genre
-- **Skip** — exclude from batch classification
-
-For unknown genres (not in taxonomy and not an alias): collect their track IDs and include them in Step 2 classification batches. Do NOT ask the user to manually map without evidence.
-
-Store overrides in working memory for the session.
-
-### 1b. Stage alias normalizations
-
-Non-debatable alias mappings (e.g. `Hip-Hop` → `Hip Hop`, `DnB` → `Drum & Bass`) can be staged immediately after user confirms:
+Stage non-debatable fixes (e.g. `Hip-Hop` → `Hip Hop`, `DnB` → `Drum & Bass`):
 
 ```
 update_tracks(changes=[{"track_id": "...", "genre": "..."}])
 ```
 
+For debatable aliases, ask the user. Store overrides for Step 2.
+
 ### 2. Classify tracks
 
-Classify both ungenred tracks and unknown-genre tracks (from Step 1) through the same evidence-based pipeline.
-
 ```
-resolve_tracks_data(has_genre=false, max_tracks=50, format="classification")
-resolve_tracks_data(track_ids=[...unknown_ids...], format="classification")
+classify_tracks(max_tracks=50, genre_overrides=[{"from": "...", "to": "..."}])
 ```
 
-For each track, apply the decision tree (below).
+The server applies the genre decision tree using all cached evidence (Discogs styles, Beatport genre, label mappings, audio analysis). Results are returned grouped by confidence with a summary.
 
-Present grouped by confidence: `# ARTIST — TITLE → SUGGESTED (evidence summary)`
+**Review the results:**
+
+- **High/Medium confidence:** present for bulk approval. Format: `ARTIST — TITLE → SUGGESTED (evidence summary)`
+- **Low/Insufficient (`needs_review`):** review each track individually. Use artist reputation, label context, and track name hints to refine the recommendation. Present with reasoning.
 
 Ask user: "approve all / approve high only / reject # / change # Genre / details # / skip"
 
@@ -92,11 +58,7 @@ Ask user: "approve all / approve high only / reject # / change # Genre / details
 update_tracks(changes=[{"track_id": "...", "genre": "..."}])
 ```
 
-Repeat Step 2 for remaining tracks (track processed IDs to avoid re-processing).
-
-**Batch tracking:** Initialize `classified_ids` list. After each batch, add ALL track IDs regardless of outcome. For subsequent batches, pass remaining unprocessed IDs. Stop when none remain.
-
-To audit tracks that already have genres, see the [Genre Audit SOP](/workflows/genre-audit/).
+Repeat Step 2 with `offset` pagination until all tracks are processed.
 
 ### 4. Export
 
@@ -111,7 +73,3 @@ write_xml()
 ```
 
 Report output path. Remind user to import into Rekordbox.
-
----
-
-<GenreDecisionTree />

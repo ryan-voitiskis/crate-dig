@@ -30,6 +30,31 @@ export default defineConfig({
               paths: ['agent/**'],
               description: 'Token-optimized workflow instructions for AI agents',
             },
+            {
+              label: 'Batch Import SOP',
+              paths: ['agent/batch-import'],
+              description: 'Agent SOP for batch importing new music',
+            },
+            {
+              label: 'Collection Audit SOP',
+              paths: ['agent/collection-audit'],
+              description: 'Agent SOP for collection audit',
+            },
+            {
+              label: 'Genre Classification SOP',
+              paths: ['agent/genre-classification'],
+              description: 'Agent SOP for genre classification',
+            },
+            {
+              label: 'Genre Audit SOP',
+              paths: ['agent/genre-audit'],
+              description: 'Agent SOP for genre audit',
+            },
+            {
+              label: 'Set Building SOP',
+              paths: ['agent/set-building'],
+              description: 'Agent SOP for DJ set building',
+            },
           ],
         }),
       ],
