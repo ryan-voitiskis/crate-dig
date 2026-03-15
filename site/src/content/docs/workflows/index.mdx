@@ -33,9 +33,9 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 ## Workflows
 
 <CardGrid>
-  <Card title="Batch Import" icon="document">
-    Prepare newly acquired music for Rekordbox import with proper tagging and organization.
-    [Get started](/workflows/batch-import/)
+  <Card title="Collection Audit" icon="warning">
+    Detect and fix naming, tagging, and convention violations.
+    [Get started](/workflows/collection-audit/)
   </Card>
   <Card title="Genre Classification" icon="pencil">
     Classify genres using Discogs, Beatport, and audio analysis evidence.
@@ -49,18 +49,19 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
     Build transition-scored DJ set sequences from your collection.
     [Get started](/workflows/set-building/)
   </Card>
-  <Card title="Collection Audit" icon="warning">
-    Detect and fix naming, tagging, and convention violations.
-    [Get started](/workflows/collection-audit/)
+  <Card title="Batch Import" icon="document">
+    Prepare newly acquired music for Rekordbox import with proper tagging and organization.
+    [Get started](/workflows/batch-import/)
   </Card>
 </CardGrid>
 
 ## Where to start
 
-- **Just acquired new music?** Start with [Batch Import](/workflows/batch-import/).
-- **Metadata is clean, need genres?** Go to [Genre Classification](/workflows/genre-classification/).
 - **Tags and filenames are messy?** Run a [Collection Audit](/workflows/collection-audit/).
+- **Metadata is clean, need genres?** Go to [Genre Classification](/workflows/genre-classification/).
+- **Want to verify existing genres?** Run a [Genre Audit](/workflows/genre-audit/).
 - **Want to build a set?** Go straight to [Set Building](/workflows/set-building/).
+- **Just acquired new music?** Start with [Batch Import](/workflows/batch-import/).
 
 All workflows share the same prerequisite: 100% cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
 
@@ -70,11 +71,11 @@ Paste any of these into your agent session to start a workflow:
 
 | Workflow | Prompt |
 |---|---|
-| [Batch Import](/workflows/batch-import/) | `Process the new music in [/path/to/folder] for Rekordbox import.` |
+| [Collection Audit](/workflows/collection-audit/) | `Audit my collection for naming and tagging issues.` |
 | [Genre Classification](/workflows/genre-classification/) | `Classify genres for my ungenred tracks.` |
 | [Genre Audit](/workflows/genre-audit/) | `Audit my existing genre tags.` |
 | [Set Building](/workflows/set-building/) | `Build a DJ set from my collection.` |
-| [Collection Audit](/workflows/collection-audit/) | `Audit my collection for naming and tagging issues.` |
+| [Batch Import](/workflows/batch-import/) | `Process the new music in [/path/to/folder] for Rekordbox import.` |
 
 <Aside type="tip" title="Messy library?">
   Workflows build on each other — clean metadata improves enrichment, and enrichment improves genre classification. If your library needs significant cleanup, follow the [Library Cleanup](/workflows/library-cleanup/) guide for the recommended session sequence.

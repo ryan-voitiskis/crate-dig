@@ -184,6 +184,8 @@ pub struct LibraryStats {
     pub unrated_count: i32,
     pub avg_bpm: f64,
     pub key_distribution: Vec<KeyCount>,
+    /// Distinct root directories containing library audio files.
+    pub content_roots: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

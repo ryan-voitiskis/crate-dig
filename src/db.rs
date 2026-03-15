@@ -456,6 +456,97 @@ pub fn get_playlist_tracks_unbounded(
     get_playlist_tracks_with_limit_policy(conn, playlist_id, limit, None, None)
 }
 
+/// Compute the minimal set of root directories that cover all library audio files.
+///
+/// Algorithm:
+/// 1. Query all distinct `FolderPath` values and extract their parent directory.
+/// 2. Find the longest common path prefix across all directories.
+/// 3. If the common prefix is at least 2 segments deep (e.g. `/Users/testuser/Music/`),
+///    return it as the single root.
+/// 4. Otherwise, collect the distinct directories at depth = common_depth + 1.
+fn content_roots(
+    conn: &Connection,
+    exclude_samples: bool,
+) -> Result<Vec<String>, rusqlite::Error> {
+    let sampler_pattern = sampler_path_like_pattern();
+    let sample_filter = if exclude_samples {
+        " AND FolderPath NOT LIKE ?1 ESCAPE '\\'"
+    } else {
+        ""
+    };
+    let bind_params: &[&dyn rusqlite::types::ToSql] = if exclude_samples {
+        &[&sampler_pattern]
+    } else {
+        &[]
+    };
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT DISTINCT FolderPath FROM djmdContent WHERE rb_local_deleted = 0{sample_filter}"
+    ))?;
+    let paths: Vec<String> = stmt
+        .query_map(bind_params, |row| row.get::<_, String>(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if paths.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Extract parent directory for each path (strip the filename component).
+    let dirs: Vec<Vec<&str>> = paths
+        .iter()
+        .filter_map(|p| {
+            let trimmed = p.trim_end_matches('/');
+            let last_slash = trimmed.rfind('/')?;
+            let parent = &p[..=last_slash]; // include trailing slash
+            Some(
+                parent
+                    .split('/')
+                    .filter(|s| !s.is_empty())
+                    .collect::<Vec<&str>>(),
+            )
+        })
+        .collect();
+
+    if dirs.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Find the longest common prefix (by path segments).
+    let mut common = dirs[0].clone();
+    for dir in &dirs[1..] {
+        let len = common
+            .iter()
+            .zip(dir.iter())
+            .take_while(|(a, b)| a == b)
+            .count();
+        common.truncate(len);
+    }
+    let common_depth = common.len();
+
+    // If common prefix is at least 2 segments deep (e.g. /Users/testuser/Music), return it.
+    if common_depth >= 2 {
+        let root = format!("/{}/", common.join("/"));
+        return Ok(vec![root]);
+    }
+
+    // Otherwise, collect distinct directories at common_depth + 1.
+    let mut roots: Vec<String> = dirs
+        .iter()
+        .filter_map(|segments| {
+            let take = (common_depth + 1).min(segments.len());
+            if take == 0 {
+                return None;
+            }
+            Some(format!("/{}/", segments[..take].join("/")))
+        })
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+    roots.sort();
+    Ok(roots)
+}
+
 pub fn get_library_stats(conn: &Connection) -> Result<LibraryStats, rusqlite::Error> {
     get_library_stats_filtered(conn, true)
 }
@@ -541,6 +632,8 @@ pub fn get_library_stats_filtered(
         })?
         .collect::<Result<_, _>>()?;
 
+    let content_roots = content_roots(conn, exclude_samples)?;
+
     Ok(LibraryStats {
         total_tracks,
         genres,
@@ -549,6 +642,7 @@ pub fn get_library_stats_filtered(
         unrated_count: total_tracks - rated_count,
         avg_bpm,
         key_distribution,
+        content_roots,
     })
 }
 
@@ -802,15 +896,15 @@ mod tests {
 
             -- Tracks
             INSERT INTO djmdContent (ID, Title, ArtistID, AlbumID, GenreID, KeyID, LabelID, ColorID, BPM, Rating, Commnt, ReleaseYear, Length, FolderPath, DJPlayCount, BitRate, SampleRate, FileType, created_at)
-            VALUES ('t1', 'Archangel', 'a1', 'al1', 'g1', 'k1', 'l1', 'c1', 13950, 204, 'iconic garage vocal', 2007, 240, '/Users/vz/Music/Burial/Untrue/01 Archangel.flac', '12', 1411, 44100, 5, '2023-01-15');
+            VALUES ('t1', 'Archangel', 'a1', 'al1', 'g1', 'k1', 'l1', 'c1', 13950, 204, 'iconic garage vocal', 2007, 240, '/Users/testuser/Music/Burial/Untrue/01 Archangel.flac', '12', 1411, 44100, 5, '2023-01-15');
             INSERT INTO djmdContent (ID, Title, ArtistID, AlbumID, GenreID, KeyID, LabelID, BPM, Rating, ReleaseYear, Length, FolderPath, DJPlayCount, BitRate, SampleRate, FileType, created_at)
-            VALUES ('t2', 'Endorphin', 'a1', 'al1', 'g1', 'k2', 'l1', 14000, 153, 2007, 300, '/Users/vz/Music/Burial/Untrue/02 Endorphin.flac', '5', 1411, 44100, 5, '2023-01-15');
+            VALUES ('t2', 'Endorphin', 'a1', 'al1', 'g1', 'k2', 'l1', 14000, 153, 2007, 300, '/Users/testuser/Music/Burial/Untrue/02 Endorphin.flac', '5', 1411, 44100, 5, '2023-01-15');
             INSERT INTO djmdContent (ID, Title, ArtistID, AlbumID, GenreID, KeyID, BPM, Rating, ReleaseYear, Length, FolderPath, BitRate, SampleRate, FileType, created_at)
-            VALUES ('t3', 'R.I.P.', 'a2', 'al2', 'g2', 'k3', 12800, 102, 2012, 360, '/Users/vz/Music/Actress/R.I.P./01 R.I.P..flac', 1411, 44100, 5, '2023-02-20');
+            VALUES ('t3', 'R.I.P.', 'a2', 'al2', 'g2', 'k3', 12800, 102, 2012, 360, '/Users/testuser/Music/Actress/R.I.P./01 R.I.P..flac', 1411, 44100, 5, '2023-02-20');
             INSERT INTO djmdContent (ID, Title, ArtistID, GenreID, BPM, Length, FolderPath, BitRate, SampleRate, FileType, created_at)
-            VALUES ('t4', 'Dexter', 'a3', 'g3', 12500, 480, '/Users/vz/Music/Villalobos/Dexter.wav', 1411, 44100, 11, '2023-03-10');
+            VALUES ('t4', 'Dexter', 'a3', 'g3', 12500, 480, '/Users/testuser/Music/Villalobos/Dexter.wav', 1411, 44100, 11, '2023-03-10');
             INSERT INTO djmdContent (ID, Title, ArtistID, BPM, Length, FolderPath, BitRate, SampleRate, FileType, created_at)
-            VALUES ('t5', 'Unknown Track', 'a1', 0, 200, '/Users/vz/Music/unknown.mp3', 320, 44100, 1, '2023-04-01');
+            VALUES ('t5', 'Unknown Track', 'a1', 0, 200, '/Users/testuser/Music/unknown.mp3', 320, 44100, 1, '2023-04-01');
             INSERT INTO djmdContent (ID, Title, ArtistID, GenreID, BPM, Length, FolderPath, BitRate, SampleRate, FileType, created_at)
             VALUES ('t6', 'Loop Sample 01', 'a1', 'g2', 12000, 8, '/Users/alice/Music/rekordbox/Sampler/Loop/01.wav', 1411, 44100, 11, '2023-01-01');
 
@@ -948,9 +1042,9 @@ mod tests {
     #[test]
     fn test_search_by_path_prefix() {
         let conn = create_test_db();
-        // Prefix: scopes to /Users/vz/Music/Burial/ — matches t1 and t2
+        // Prefix: scopes to /Users/testuser/Music/Burial/ — matches t1 and t2
         let params = SearchParams {
-            path_prefix: Some("/Users/vz/Music/Burial/".to_string()),
+            path_prefix: Some("/Users/testuser/Music/Burial/".to_string()),
             ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
@@ -958,7 +1052,7 @@ mod tests {
         assert!(
             tracks
                 .iter()
-                .all(|t| t.file_path.starts_with("/Users/vz/Music/Burial/"))
+                .all(|t| t.file_path.starts_with("/Users/testuser/Music/Burial/"))
         );
     }
 
@@ -985,14 +1079,14 @@ mod tests {
     #[test]
     fn test_path_prefix_scopes_to_user_root() {
         let conn = create_test_db();
-        // /Users/vz/ matches t1-t5 but not t6 (/Users/alice/)
+        // /Users/testuser/ matches t1-t5 but not t6 (/Users/alice/)
         let params = SearchParams {
-            path_prefix: Some("/Users/vz/".to_string()),
+            path_prefix: Some("/Users/testuser/".to_string()),
             ..Default::default()
         };
         let tracks = search_tracks(&conn, &params).unwrap();
         assert_eq!(tracks.len(), 5);
-        assert!(tracks.iter().all(|t| t.file_path.starts_with("/Users/vz/")));
+        assert!(tracks.iter().all(|t| t.file_path.starts_with("/Users/testuser/")));
     }
 
     #[test]
@@ -1087,10 +1181,31 @@ mod tests {
         assert!(stats.avg_bpm > 0.0);
         assert!(!stats.genres.is_empty());
         assert!(!stats.key_distribution.is_empty());
+        // All non-sampler tracks share /Users/testuser/Music/
+        assert_eq!(stats.content_roots, vec!["/Users/testuser/Music/"]);
 
-        // With samples included
+        // With samples included — paths diverge at /Users/ level
         let stats_all = get_library_stats_filtered(&conn, false).unwrap();
         assert_eq!(stats_all.total_tracks, 6); // includes sampler
+        assert_eq!(
+            stats_all.content_roots,
+            vec!["/Users/alice/", "/Users/testuser/"]
+        );
+    }
+
+    #[test]
+    fn test_content_roots_empty_library() {
+        let conn = open_test();
+        conn.execute_batch(
+            "CREATE TABLE djmdContent (
+                ID VARCHAR(255) PRIMARY KEY,
+                FolderPath VARCHAR(255) DEFAULT '',
+                rb_local_deleted INTEGER DEFAULT 0
+            );",
+        )
+        .unwrap();
+        let roots = content_roots(&conn, false).unwrap();
+        assert!(roots.is_empty());
     }
 
     #[test]

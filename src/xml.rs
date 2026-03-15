@@ -31,7 +31,7 @@ pub fn xml_escape(s: &str) -> String {
 }
 
 /// Convert a file system path to a Rekordbox Location URI.
-/// e.g. `/Users/vz/Music/file name.flac` → `file://localhost/Users/vz/Music/file%20name.flac`
+/// e.g. `/Users/testuser/Music/file name.flac` → `file://localhost/Users/testuser/Music/file%20name.flac`
 pub fn path_to_rekordbox_location_uri(file_path: &str) -> String {
     use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_decode_str, utf8_percent_encode};
 
@@ -241,7 +241,7 @@ mod tests {
             remixer: String::new(),
             year: 2007,
             length: 240,
-            file_path: "/Users/vz/Music/Burial/Untrue/01 Archangel.flac".to_string(),
+            file_path: "/Users/testuser/Music/Burial/Untrue/01 Archangel.flac".to_string(),
             play_count: 12,
             bit_rate: 1411,
             sample_rate: 44100,
@@ -270,52 +270,52 @@ mod tests {
     #[test]
     fn test_path_to_rekordbox_location_uri() {
         assert_eq!(
-            path_to_rekordbox_location_uri("/Users/vz/Music/track.flac"),
-            "file://localhost/Users/vz/Music/track.flac"
+            path_to_rekordbox_location_uri("/Users/testuser/Music/track.flac"),
+            "file://localhost/Users/testuser/Music/track.flac"
         );
         assert_eq!(
-            path_to_rekordbox_location_uri("/Users/vz/Music/my track.flac"),
-            "file://localhost/Users/vz/Music/my%20track.flac"
+            path_to_rekordbox_location_uri("/Users/testuser/Music/my track.flac"),
+            "file://localhost/Users/testuser/Music/my%20track.flac"
         );
     }
 
     #[test]
     fn test_path_to_rekordbox_location_uri_special_chars() {
         assert_eq!(
-            path_to_rekordbox_location_uri("/Users/vz/Music/Drum & Bass/track.flac"),
-            "file://localhost/Users/vz/Music/Drum%20%26%20Bass/track.flac"
+            path_to_rekordbox_location_uri("/Users/testuser/Music/Drum & Bass/track.flac"),
+            "file://localhost/Users/testuser/Music/Drum%20%26%20Bass/track.flac"
         );
     }
 
     #[test]
     fn test_path_to_rekordbox_location_uri_windows_path() {
         assert_eq!(
-            path_to_rekordbox_location_uri(r"C:\Users\vz\Music\my track.flac"),
-            "file://localhost/C:/Users/vz/Music/my%20track.flac"
+            path_to_rekordbox_location_uri(r"C:\Users\testuser\Music\my track.flac"),
+            "file://localhost/C:/Users/testuser/Music/my%20track.flac"
         );
     }
 
     #[test]
     fn test_path_to_rekordbox_location_uri_encodes_literal_percent_triplets_in_raw_paths() {
         assert_eq!(
-            path_to_rekordbox_location_uri("/Users/vz/Music/my%20track.flac"),
-            "file://localhost/Users/vz/Music/my%2520track.flac"
+            path_to_rekordbox_location_uri("/Users/testuser/Music/my%20track.flac"),
+            "file://localhost/Users/testuser/Music/my%2520track.flac"
         );
     }
 
     #[test]
     fn test_path_to_rekordbox_location_uri_accepts_file_uri_input() {
         assert_eq!(
-            path_to_rekordbox_location_uri("file://localhost/Users/vz/Music/my%20track.flac"),
-            "file://localhost/Users/vz/Music/my%20track.flac"
+            path_to_rekordbox_location_uri("file://localhost/Users/testuser/Music/my%20track.flac"),
+            "file://localhost/Users/testuser/Music/my%20track.flac"
         );
     }
 
     #[test]
     fn test_path_to_rekordbox_location_uri_encodes_colon_in_filename() {
         assert_eq!(
-            path_to_rekordbox_location_uri("/Users/vz/Music/Title: Subtitle.flac"),
-            "file://localhost/Users/vz/Music/Title%3A%20Subtitle.flac"
+            path_to_rekordbox_location_uri("/Users/testuser/Music/Title: Subtitle.flac"),
+            "file://localhost/Users/testuser/Music/Title%3A%20Subtitle.flac"
         );
     }
 
@@ -355,7 +355,7 @@ mod tests {
         assert!(xml.contains("Label=\"Hyperdub\""));
         assert!(xml.contains("Kind=\"FLAC File\""));
         assert!(xml.contains(
-            "Location=\"file://localhost/Users/vz/Music/Burial/Untrue/01%20Archangel.flac\""
+            "Location=\"file://localhost/Users/testuser/Music/Burial/Untrue/01%20Archangel.flac\""
         ));
     }
 

@@ -14,15 +14,13 @@
 
 ## Steps
 
-### 0. Scope and issue type selection
+### 0. Determine scope
 
-Ask user:
-1. **Scope** — entire collection, specific artist dir, album, play subdirectory, or custom path
-2. **Issue types** — present full list. Specifically ask: "Skip GENRE_SET? It can produce thousands of flags."
+**Default: full collection.** Use the `content_roots` from `read_library` as the scan scope.
 
-Record choices as `skip_issue_types` for the scan.
+If the user specified a narrower scope in their prompt (an artist, directory, or subset), use that instead.
 
-For large scopes (full collection), inform user the first scan may take tens of seconds.
+**Always skip `GENRE_SET`** — genre issues are handled by the Genre Classification and Genre Audit workflows.
 
 ### 1. Scan
 
