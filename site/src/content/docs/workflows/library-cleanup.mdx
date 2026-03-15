@@ -61,13 +61,7 @@ No XML export needed — Collection Audit works with direct file operations (ren
 
 <Badge text="Entry" variant="note" /> Clean metadata — Session 1 complete.
 
-**Paste into your agent to start this session:**
-
-```
-Check my cache coverage and hydrate any gaps in enrichment and audio analysis.
-```
-
-**Work:** Hydrate all caches. Use the CLI — it runs unattended with progress bars and handles the full pipeline in one pass:
+Hydrate all caches using the CLI — it runs unattended with progress bars and handles the full pipeline in one pass:
 
 ```sh
 reklawdbox hydrate --cpu overnight -y
@@ -75,21 +69,7 @@ reklawdbox hydrate --cpu overnight -y
 
 The `--cpu overnight` flag uses max cores without nicing; `-y` skips the confirmation prompt. Use filters like `--artist`, `--genre`, or `--added-after` to scope to a subset if needed.
 
-For small patches (a handful of newly added tracks), MCP tools work fine:
-
-```
-analyze_audio_batch(skip_cached=true, max_tracks=200)
-enrich_tracks(skip_cached=true, providers=["discogs"], max_tracks=50)
-enrich_tracks(skip_cached=true, providers=["beatport"], max_tracks=50)
-```
-
-**Exit criteria:**
-
-```
-cache_coverage()
-```
-
-All providers must be at 100%.
+**Exit criteria:** Run `reklawdbox hydrate` again — it will report any remaining gaps. All providers must be at 100%.
 
 <Aside type="tip">
   This is a natural context-reset point. No XML export is needed — enrichment data is persisted in the local cache database.
