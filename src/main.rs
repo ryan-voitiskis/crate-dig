@@ -20,6 +20,8 @@ mod tools;
 mod types;
 mod xml;
 
+use std::io::IsTerminal;
+
 use rmcp::ServiceExt;
 use rmcp::transport::stdio;
 
@@ -57,32 +59,35 @@ where
         let a = arg.as_ref();
         matches!(
             a,
-            "analyze" | "hydrate" | "read-tags" | "write-tags" | "extract-art" | "embed-art"
+            "analyze"
+                | "hydrate"
+                | "read-tags"
+                | "write-tags"
+                | "extract-art"
+                | "embed-art"
                 | "setup"
+                | "--help"
+                | "-h"
+                | "help"
+                | "--version"
+                | "-V"
         )
     })
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::args().any(|a| a == "--version" || a == "-V") {
-        println!("reklawdbox {}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
     // Both functions only set vars not already present, so call order
     // determines priority: shell env > .mcp.json > config.toml.
     load_env_from_mcp_json();
     // SAFETY: same context as load_env_from_mcp_json above.
     unsafe { config::load_into_env() };
-    if should_run_cli(std::env::args()) {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .init();
+    if should_run_cli(std::env::args()) || std::io::stdin().is_terminal() {
         cli::main().await
     } else {
-        tracing_subscriber::fmt()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-            .init();
         let server = tools::ReklawdboxServer::new(db::resolve_db_path());
         let service = server.serve(stdio()).await?;
         service.waiting().await?;
@@ -134,6 +139,16 @@ mod tests {
     #[test]
     fn runs_cli_for_setup_subcommand() {
         assert!(should_run_cli(vec!["reklawdbox", "setup"].into_iter()));
+    }
+
+    #[test]
+    fn runs_cli_for_help_and_version_flags() {
+        for flag in ["--help", "-h", "help", "--version", "-V"] {
+            assert!(
+                should_run_cli(vec!["reklawdbox", flag].into_iter()),
+                "{flag} should route to CLI"
+            );
+        }
     }
 
     #[test]

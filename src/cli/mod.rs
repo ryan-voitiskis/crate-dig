@@ -62,7 +62,12 @@ pub(crate) fn cpu_preset_summary(preset: CpuPreset, concurrency: usize) -> Strin
 }
 
 #[derive(Parser)]
-#[command(name = "reklawdbox", version)]
+#[command(
+    name = "reklawdbox",
+    version,
+    about = "Rekordbox library management — MCP server + CLI tools",
+    after_help = "When invoked without arguments over a piped stdin, reklawdbox starts as an MCP server (stdio transport)."
+)]
 enum Cli {
     /// Batch audio analysis (stratum-dsp + Essentia)
     Analyze(analyze::AnalyzeArgs),
