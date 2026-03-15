@@ -112,9 +112,21 @@
 
 /* ── Global rounded corners ────────────────────────────────── */
 
-/* Code blocks */
-.expressive-code pre,
+/* Code blocks — title bar rounded top, body rounded bottom */
 .expressive-code .frame {
+	border-radius: 0.5rem !important;
+}
+
+.expressive-code .frame .header {
+	border-radius: 0.5rem 0.5rem 0 0 !important;
+}
+
+.expressive-code .frame pre {
+	border-radius: 0 0 0.5rem 0.5rem !important;
+}
+
+/* Code blocks without a header (no terminal dots) */
+.expressive-code .frame:not(.is-terminal):not(.has-title) pre {
 	border-radius: 0.5rem !important;
 }
 
