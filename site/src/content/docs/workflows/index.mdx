@@ -64,6 +64,18 @@ Running analysis and enrichment upfront means the actual workflow steps are fast
 
 All workflows share the same prerequisite: 100% cache coverage. Run `cache_coverage` first and hydrate any gaps before diving in.
 
+## Agent prompts
+
+Paste any of these into your agent session to start a workflow:
+
+| Workflow | Prompt |
+|---|---|
+| [Batch Import](/workflows/batch-import/) | `Process the new music in [/path/to/folder] for Rekordbox import.` |
+| [Genre Classification](/workflows/genre-classification/) | `Classify genres for my ungenred tracks.` |
+| [Genre Audit](/workflows/genre-audit/) | `Audit my existing genre tags.` |
+| [Set Building](/workflows/set-building/) | `Build a DJ set from my collection.` |
+| [Collection Audit](/workflows/collection-audit/) | `Audit my collection for naming and tagging issues.` |
+
 <Aside type="tip" title="Messy library?">
   Workflows build on each other — clean metadata improves enrichment, and enrichment improves genre classification. If your library needs significant cleanup, follow the [Library Cleanup](/workflows/library-cleanup/) guide for the recommended session sequence.
 </Aside>

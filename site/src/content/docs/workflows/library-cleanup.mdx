@@ -31,9 +31,13 @@ Working out of order means you'll either get poor results or end up re-running w
 
 <Badge text="Entry" variant="note" /> MCP server connected.
 
-**Ready?** Run `help()` or any MCP tool to confirm the server responds.
+**Paste into your agent to start this session:**
 
-**Work:** Follow the Collection Audit SOP — fix artist names, track titles, and naming conventions. Enrichment matches on these fields, so cleaning them first dramatically improves match rates.
+```
+Audit my collection for naming and tagging issues.
+```
+
+The agent will follow the Collection Audit SOP — fix artist names, track titles, and naming conventions. Enrichment matches on these fields, so cleaning them first dramatically improves match rates.
 
 <LinkCard title="Collection Audit workflow" href="/workflows/collection-audit/" />
 
@@ -56,7 +60,11 @@ Import the XML file into Rekordbox. Verify metadata is clean by spot-checking co
 
 <Badge text="Entry" variant="note" /> Clean metadata — Session 1 complete and XML imported into Rekordbox.
 
-**Ready?** Run `cache_coverage()`. If most providers are at 0%, you're starting fresh. If Session 1 was applied, metadata should be clean.
+**Paste into your agent to start this session:**
+
+```
+Check my cache coverage and hydrate any gaps in enrichment and audio analysis.
+```
 
 **Work:** Hydrate all caches. For large collections (1000+ tracks), use the CLI — it runs unattended with progress bars:
 
@@ -92,9 +100,13 @@ All providers must be at 100%.
 
 <Badge text="Entry" variant="note" /> 100% cache coverage for all providers.
 
-**Ready?** Run `cache_coverage()` and confirm all providers at 100%.
+**Paste into your agent to start this session:**
 
-**Work:** Check label coverage across your collection:
+```
+Find tracks missing labels in my collection and fill them from enrichment data.
+```
+
+Check label coverage across your collection:
 
 ```
 search_tracks(has_label=false)
@@ -124,9 +136,11 @@ No XML export needed for label changes — they're written directly to audio fil
 
 <Badge text="Entry" variant="note" /> Labels verified, 100% cache coverage.
 
-**Ready?** Run `cache_coverage(has_genre=false)` — all providers must be at 100%.
+**Paste into your agent to start this session:**
 
-**Work:**
+```
+Classify genres for my ungenred tracks.
+```
 
 1. **Normalize aliases:**
 
@@ -180,9 +194,11 @@ Import the XML file into Rekordbox. Verify genres by browsing the genre column i
 
 <Badge text="Entry" variant="note" /> Genres classified, XML imported into Rekordbox.
 
-**Ready?** Run `cache_coverage(has_genre=true)` — all providers must be at 100%.
+**Paste into your agent to start this session:**
 
-**Work:**
+```
+Audit my existing genre tags.
+```
 
 1. **Audit existing genres:**
 

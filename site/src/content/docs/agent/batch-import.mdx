@@ -9,12 +9,12 @@ Process newly acquired music (downloaded albums, loose tracks, zips) into an org
 
 **Goal:** After this SOP, any processed track can be imported into Rekordbox with Artist, Title, Album, Year, Track Number, and Label displaying correctly. Genre is handled separately via the genre classification SOP.
 
-### Init
+### Agent prompt
 
-Copy this into your agent session to start the workflow:
+Paste into your agent to start:
 
 ```
-Process the new music in [path] following the reklawdbox batch import SOP. Call help(topic='import') for the full SOP.
+Process the new music in [/path/to/folder] for Rekordbox import.
 ```
 
 <BatchImportSOP />
