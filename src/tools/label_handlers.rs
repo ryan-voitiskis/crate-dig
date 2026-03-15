@@ -15,11 +15,13 @@ pub(super) struct BackfillLabelsParams {
     pub dry_run: Option<bool>,
 }
 
-fn normalize_label(label: &str) -> String {
+/// Filter out Discogs "Not On Label" entries (self-released, no useful signal).
+/// Everything else passes through unchanged.
+fn normalize_label(label: &str) -> Option<String> {
     if label.starts_with("Not On Label") {
-        return "Self".to_string();
+        return None;
     }
-    label.to_string()
+    Some(label.to_string())
 }
 
 pub(super) fn handle_backfill_labels(
@@ -91,7 +93,7 @@ pub(super) fn handle_backfill_labels(
             .and_then(|v| v.get("label"))
             .and_then(|v| v.as_str())
             .filter(|l| !l.is_empty())
-            .map(normalize_label);
+            .and_then(normalize_label);
 
         let Some(enrich_label) = enrichment_label else {
             no_enrichment += 1;

@@ -12,11 +12,13 @@ const SOP_GENRE_AUDIT: &str = include_str!("../../site/src/partials/sops/genre-a
 const SOP_SET_BUILDING: &str = include_str!("../../site/src/partials/sops/set-building.mdx");
 const SOP_COLLECTION_AUDIT: &str =
     include_str!("../../site/src/partials/sops/collection-audit.mdx");
+const SOP_LABEL_BACKFILL: &str =
+    include_str!("../../site/src/partials/sops/label-backfill.mdx");
 
 #[derive(Debug, Default, Deserialize, JsonSchema)]
 pub struct HelpParams {
     #[schemars(
-        description = "Optional topic filter: 'genre', 'genre audit', 'set', 'audit', 'import'. Omit for the full menu."
+        description = "Optional topic filter: 'genre', 'genre audit', 'set', 'audit', 'import', 'label'. Omit for the full menu."
     )]
     pub topic: Option<String>,
 }
@@ -82,6 +84,13 @@ const WORKFLOWS: &[Workflow] = &[
         key_tools: &["cache_coverage", "audit_genres", "update_tracks"],
         sop: SOP_GENRE_AUDIT,
     },
+    Workflow {
+        name: "Label Backfill",
+        keywords: &["label", "labels", "backfill", "publisher"],
+        summary: "Auto-fill empty labels from Discogs enrichment, then resolve conflicts.",
+        key_tools: &["cache_coverage", "backfill_labels", "update_tracks"],
+        sop: SOP_LABEL_BACKFILL,
+    },
 ];
 
 pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError> {
@@ -107,7 +116,7 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
                 "sop": w.sop,
             }),
             None => serde_json::json!({
-                "error": format!("No workflow matching '{topic}'. Try: import, genre, genre audit, set, audit."),
+                "error": format!("No workflow matching '{topic}'. Try: import, genre, genre audit, set, audit, label."),
                 "workflows": WORKFLOWS.iter().map(|w| w.name).collect::<Vec<_>>(),
             }),
         }
@@ -131,7 +140,7 @@ pub(super) fn handle_help(params: HelpParams) -> Result<CallToolResult, McpError
             ),
             "getting_started": "https://reklawdbox.com/getting-started/",
             "reference": "https://reklawdbox.com/reference/tools/",
-            "tip": "Call help(topic='genre'|'import'|'set'|'audit'|'genre audit') for the full step-by-step SOP.",
+            "tip": "Call help(topic='genre'|'import'|'set'|'audit'|'genre audit'|'label') for the full step-by-step SOP.",
         })
     };
 
