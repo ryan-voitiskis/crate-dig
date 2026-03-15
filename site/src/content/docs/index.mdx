@@ -17,35 +17,21 @@ hero:
       variant: minimal
 ---
 
-import { Card, CardGrid } from '@astrojs/starlight/components';
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 Manage your Rekordbox library with AI through the
 [Model Context Protocol](https://modelcontextprotocol.io/).
 reklawdbox connects any MCP-compatible host — Claude Code, Claude Desktop,
 Codex — to your collection.
 
-<CardGrid stagger>
-  <Card title="Getting Started" icon="rocket">
-    Install, configure, and connect reklawdbox to your MCP host.
-  </Card>
-  <Card title="Concepts" icon="open-book">
-    Architecture, safety model, and how harmonic mixing works.
-  </Card>
-  <Card title="Workflows" icon="pencil">
-    Genre classification, set building, and collection audits.
-  </Card>
-  <Card title="MCP Tools" icon="list-format">
-    All 30 MCP tools grouped by function — library, enrichment, staging, mixing, and more.
-  </Card>
-  <Card title="CLI" icon="laptop">
-    Standalone commands for batch enrichment, audio analysis, and file tag management.
-  </Card>
-  <Card title="Reference" icon="document">
-    Environment variables, transition scoring math, and XML export details.
-  </Card>
-  <Card title="Troubleshooting" icon="warning">
-    Fix common setup, auth, and runtime problems.
-  </Card>
+<CardGrid>
+  <LinkCard title="Getting Started" href="/getting-started/" description="Install, configure, and connect reklawdbox to your MCP host." />
+  <LinkCard title="Concepts" href="/concepts/" description="Architecture, safety model, and how harmonic mixing works." />
+  <LinkCard title="Workflows" href="/workflows/genre-classification/" description="Genre classification, set building, and collection audits." />
+  <LinkCard title="MCP Tools" href="/mcp-tools/" description="All 30 tools grouped by function — library, enrichment, staging, mixing, and more." />
+  <LinkCard title="CLI" href="/cli/" description="Standalone commands for batch enrichment, audio analysis, and file tag management." />
+  <LinkCard title="Reference" href="/reference/" description="Environment variables, transition scoring math, and XML export details." />
+  <LinkCard title="Troubleshooting" href="/troubleshooting/" description="Fix common setup, auth, and runtime problems." />
 </CardGrid>
 
 ## What reklawdbox does

@@ -1,16 +1,182 @@
-/* reklawdbox brand colors — orange/amber from the crab logo */
+/* reklawdbox — custom theme */
+
+/* ── Fonts ─────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+@font-face {
+	font-family: 'BerkeleyMono';
+	font-style: normal;
+	font-weight: 100 150;
+	font-display: swap;
+	src: url('/fonts/BerkeleyMonoVariable-Regular.woff2')
+		format('woff2-variations');
+}
+
+@font-face {
+	font-family: 'BerkeleyMono';
+	font-style: italic;
+	font-weight: 100 150;
+	font-display: swap;
+	src: url('/fonts/BerkeleyMonoVariable-Italic.woff2')
+		format('woff2-variations');
+}
+
+/* ── Dark theme (default) ──────────────────────────────────── */
 
 :root {
+	--sl-font: 'Outfit', system-ui, sans-serif;
+	--sl-font-mono: 'BerkeleyMono', ui-monospace, monospace;
+
 	--sl-color-accent-low: hsl(25, 50%, 18%);
 	--sl-color-accent: hsl(25, 90%, 55%);
 	--sl-color-accent-high: hsl(25, 90%, 78%);
+
+	/* pastel icon backgrounds — dark mode */
+	--sl-color-orange-low: hsl(25, 40%, 20%);
+	--sl-color-green-low: hsl(140, 30%, 18%);
+	--sl-color-purple-low: hsl(270, 30%, 20%);
+	--sl-color-blue-low: hsl(210, 35%, 20%);
+	--sl-color-red-low: hsl(0, 30%, 20%);
+
+	/* pastel icon borders — dark mode */
+	--sl-color-orange: hsl(25, 60%, 60%);
+	--sl-color-green: hsl(140, 45%, 55%);
+	--sl-color-purple: hsl(270, 45%, 65%);
+	--sl-color-blue: hsl(210, 55%, 60%);
+	--sl-color-red: hsl(0, 50%, 60%);
+
+	/* card tint — slightly lighter than page bg */
+	--card-bg: hsl(224, 12%, 13%);
+	--card-border: hsl(224, 10%, 20%);
 }
 
+/* ── Light theme ───────────────────────────────────────────── */
+
 :root[data-theme='light'] {
-	--sl-color-accent-low: hsl(25, 85%, 90%);
+	--sl-color-accent-low: hsl(25, 85%, 92%);
 	--sl-color-accent: hsl(25, 90%, 50%);
 	--sl-color-accent-high: hsl(25, 70%, 30%);
+
+	/* pastel icon backgrounds — light mode */
+	--sl-color-orange-low: hsl(25, 80%, 92%);
+	--sl-color-green-low: hsl(140, 60%, 90%);
+	--sl-color-purple-low: hsl(270, 60%, 92%);
+	--sl-color-blue-low: hsl(210, 70%, 92%);
+	--sl-color-red-low: hsl(0, 60%, 92%);
+
+	/* pastel icon borders — light mode */
+	--sl-color-orange: hsl(25, 70%, 55%);
+	--sl-color-green: hsl(140, 45%, 42%);
+	--sl-color-purple: hsl(270, 45%, 55%);
+	--sl-color-blue: hsl(210, 55%, 50%);
+	--sl-color-red: hsl(0, 50%, 52%);
+
+	/* card tint — slightly darker than page bg */
+	--card-bg: hsl(224, 12%, 95%);
+	--card-border: hsl(224, 10%, 88%);
 }
+
+/* ── Typography refinement ─────────────────────────────────── */
+
+/* Lighter, more refined headings */
+:root {
+	--sl-line-height-headings: 1.2;
+}
+
+.sl-markdown-content h1 {
+	font-weight: 600;
+	letter-spacing: -0.02em;
+}
+
+.sl-markdown-content h2 {
+	font-weight: 500;
+	letter-spacing: -0.015em;
+}
+
+.sl-markdown-content h3 {
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+.sl-markdown-content h4,
+.sl-markdown-content h5 {
+	font-weight: 500;
+}
+
+/* Hero title */
+.hero h1 {
+	font-weight: 600;
+	letter-spacing: -0.03em;
+}
+
+/* ── Global rounded corners ────────────────────────────────── */
+
+/* Code blocks */
+.expressive-code pre,
+.expressive-code .frame {
+	border-radius: 0.5rem !important;
+}
+
+/* Inline code */
+:not(pre) > code {
+	border-radius: 0.25rem;
+}
+
+/* Asides / callouts */
+.starlight-aside {
+	border-radius: 0.5rem;
+}
+
+/* Search trigger */
+button[aria-label='Search'],
+.search-input {
+	border-radius: 0.375rem !important;
+}
+
+/* Search dialog */
+dialog {
+	border-radius: 0.75rem;
+}
+
+/* ── Asides ─────────────────────────────────────────────────── */
+
+/* Hide the rocket icon on Tip callouts — it's noisy */
+.starlight-aside--tip .starlight-aside__icon {
+	display: none;
+}
+
+/* ── Cards — tinted backgrounds ────────────────────────────── */
+
+/* Starlight Card component */
+.card {
+	background-color: var(--card-bg) !important;
+	border-color: var(--card-border) !important;
+	border-radius: 0.5rem !important;
+	transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+/* Starlight Card icon — softer rounded squares */
+.card .icon {
+	border-radius: 0.375rem !important;
+}
+
+/* LinkCard — tinted and rounded */
+.sl-link-card {
+	background-color: var(--card-bg);
+	border-color: var(--card-border);
+	border-radius: 0.5rem;
+	transition: border-color 0.2s ease, background-color 0.2s ease,
+		transform 0.2s ease;
+}
+
+.sl-link-card:hover {
+	background-color: var(--card-bg) !important;
+	border-color: var(--sl-color-accent) !important;
+	transform: translateY(-1px);
+}
+
+/* ── Homepage-specific ─────────────────────────────────────── */
 
 /* Larger nav logo */
 .site-title img {
@@ -20,7 +186,7 @@
 	top: 4px;
 }
 
-/* Larger hero image */
+/* Hero layout */
 @media (min-width: 50rem) {
 	.hero {
 		grid-template-columns: 3fr 2fr;
@@ -28,4 +194,29 @@
 	.hero img {
 		width: min(100%, 30rem);
 	}
+}
+
+/* Hero tagline refinement */
+.hero .tagline {
+	font-weight: 400;
+	letter-spacing: -0.01em;
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
+
+table {
+	border-radius: 0.5rem;
+	overflow: hidden;
+}
+
+/* ── Sidebar refinement ────────────────────────────────────── */
+
+nav.sidebar a {
+	border-radius: 0.25rem;
+}
+
+/* ── Badges ────────────────────────────────────────────────── */
+
+.sl-badge {
+	border-radius: 1rem;
 }

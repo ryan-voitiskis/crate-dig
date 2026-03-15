@@ -16,6 +16,18 @@ export default defineConfig({
         alt: 'reklawdbox',
       },
       favicon: '/favicon.png',
+      head: [
+        {
+          tag: 'link',
+          attrs: {
+            rel: 'preload',
+            href: '/fonts/BerkeleyMonoVariable-Regular.woff2',
+            as: 'font',
+            type: 'font/woff2',
+            crossorigin: '',
+          },
+        },
+      ],
       customCss: ['./src/styles/custom.css'],
       social: [{
         icon: 'github',
