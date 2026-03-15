@@ -66,15 +66,15 @@ Import the XML file into Rekordbox. Verify metadata is clean by spot-checking co
 Check my cache coverage and hydrate any gaps in enrichment and audio analysis.
 ```
 
-**Work:** Hydrate all caches. For large collections (1000+ tracks), use the CLI — it runs unattended with progress bars:
+**Work:** Hydrate all caches. Use the CLI — it runs unattended with progress bars and handles the full pipeline in one pass:
 
 ```sh
 reklawdbox hydrate --cpu overnight -y
 ```
 
-This runs Discogs, Beatport, and audio analysis in one pass. The `--cpu overnight` flag uses max cores without nicing; `-y` skips the confirmation prompt. Use filters like `--artist`, `--genre`, or `--added-after` to scope to a subset if needed.
+The `--cpu overnight` flag uses max cores without nicing; `-y` skips the confirmation prompt. Use filters like `--artist`, `--genre`, or `--added-after` to scope to a subset if needed.
 
-Alternatively, use MCP tools in batches:
+For small patches (a handful of newly added tracks), MCP tools work fine:
 
 ```
 analyze_audio_batch(skip_cached=true, max_tracks=200)
