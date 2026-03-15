@@ -641,22 +641,12 @@ fn casefold_text(s: &str) -> String {
     s.case_fold().collect()
 }
 
-/// Normalize characters that filesystems forbid or commonly substitute before
-/// drift comparison.  Maps  `/→-`, `*→_`, `:→-`, `"→'`, `?→` (removed),
-/// `|→-`, `<→(`, `>→)`.  This prevents false FILENAME_TAG_DRIFT when a tag
-/// contains chars that the filesystem forced to substitutes.
+/// Normalize only `/` (the sole macOS-forbidden filename character) before
+/// drift comparison.  All other special characters (`: ? " * | < >`) are
+/// valid in macOS filenames, so drift involving them is real and actionable
+/// — the file can and should be renamed to match the tag.
 fn normalize_for_drift(s: &str) -> String {
-    s.chars()
-        .filter_map(|c| match c {
-            '/' | ':' | '|' => Some('-'),
-            '*' => Some('_'),
-            '"' => Some('\''),
-            '?' => None,
-            '<' => Some('('),
-            '>' => Some(')'),
-            _ => Some(c),
-        })
-        .collect()
+    s.replace('/', "-")
 }
 
 pub fn check_tags(
@@ -2472,22 +2462,21 @@ mod tests {
     }
 
     #[test]
-    fn drift_normalize_colon_to_dash() {
-        assert_eq!(normalize_for_drift("Title: Subtitle"), "Title- Subtitle");
+    fn drift_normalize_preserves_colon() {
+        assert_eq!(normalize_for_drift("Title: Subtitle"), "Title: Subtitle");
     }
 
     #[test]
-    fn drift_normalize_asterisk_to_underscore() {
-        assert_eq!(normalize_for_drift("F*ck"), "F_ck");
-    }
-
-    #[test]
-    fn drift_normalize_question_removed() {
-        assert_eq!(normalize_for_drift("Why?"), "Why");
+    fn drift_normalize_preserves_special_chars() {
+        assert_eq!(normalize_for_drift("F*ck"), "F*ck");
+        assert_eq!(normalize_for_drift("Why?"), "Why?");
+        assert_eq!(normalize_for_drift("S.E.X."), "S.E.X.");
+        assert_eq!(normalize_for_drift("KAS:ST"), "KAS:ST");
     }
 
     #[test]
     fn check_filename_no_drift_with_slash_in_tag() {
+        // `/` is the only macOS-forbidden char — normalized to `-` on both sides
         let result = make_single(&[("artist", "AC/DC"), ("title", "Thunderstruck")]);
         let issues = check_filename(
             Path::new("/music/play/AC-DC - Thunderstruck.flac"),
@@ -2504,7 +2493,8 @@ mod tests {
     }
 
     #[test]
-    fn check_filename_no_drift_with_colon_in_tag() {
+    fn check_filename_drift_with_colon_in_tag() {
+        // `:` is valid on macOS — filename should use it, so drift is real
         let result = make_single(&[("artist", "Artist"), ("title", "Part 1: The Beginning")]);
         let issues = check_filename(
             Path::new("/music/play/Artist - Part 1- The Beginning.flac"),
@@ -2513,10 +2503,10 @@ mod tests {
             &HashSet::new(),
         );
         assert!(
-            !issues
+            issues
                 .iter()
                 .any(|i| i.issue_type == IssueType::FilenameTagDrift),
-            "Colon in tag should match dash in filename after normalization"
+            "Colon in tag vs dash in filename is real drift — file can be renamed"
         );
     }
 
