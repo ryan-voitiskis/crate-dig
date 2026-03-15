@@ -10,7 +10,7 @@ import { Steps, LinkCard, Aside, Badge } from '@astrojs/starlight/components';
 If your library has missing genres, wrong labels, inconsistent naming, or sparse metadata, you might not know where to start. Library Cleanup breaks the work into five explicit sessions, each with clear entry and exit criteria.
 
 <Aside type="danger">
-  **Changes are staged in memory and exported as XML.** The Rekordbox database only updates after you import the XML file. Each session reads from the database, so you **must** import the XML before starting the next session.
+  **Some sessions write directly to files (Sessions 1–3), while others stage changes as XML (Sessions 4–5).** For XML sessions, the Rekordbox database only updates after you import the XML file. Each session reads from the database, so you **must** complete each checkpoint before starting the next session.
 </Aside>
 
 ## Why order matters
@@ -49,12 +49,7 @@ The agent will follow the Collection Audit SOP — fix artist names, track title
 
 #### CHECKPOINT
 
-```
-preview_changes()
-write_xml()
-```
-
-Import the XML file into Rekordbox. Verify metadata is clean by spot-checking corrected tracks in Rekordbox.
+No XML export needed — Collection Audit works with direct file operations (renames and tag writes). Verify metadata is clean by spot-checking corrected tracks in Rekordbox.
 
 <Aside type="tip">
   This is a natural context-reset point. You can close this agent session and start a new one for Session 2.
@@ -64,7 +59,7 @@ Import the XML file into Rekordbox. Verify metadata is clean by spot-checking co
 
 ### Session 2: Enrichment
 
-<Badge text="Entry" variant="note" /> Clean metadata — Session 1 complete and XML imported into Rekordbox.
+<Badge text="Entry" variant="note" /> Clean metadata — Session 1 complete.
 
 **Paste into your agent to start this session:**
 
