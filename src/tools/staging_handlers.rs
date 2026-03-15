@@ -128,6 +128,7 @@ pub(super) fn handle_update_tracks(
                     .map(String::from)
                     .unwrap_or(col)
             }),
+            label: c.label,
         })
         .collect();
 
@@ -140,6 +141,7 @@ pub(super) fn handle_update_tracks(
                 "comments": c.comments,
                 "rating": c.rating,
                 "color": c.color,
+                "label": c.label,
             })
         })
         .collect();

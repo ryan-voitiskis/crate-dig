@@ -490,6 +490,7 @@ pub(crate) fn resolve_single_track(
             "comments": s.comments,
             "rating": s.rating,
             "color": s.color,
+            "label": s.label,
         })
     });
 

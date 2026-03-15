@@ -1255,6 +1255,7 @@ async fn write_xml_deduplicates_playlist_and_staged_tracks() {
                 comments: Some("staged only comment".to_string()),
                 rating: Some(5),
                 color: None,
+                label: None,
             }],
         }))
         .await
@@ -1365,6 +1366,7 @@ async fn write_xml_fails_closed_when_backup_script_fails_and_restores_changes() 
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             }],
         }))
         .await
@@ -1440,6 +1442,7 @@ async fn update_tracks_includes_provenance() {
                 comments: Some("staged by test".to_string()),
                 rating: Some(4),
                 color: None,
+                label: None,
             }],
         }))
         .await
@@ -2702,6 +2705,7 @@ fn resolve_single_track_with_staged_changes() {
         comments: None,
         rating: Some(5),
         color: None,
+        label: None,
     };
     let result = resolve_single_track(&track, None, None, None, None, false, Some(&staged));
 

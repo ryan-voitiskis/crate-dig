@@ -291,7 +291,7 @@ fn build_track_evidence(
 // Evidence extraction helpers
 // ---------------------------------------------------------------------------
 
-fn parse_response_json(
+pub(super) fn parse_response_json(
     cache: Option<&store::EnrichmentCacheEntry>,
 ) -> Option<serde_json::Value> {
     cache.and_then(|c| {

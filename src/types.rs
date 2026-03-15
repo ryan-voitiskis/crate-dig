@@ -118,6 +118,7 @@ pub struct TrackChange {
     pub comments: Option<String>,
     pub rating: Option<u8>, // 1-5 stars
     pub color: Option<String>,
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -126,10 +127,11 @@ pub enum EditableField {
     Comments,
     Rating,
     Color,
+    Label,
 }
 
 impl EditableField {
-    pub const ALL: &[Self] = &[Self::Genre, Self::Comments, Self::Rating, Self::Color];
+    pub const ALL: &[Self] = &[Self::Genre, Self::Comments, Self::Rating, Self::Color, Self::Label];
 
     pub const fn as_str(&self) -> &'static str {
         match self {
@@ -137,6 +139,7 @@ impl EditableField {
             Self::Comments => "comments",
             Self::Rating => "rating",
             Self::Color => "color",
+            Self::Label => "label",
         }
     }
 
@@ -146,6 +149,7 @@ impl EditableField {
             "comments" => Some(Self::Comments),
             "rating" => Some(Self::Rating),
             "color" => Some(Self::Color),
+            "label" => Some(Self::Label),
             _ => None,
         }
     }
@@ -380,6 +384,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         })
         .unwrap();
         let field_count = json.as_object().unwrap().len() - 1; // minus track_id

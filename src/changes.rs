@@ -127,6 +127,16 @@ impl ChangeManager {
                 });
             }
 
+            if let Some(ref new_label) = change.label
+                && *new_label != track.label
+            {
+                field_diffs.push(FieldDiff {
+                    field: "label".to_string(),
+                    old_value: track.label.clone(),
+                    new_value: new_label.clone(),
+                });
+            }
+
             if !field_diffs.is_empty() {
                 field_diffs.sort_by(|a, b| a.field.cmp(&b.field));
                 result.push(TrackDiff {
@@ -204,6 +214,7 @@ impl ChangeManager {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             });
             merge_untouched_fields(existing, &change, touched_fields);
         }
@@ -297,6 +308,7 @@ fn has_any_staged_field(change: &TrackChange) -> bool {
         || change.comments.is_some()
         || change.rating.is_some()
         || change.color.is_some()
+        || change.label.is_some()
 }
 
 fn merge_track_change(existing: &mut TrackChange, incoming: &TrackChange) {
@@ -311,6 +323,9 @@ fn merge_track_change(existing: &mut TrackChange, incoming: &TrackChange) {
     }
     if incoming.color.is_some() {
         existing.color = incoming.color.clone();
+    }
+    if incoming.label.is_some() {
+        existing.label = incoming.label.clone();
     }
 }
 
@@ -333,6 +348,9 @@ fn merge_untouched_fields(
     if existing.color.is_none() && !touched.contains(&EditableField::Color) {
         existing.color = incoming.color.clone();
     }
+    if existing.label.is_none() && !touched.contains(&EditableField::Label) {
+        existing.label = incoming.label.clone();
+    }
 }
 
 /// Record which fields are set in `change` as touched for its track_id.
@@ -345,6 +363,7 @@ fn record_touched_fields(change: &TrackChange, touched: &mut TouchedFields) {
     if change.comments.is_some() { set.insert(EditableField::Comments); }
     if change.rating.is_some() { set.insert(EditableField::Rating); }
     if change.color.is_some() { set.insert(EditableField::Color); }
+    if change.label.is_some() { set.insert(EditableField::Label); }
 }
 
 /// Clear a single field on a `TrackChange`, returning true if the field was set.
@@ -354,6 +373,7 @@ fn clear_field(entry: &mut TrackChange, field: EditableField) -> bool {
         EditableField::Comments if entry.comments.is_some() => { entry.comments = None; true }
         EditableField::Rating if entry.rating.is_some() => { entry.rating = None; true }
         EditableField::Color if entry.color.is_some() => { entry.color = None; true }
+        EditableField::Label if entry.label.is_some() => { entry.label = None; true }
         _ => false,
     }
 }
@@ -379,6 +399,9 @@ fn apply_changes_with_map(
                 if let Some(ref color) = change.color {
                     modified.color = color.clone();
                     modified.color_code = color::color_name_to_code(color).unwrap_or(0);
+                }
+                if let Some(ref label) = change.label {
+                    modified.label = label.clone();
                 }
                 modified
             } else {
@@ -430,6 +453,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -437,6 +461,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
         assert_eq!(staged, 2);
@@ -453,6 +478,7 @@ mod tests {
             comments: None,
             rating: Some(4),
             color: None,
+            label: None,
         }]);
         // Second stage for same track: genre updates, rating preserved from first stage
         cm.stage(vec![TrackChange {
@@ -461,6 +487,7 @@ mod tests {
             comments: Some("great track".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
         assert_eq!(cm.pending_count(), 1);
 
@@ -496,6 +523,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
         assert_eq!(staged, 0);
         assert_eq!(total, 0);
@@ -512,6 +540,7 @@ mod tests {
             comments: None,
             rating: Some(4),
             color: None,
+            label: None,
         }]);
 
         let (staged, total) = cm.stage(vec![TrackChange {
@@ -520,6 +549,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
 
         assert_eq!(staged, 0);
@@ -539,6 +569,7 @@ mod tests {
             comments: Some("great bassline".to_string()),
             rating: Some(5),
             color: None,
+            label: None,
         }]);
 
         let diffs = cm.preview(&tracks);
@@ -572,6 +603,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
         let diffs = cm.preview(&tracks);
         assert!(diffs.is_empty()); // no actual change
@@ -587,6 +619,7 @@ mod tests {
             comments: None,
             rating: Some(5),
             color: None,
+            label: None,
         }]);
 
         let modified = cm.apply_changes(&tracks);
@@ -606,6 +639,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -613,6 +647,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -631,6 +666,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -638,6 +674,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -655,6 +692,7 @@ mod tests {
             comments: Some("great".to_string()),
             rating: Some(4),
             color: Some("Green".to_string()),
+            label: None,
         }]);
 
         // Clear just the color field
@@ -678,6 +716,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let (affected, remaining) =
@@ -697,6 +736,7 @@ mod tests {
                 comments: None,
                 rating: Some(3),
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -704,6 +744,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -728,6 +769,7 @@ mod tests {
                 comments: None,
                 rating: Some(5),
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -735,6 +777,7 @@ mod tests {
                 comments: Some("nice track".to_string()),
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -758,6 +801,7 @@ mod tests {
             comments: None,
             rating: None,
             color: Some("Green".to_string()),
+            label: None,
         }]);
 
         let modified = cm.apply_changes(&tracks);
@@ -780,6 +824,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let modified = cm.apply_changes(&tracks);
@@ -801,6 +846,7 @@ mod tests {
             comments: None,
             rating: None,
             color: Some("Purple".to_string()),
+            label: None,
         }]);
 
         let modified = cm.apply_changes(&tracks);
@@ -818,6 +864,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t2".to_string(),
@@ -825,6 +872,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -843,6 +891,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t1".to_string(),
@@ -850,6 +899,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -866,6 +916,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
             TrackChange {
                 track_id: "t1".to_string(),
@@ -873,6 +924,7 @@ mod tests {
                 comments: None,
                 rating: None,
                 color: None,
+                label: None,
             },
         ]);
 
@@ -891,6 +943,7 @@ mod tests {
             comments: Some("old".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -903,6 +956,7 @@ mod tests {
             comments: Some("new".to_string()),
             rating: Some(5),
             color: None,
+            label: None,
         }]);
 
         cm.restore(snapshot);
@@ -921,6 +975,7 @@ mod tests {
             comments: Some("notes".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -933,6 +988,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
         cm.clear_fields(Some(vec!["t1".to_string()]), &["genre".to_string()]);
 
@@ -954,6 +1010,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -965,6 +1022,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
         cm.clear(Some(vec!["t1".to_string()]));
         assert!(cm.get("t1").is_none());
@@ -986,6 +1044,7 @@ mod tests {
             comments: Some("notes".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -1012,6 +1071,7 @@ mod tests {
             comments: Some("notes".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -1037,6 +1097,7 @@ mod tests {
             comments: Some("old notes".to_string()),
             rating: Some(4),
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -1048,6 +1109,7 @@ mod tests {
             comments: None,
             rating: None,
             color: None,
+            label: None,
         }]);
 
         cm.restore(snapshot);
@@ -1068,6 +1130,7 @@ mod tests {
             comments: Some("notes".to_string()),
             rating: None,
             color: None,
+            label: None,
         }]);
 
         let snapshot = cm.take(None);
@@ -1123,6 +1186,7 @@ mod tests {
             comments: Some("integration test".to_string()),
             rating: Some(4),
             color: None,
+            label: None,
         }]);
         assert_eq!(staged, 1);
         assert_eq!(total, 1);

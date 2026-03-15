@@ -19,6 +19,7 @@ mod enrichment;
 mod essentia;
 mod file_tag_handlers;
 mod help_handler;
+mod label_handlers;
 mod library_handlers;
 mod params;
 mod resolve;
@@ -41,6 +42,7 @@ pub(crate) use essentia::probe_essentia_python_path;
 use essentia::*;
 use file_tag_handlers::*;
 use help_handler::*;
+use label_handlers::*;
 use library_handlers::*;
 use params::*;
 use resolve::*;
@@ -222,7 +224,7 @@ impl ReklawdboxServer {
     }
 
     #[tool(
-        description = "Stage changes to track metadata (genre, comments, rating, color). Changes are held in memory until write_xml is called."
+        description = "Stage changes to track metadata (genre, comments, rating, color, label). Changes are held in memory until write_xml is called."
     )]
     async fn update_tracks(
         &self,
@@ -265,6 +267,16 @@ impl ReklawdboxServer {
         params: Parameters<ClearChangesParams>,
     ) -> Result<CallToolResult, McpError> {
         handle_clear_changes(&self.state.changes, params.0)
+    }
+
+    #[tool(
+        description = "Auto-fill empty labels from Discogs enrichment. Stages non-conflicting labels; reports conflicts where Rekordbox and enrichment disagree. Use preview_changes then write_xml to export."
+    )]
+    async fn backfill_labels(
+        &self,
+        params: Parameters<BackfillLabelsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        handle_backfill_labels(self, params.0)
     }
 
     #[tool(
