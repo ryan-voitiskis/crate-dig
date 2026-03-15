@@ -2,8 +2,10 @@ use rmcp::ErrorData as McpError;
 use rmcp::model::{CallToolResult, Content};
 use schemars::JsonSchema;
 use serde::Deserialize;
+
 use super::*;
 use crate::db;
+use crate::normalize;
 use crate::store;
 use crate::types::TrackChange;
 
@@ -60,14 +62,28 @@ pub(super) fn handle_backfill_labels(
     let mut to_stage = Vec::new();
 
     for track in &tracks {
-        let discogs_cache = store::get_enrichment(
+        let norm_artist = normalize::normalize_for_matching(&track.artist);
+        let norm_title = normalize::normalize_for_matching(&track.title);
+        let norm_album = normalize::normalize_for_matching(&track.album);
+        let norm_album = (!norm_album.is_empty()).then_some(norm_album);
+
+        let discogs_cache = match store::get_enrichment(
             &store_conn,
             "discogs",
-            &track.artist,
-            &track.title,
-            Some(&track.album),
-        )
-        .map_err(|e| mcp_internal_error(format!("Store error: {e}")))?;
+            &norm_artist,
+            &norm_title,
+            norm_album.as_deref(),
+        ) {
+            Ok(cache) => cache,
+            Err(e) => {
+                tracing::warn!(
+                    track_id = track.id.as_str(),
+                    "Enrichment cache lookup failed: {e}"
+                );
+                no_enrichment += 1;
+                continue;
+            }
+        };
 
         let discogs_val = classify_handler::parse_response_json(discogs_cache.as_ref());
         let enrichment_label = discogs_val
@@ -92,7 +108,7 @@ pub(super) fn handle_backfill_labels(
                 color: None,
                 label: Some(enrich_label.clone()),
             });
-        } else if track.label == enrich_label {
+        } else if track.label.eq_ignore_ascii_case(&enrich_label) {
             already_labeled += 1;
         } else {
             conflicts.push(serde_json::json!({
@@ -132,5 +148,6 @@ pub(super) fn handle_backfill_labels(
 
     let json =
         serde_json::to_string_pretty(&result).map_err(|e| mcp_internal_error(format!("{e}")))?;
-    Ok(CallToolResult::success(vec![Content::text(json)]))
+    Ok(CallToolResult::success(vec![Content::text(json)])
+    )
 }
